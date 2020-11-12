@@ -19,6 +19,7 @@ let keyCause = "shutdown_cause"
 let adminPubKey1 = base58'${adminPubKey1}'
 let adminPubKey2 = base58'${adminPubKey2}'
 let adminPubKey3 = base58'${adminPubKey3}'
+let adminPubKey4startStop = base58'${adminPubKey4startStop}'
 
 let governanceAddress = Address(base58'${governanceAddress}')
 
@@ -116,8 +117,7 @@ func replenishWithTwoTokens(slippageTolerance: Int) = {
     let (pmtAmountB, pmtAssetIdB) = (i.payments[1].amount, i.payments[1].assetId)
 
     # fraction should be equal 1(multiple by 1000) if depositor replenish with proportion according to actual price
-    let tokenRatio = fraction(balanceA, scaleValue8 * scaleValue3, pmtAmountA)
-                    / fraction(balanceB, scaleValue8, pmtAmountB)
+    let tokenRatio = fraction(balanceA, scaleValue8, pmtAmountA).fraction(scaleValue3,fraction(balanceB, scaleValue8, pmtAmountB))
 
     let ratioShareTokensInA = fraction(pmtAmountA, scaleValue8, balanceA)
     let ratioShareTokensInB = fraction(pmtAmountB, scaleValue8, balanceB)
@@ -225,17 +225,18 @@ func exchange(minAmountToReceive: Int) = {
 }
 
 @Callable(i)
-func shutdown() = if [adminPubKey1, adminPubKey2, adminPubKey3].containsElement(i.callerPublicKey) then
+func shutdown() = if [adminPubKey1, adminPubKey2, adminPubKey3,adminPubKey4startStop].containsElement(i.callerPublicKey) then
     suspend("Paused by admin")
 else
     throw("Only admin can call this function")
 
 @Callable(i)
-func activate() = if [adminPubKey1, adminPubKey2, adminPubKey3].containsElement(i.callerPublicKey) then [
+func activate() = if [adminPubKey1, adminPubKey2, adminPubKey3,adminPubKey4startStop].containsElement(i.callerPublicKey) then [
     BooleanEntry(keyActive, true),
     DeleteEntry(keyCause)
 ] else
     throw("Only admin can call this function")
+
 
 @Verifier(tx)
 func verify() = {
