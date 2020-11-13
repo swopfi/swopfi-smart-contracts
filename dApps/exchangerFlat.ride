@@ -287,7 +287,7 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
 
         let invariantEstimatedRatio = fraction(invariant, scaleValue8, invariantCalc(balanceAfterVirtualSwapA, balanceAfterVirtualSwapB))
 
-        if invariantEstimatedRatio > slippageValueMinForSwap && invariantEstimatedRatio < scaleValue8 then {
+        if invariantEstimatedRatio > slippageValueMinForSwap && invariantEstimatedRatio <= scaleValue8 then {
             let ratioVirtualBalanceToVirtualReplenish = fraction(balanceAfterVirtualSwapA, scaleValue8 * scaleValue8, balanceAfterVirtualSwapB)
                                                         / fraction(amountVirtualReplenishTokenA, scaleValue8, amountVirtualReplenishTokenB)
             if ratioVirtualBalanceToVirtualReplenish < slippageValueMinForReplenish || ratioVirtualBalanceToVirtualReplenish > slippageValueMaxForReplenish then
@@ -321,7 +321,7 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
         let balanceAfterVirtualSwapA = balanceA - virtualSwapTokenGet
         let balanceAfterVirtualSwapB = balanceB + virtualSwapTokenPay
         let invariantEstimatedRatio = fraction(invariant, scaleValue8, invariantCalc(balanceAfterVirtualSwapA, balanceAfterVirtualSwapB))
-        if invariantEstimatedRatio > slippageValueMinForSwap && invariantEstimatedRatio < scaleValue8 then {
+        if invariantEstimatedRatio > slippageValueMinForSwap && invariantEstimatedRatio <= scaleValue8 then {
             let ratioVirtualBalanceToVirtualReplenish = fraction(balanceAfterVirtualSwapA, scaleValue8 * scaleValue8, balanceAfterVirtualSwapB)
                                                         / fraction(amountVirtualReplenishTokenA, scaleValue8, amountVirtualReplenishTokenB)
             if ratioVirtualBalanceToVirtualReplenish < slippageValueMinForReplenish || ratioVirtualBalanceToVirtualReplenish > slippageValueMaxForReplenish then
