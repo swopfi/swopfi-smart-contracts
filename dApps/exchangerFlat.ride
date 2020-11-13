@@ -21,6 +21,7 @@ let keyCause = "shutdown_cause"
 let adminPubKey1 = base58'${adminPubKey1}'
 let adminPubKey2 = base58'${adminPubKey2}'
 let adminPubKey3 = base58'${adminPubKey3}'
+let adminPubKey4startStop = base58'${adminPubKey4startStop}'
 
 let governanceAddress = Address(base58'${governanceAddress}')
 
@@ -55,7 +56,7 @@ let slippageToleranceDelimiter = 1000
 let scaleValue8Digits = 8
 let scaleValue12Digits = 12
 
-let dAppThreshold = 80 # dAppThresholdAmount/dAppThresholdAmountDelimiter = 0.8
+let dAppThreshold = 50 # dAppThresholdAmount/dAppThresholdAmountDelimiter = 0.5
 let dAppThresholdDelimiter = 100
 
 let ratioThresholdMax = 100000000
@@ -221,8 +222,8 @@ func replenishWithTwoTokens(slippageTolerance: Int) = {
     let (pmtAmountB, pmtAssetIdB) = (i.payments[1].amount, i.payments[1].assetId)
 
     # fraction should be equal 1(multiple by 1000) if depositor replenish with proportion according to actual price
-    let tokenRatio = fraction(balanceA, scaleValue8 * scaleValue3, pmtAmountA)
-                    / fraction(balanceB, scaleValue8, pmtAmountB)
+    let tokenRatio = fraction(balanceA, scaleValue8, pmtAmountA).fraction(scaleValue3,fraction(balanceB, scaleValue8, pmtAmountB))
+
 
     let ratioShareTokensInA = fraction(pmtAmountA, scaleValue8, balanceA)
     let ratioShareTokensInB = fraction(pmtAmountB, scaleValue8, balanceB)
@@ -260,11 +261,18 @@ func replenishWithTwoTokens(slippageTolerance: Int) = {
 @Callable(i)
 func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) = {
     let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
+    
+    let thresholdValueForMinTolerance = 50000000
+    let tolerance = if (pmtAmount < thresholdValueForMinTolerance) then 100000 else 1 
 
-    let slippageValueMin = scaleValue8 - scaleValue8 * 1 / 10000000 # 0.000001% of slippage
-    let slippageValueMax = scaleValue8 + scaleValue8 * 1 / 10000000
-
-    if !isActive then
+    let slippageValueMinForReplenish = scaleValue8 - scaleValue8 * tolerance / 10000000 # if pmtAmount > 50.000000 then slippage = 0.000001%
+    let slippageValueMaxForReplenish = scaleValue8 + scaleValue8 * tolerance/ 10000000
+    
+    let slippageValueMinForSwap = scaleValue8 - scaleValue8 * 1 / 10000000 
+    let slippageValueMaxForSwap = scaleValue8 + scaleValue8 * 1/ 10000000
+    if pmtAmount < 1000 then  
+        throw("The exchange amount does not exceed the minimum amount of 0.001")
+    else if !isActive then
         throw("DApp is inactive at this moment")
     else if i.payments.size() != 1 then
         throw("One attached payment expected")
@@ -279,10 +287,10 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
 
         let invariantEstimatedRatio = fraction(invariant, scaleValue8, invariantCalc(balanceAfterVirtualSwapA, balanceAfterVirtualSwapB))
 
-        if invariantEstimatedRatio > slippageValueMin && invariantEstimatedRatio <= scaleValue8 then {
+        if invariantEstimatedRatio > slippageValueMinForSwap && invariantEstimatedRatio < scaleValue8 then {
             let ratioVirtualBalanceToVirtualReplenish = fraction(balanceAfterVirtualSwapA, scaleValue8 * scaleValue8, balanceAfterVirtualSwapB)
                                                         / fraction(amountVirtualReplenishTokenA, scaleValue8, amountVirtualReplenishTokenB)
-            if ratioVirtualBalanceToVirtualReplenish < slippageValueMin || ratioVirtualBalanceToVirtualReplenish > slippageValueMax then
+            if ratioVirtualBalanceToVirtualReplenish < slippageValueMinForReplenish || ratioVirtualBalanceToVirtualReplenish > slippageValueMaxForReplenish then
                 throw("swop with virtualSwapTokenPay and virtualSwapTokenGet possible, but ratio after virtual swap incorrect")
             else {
                 let ratioShareTokensInA = fraction(amountVirtualReplenishTokenA, scaleValue8, balanceAfterVirtualSwapA)
@@ -290,11 +298,18 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
                 let shareTokenToPayAmount = min([ratioShareTokensInA, ratioShareTokensInB]).fraction(shareAssetSupply, scaleValue8)
                 let invariantCalculated = invariantCalc(balanceA + pmtAmount, balanceB)
 
+                let newAmountTokenA = balanceA + pmtAmount
+                let newAmountTokenB = balanceB 
+                let dAppThresholdAmount = fraction(newAmountTokenA + newAmountTokenB, dAppThreshold, 2 * dAppThresholdDelimiter)
+                if newAmountTokenA < dAppThresholdAmount || newAmountTokenB < dAppThresholdAmount then
+                    throw("New balance in assets of the DApp is less than threshold " + dAppThresholdAmount.toString()
+                        + ". " + assetNameA + ": " + newAmountTokenA.toString() + ", " + assetNameB + ": " + newAmountTokenB.toString())
+                else
                 [
                     Reissue(shareAssetId, shareTokenToPayAmount, true),
                     ScriptTransfer(i.caller, shareTokenToPayAmount, shareAssetId),
                     IntegerEntry(keyShareAssetSupply, shareAssetSupply + shareTokenToPayAmount),
-                    IntegerEntry(keyBalanceA, balanceA + pmtAmount),
+                    IntegerEntry(keyBalanceA, newAmountTokenA),
                     IntegerEntry(keyInvariant, invariantCalculated)
                 ]
             }
@@ -306,10 +321,10 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
         let balanceAfterVirtualSwapA = balanceA - virtualSwapTokenGet
         let balanceAfterVirtualSwapB = balanceB + virtualSwapTokenPay
         let invariantEstimatedRatio = fraction(invariant, scaleValue8, invariantCalc(balanceAfterVirtualSwapA, balanceAfterVirtualSwapB))
-        if invariantEstimatedRatio > slippageValueMin && invariantEstimatedRatio <= scaleValue8 then {
+        if invariantEstimatedRatio > slippageValueMinForSwap && invariantEstimatedRatio < scaleValue8 then {
             let ratioVirtualBalanceToVirtualReplenish = fraction(balanceAfterVirtualSwapA, scaleValue8 * scaleValue8, balanceAfterVirtualSwapB)
                                                         / fraction(amountVirtualReplenishTokenA, scaleValue8, amountVirtualReplenishTokenB)
-            if ratioVirtualBalanceToVirtualReplenish < slippageValueMin || ratioVirtualBalanceToVirtualReplenish > slippageValueMax then
+            if ratioVirtualBalanceToVirtualReplenish < slippageValueMinForReplenish || ratioVirtualBalanceToVirtualReplenish > slippageValueMaxForReplenish then
                 throw("swop with virtualSwapTokenPay and virtualSwapTokenGet possible, but ratio after virtual swap incorrect")
             else {
                 let ratioShareTokensInA = fraction(amountVirtualReplenishTokenA, scaleValue8, balanceAfterVirtualSwapA)
@@ -317,11 +332,18 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
                 let shareTokenToPayAmount = min([ratioShareTokensInA, ratioShareTokensInB]).fraction(shareAssetSupply, scaleValue8)
                 let invariantCalculated = invariantCalc(balanceA, balanceB + pmtAmount)
 
+                let newAmountTokenA = balanceA 
+                let newAmountTokenB = balanceB + pmtAmount
+                let dAppThresholdAmount = fraction(newAmountTokenA + newAmountTokenB, dAppThreshold, 2 * dAppThresholdDelimiter)
+                if newAmountTokenA < dAppThresholdAmount || newAmountTokenB < dAppThresholdAmount then
+                    throw("New balance in assets of the DApp is less than threshold " + dAppThresholdAmount.toString()
+                        + ". " + assetNameA + ": " + newAmountTokenA.toString() + ", " + assetNameB + ": " + newAmountTokenB.toString())
+                else
                 [
                     Reissue(shareAssetId, shareTokenToPayAmount, true),
                     ScriptTransfer(i.caller, shareTokenToPayAmount, shareAssetId),
                     IntegerEntry(keyShareAssetSupply, shareAssetSupply + shareTokenToPayAmount),
-                    IntegerEntry(keyBalanceB, balanceB + pmtAmount),
+                    IntegerEntry(keyBalanceB, newAmountTokenB),
                     IntegerEntry(keyInvariant, invariantCalculated)
                 ]
             }
@@ -383,7 +405,7 @@ func exchange(estimatedAmountToReceive: Int, minAmountToReceive: Int) = {
 
         let newAmountTokenA = balanceA + pmtAmount
         let newAmountTokenB = balanceB - amountWithFee - governanceReward
-        let dAppThresholdAmount = fraction(balanceA + balanceB, dAppThreshold, 2 * dAppThresholdDelimiter)
+        let dAppThresholdAmount = fraction(newAmountTokenA + newAmountTokenB, dAppThreshold, 2 * dAppThresholdDelimiter)
 
         if newAmountTokenA < dAppThresholdAmount || newAmountTokenB < dAppThresholdAmount then
             throw("New balance in assets of the DApp is less than threshold " + dAppThresholdAmount.toString()
@@ -405,7 +427,7 @@ func exchange(estimatedAmountToReceive: Int, minAmountToReceive: Int) = {
 
         let newAmountTokenA = balanceA - amountWithFee - governanceReward
         let newAmountTokenB = balanceB + pmtAmount
-        let dAppThresholdAmount = fraction(balanceA + balanceB, dAppThreshold, 2 * dAppThresholdDelimiter)
+        let dAppThresholdAmount = fraction(newAmountTokenA + newAmountTokenB, dAppThreshold, 2 * dAppThresholdDelimiter)
 
         if newAmountTokenA < dAppThresholdAmount || newAmountTokenB < dAppThresholdAmount then
             throw("New balance in assets of the DApp is less than threshold " + dAppThresholdAmount.toString()
@@ -424,17 +446,18 @@ func exchange(estimatedAmountToReceive: Int, minAmountToReceive: Int) = {
 }
 
 @Callable(i)
-func shutdown() = if [adminPubKey1, adminPubKey2, adminPubKey3].containsElement(i.callerPublicKey) then
+func shutdown() = if [adminPubKey1, adminPubKey2, adminPubKey3,adminPubKey4startStop].containsElement(i.callerPublicKey) then
     suspend("Paused by admin")
 else
     throw("Only admin can call this function")
 
 @Callable(i)
-func activate() = if [adminPubKey1, adminPubKey2, adminPubKey3].containsElement(i.callerPublicKey) then [
+func activate() = if [adminPubKey1, adminPubKey2, adminPubKey3,adminPubKey4startStop].containsElement(i.callerPublicKey) then [
     BooleanEntry(keyActive, true),
     DeleteEntry(keyCause)
 ] else
     throw("Only admin can call this function")
+
 
 @Verifier(tx)
 func verify() = {
