@@ -337,7 +337,6 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
                 let ratioShareTokensInB =  fraction(amountVirtualReplenishTokenB, scaleValue8, balanceAfterVirtualSwapB)
                 
                 let shareTokenToPayAmount = min([ratioShareTokensInA, ratioShareTokensInB]).fraction(shareAssetSupply, scaleValue8)
-                #if true then throw(toString(ratioShareTokensInA) +" " + toString(ratioShareTokensInB) + " "+ toString(shareTokenToPayAmount)) else
                 let invariantCalculated = invariantCalc(balanceA, balanceB + pmtAmount)
 
                 let newAmountTokenA = balanceA 
