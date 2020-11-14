@@ -286,10 +286,11 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
         let amountVirtualReplenishTokenB = virtualSwapTokenGet
         let balanceAfterVirtualSwapA = balanceA + virtualSwapTokenPay
         let balanceAfterVirtualSwapB = balanceB - virtualSwapTokenGet
-    
+        
         let invatiantNew = invariantCalc(balanceAfterVirtualSwapA, balanceAfterVirtualSwapB)
         let invariantEstimatedRatio = fraction(invariant, scaleValue8,invatiantNew)
         if invariantEstimatedRatio > slippageValueMinForSwap && invatiantNew - invariant > 0 then {
+
             let ratioVirtualBalanceToVirtualReplenish = fraction(balanceAfterVirtualSwapA, scaleValue8 * scaleValue8, balanceAfterVirtualSwapB)
                                                         / fraction(amountVirtualReplenishTokenA, scaleValue8, amountVirtualReplenishTokenB)
             if ratioVirtualBalanceToVirtualReplenish < slippageValueMinForReplenish || ratioVirtualBalanceToVirtualReplenish > slippageValueMaxForReplenish then
@@ -322,9 +323,11 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
         let amountVirtualReplenishTokenA = virtualSwapTokenGet
         let balanceAfterVirtualSwapA = balanceA - virtualSwapTokenGet
         let balanceAfterVirtualSwapB = balanceB + virtualSwapTokenPay
+        
         let invatiantNew = invariantCalc(balanceAfterVirtualSwapA, balanceAfterVirtualSwapB)
         let invariantEstimatedRatio = fraction(invariant, scaleValue8,invatiantNew)
         if invariantEstimatedRatio > slippageValueMinForSwap && invatiantNew - invariant > 0 then {
+
             let ratioVirtualBalanceToVirtualReplenish = fraction(balanceAfterVirtualSwapA, scaleValue8 * scaleValue8, balanceAfterVirtualSwapB)
                                                         / fraction(amountVirtualReplenishTokenA, scaleValue8, amountVirtualReplenishTokenB)
             if ratioVirtualBalanceToVirtualReplenish < slippageValueMinForReplenish || ratioVirtualBalanceToVirtualReplenish > slippageValueMaxForReplenish then
