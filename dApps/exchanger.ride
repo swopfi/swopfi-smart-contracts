@@ -22,7 +22,7 @@ let adminPubKey3 = base58'${adminPubKey3}'
 let adminPubKey4startStop = base58'${adminPubKey4startStop}'
 
 let governanceAddress = Address(base58'${governanceAddress}')
-let stakingAddress = Address(base58'${stakingAddress}$')
+let stakingAddress = Address(base58'${stakingAddress}')
 let USDNid = base58'DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p'
 let stakingFeeInUSDN = 9*assetInfo(USDNid).value().minSponsoredFee.value() # sponsored fee for invoke called from scripted account
 
@@ -84,6 +84,10 @@ func suspend(cause: String) = [
     StringEntry(keyCause, cause)
 ]
 
+func deductCommissionForStakingOperation(amount:Int, asssetId: ByteVector|Unit) = {
+    if asssetId == USDNid then amount - stakingFeeInUSDN else amount
+}
+
 @Callable(i)
 func init() = {
     let (pmtAmountA, pmtAssetIdA) = (i.payments[0].amount, i.payments[0].assetId)
@@ -129,8 +133,8 @@ func replenishWithTwoTokens(slippageTolerance: Int) = {
     let (pmtAmountBwithoutTxStakingFee, pmtAssetIdB) = (i.payments[1].amount, i.payments[1].assetId)
     
     # block for accounting the cost of commissions for staking operations
-    let pmtAmountA = if pmtAssetIdA == USDNid then pmtAmountAwithoutTxStakingFee - stakingFeeInUSDN else pmtAmountAwithoutTxStakingFee
-    let pmtAmountB = if pmtAssetIdB == USDNid then pmtAmountBwithoutTxStakingFee - stakingFeeInUSDN else pmtAmountBwithoutTxStakingFee
+    let pmtAmountA = deductCommissionForStakingOperation(pmtAmountAwithoutTxStakingFee, pmtAssetIdA)
+    let pmtAmountB = deductCommissionForStakingOperation(pmtAmountBwithoutTxStakingFee, pmtAssetIdB) 
 
     # fraction should be equal 1(multiple by 1000) if depositor replenish with proportion according to actual price
     let tokenRatio = fraction(balanceA, scaleValue8, pmtAmountA).fraction(scaleValue3,fraction(balanceB, scaleValue8, pmtAmountB))
@@ -166,9 +170,11 @@ func replenishWithTwoTokens(slippageTolerance: Int) = {
 @Callable(i)
 func withdraw() = {
     let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
-
-    let amountToPayA = fraction(pmtAmount, balanceA, shareAssetSupply)
-    let amountToPayB = fraction(pmtAmount, balanceB, shareAssetSupply)
+    let amountToPayWithoutFeeA = fraction(pmtAmount, balanceA, shareAssetSupply)
+    let amountToPayWithoutFeeB = fraction(pmtAmount, balanceB, shareAssetSupply)
+    # block for accounting the cost of commissions for staking operations
+    let amountToPayA = deductCommissionForStakingOperation(amountToPayWithoutFeeA, assetIdA)
+    let amountToPayB = deductCommissionForStakingOperation(amountToPayWithoutFeeB, assetIdB)
     if !isActive then
         throw("DApp is inactive at this moment")
     else if i.payments.size() != 1 then

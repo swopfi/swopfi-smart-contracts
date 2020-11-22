@@ -24,6 +24,9 @@ let adminPubKey3 = base58'${adminPubKey3}'
 let adminPubKey4startStop = base58'${adminPubKey4startStop}'
 
 let governanceAddress = Address(base58'${governanceAddress}')
+let stakingAddress = Address(base58'${stakingAddress}')
+let USDNid = base58'DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p'
+let stakingFeeInUSDN = 9*assetInfo(USDNid).value().minSponsoredFee.value() # sponsored fee for invoke called from scripted account
 
 let isActive = this.getBooleanValue(keyActive)
 
@@ -72,7 +75,16 @@ func accountBalance(assetId: ByteVector|Unit) = match assetId {
     case waves: Unit => this.wavesBalance().available
 }
 
-let hasEnoughBalance = accountBalance(assetIdA) >= balanceA && accountBalance(assetIdB) >= balanceB
+let balanceInStakingUSDN = match getInteger(stakingAddress, "rpd_balance_" + toBase58String(USDNid) + "_" + toString(this)) {
+        case amt: Unit => 0
+        case amt:Int => amt
+        case _  => throw("Error while extracting staking information")
+  }
+
+let balanceAccountPlusStakingA = if assetIdA == USDNid then  accountBalance(assetIdA) + balanceInStakingUSDN else accountBalance(assetIdA)
+let balanceAccountPlusStakingB = if assetIdB == USDNid then  accountBalance(assetIdB) + balanceInStakingUSDN else accountBalance(assetIdB)
+
+let hasEnoughBalance = balanceAccountPlusStakingA >= balanceA && balanceAccountPlusStakingB >= balanceB
 
 # skewness = 0.5*(x/y+y/x)
 # Each fraction multiple by scaleValue in order to avoid zeroing
@@ -97,11 +109,10 @@ func calculateHowManySendTokenA(amountToSendEstimated: Int, minTokenReceiveAmoun
     let slippageValue = scaleValue8 - scaleValue8 * 1 / 10000000 # 0.000001% of slippage
     let deltaBetweenMaxAndMinSendValue = amountToSendEstimated - minTokenReceiveAmount
 
-    let amountToSendStep1 = amountToSendEstimated - 1 * deltaBetweenMaxAndMinSendValue / 5
-    let amountToSendStep2 = amountToSendEstimated - 2 * deltaBetweenMaxAndMinSendValue / 5
-    let amountToSendStep3 = amountToSendEstimated - 3 * deltaBetweenMaxAndMinSendValue / 5
-    let amountToSendStep4 = amountToSendEstimated - 4 * deltaBetweenMaxAndMinSendValue / 5
-    let amountToSendStep5 = amountToSendEstimated - 5 * deltaBetweenMaxAndMinSendValue / 5
+    let amountToSendStep1 = amountToSendEstimated - 1 * deltaBetweenMaxAndMinSendValue / 4
+    let amountToSendStep2 = amountToSendEstimated - 2 * deltaBetweenMaxAndMinSendValue / 4
+    let amountToSendStep3 = amountToSendEstimated - 3 * deltaBetweenMaxAndMinSendValue / 4
+    let amountToSendStep4 = amountToSendEstimated - 4 * deltaBetweenMaxAndMinSendValue / 4
 
     let y = amountTokenB + tokenReceiveAmount
     let invariantNew = invariantCalc(amountTokenA - amountToSendEstimated, y)
@@ -109,7 +120,7 @@ func calculateHowManySendTokenA(amountToSendEstimated: Int, minTokenReceiveAmoun
                 fraction(invariant, scaleValue8, invariantNew)
 
     # before start check last condition. If it wrong we can stop
-    if invariantCalc(amountTokenA - amountToSendStep5, y) - invariant <= 0 then
+    if invariantCalc(amountTokenA - amountToSendStep4, y) - invariant <= 0 then
         throw("minTokenReceiveAmount too large.err1")
     else if invariantEstimatedRatio > slippageValue && invariantNew - invariant > 0 then
         amountToSendEstimated
@@ -121,8 +132,6 @@ func calculateHowManySendTokenA(amountToSendEstimated: Int, minTokenReceiveAmoun
         amountToSendStep3 * (commissionScaleDelimiter - commission) / commissionScaleDelimiter
     else if invariantCalc(amountTokenA - amountToSendStep4, y) - invariant > 0 then
         amountToSendStep4 * (commissionScaleDelimiter - commission) / commissionScaleDelimiter
-    else if invariantCalc(amountTokenA - amountToSendStep5, y) - invariant > 0 then
-        amountToSendStep5 * (commissionScaleDelimiter - commission) / commissionScaleDelimiter
     else
         throw("something went wrong while working with amountToSendStep. err2")
 }
@@ -130,11 +139,10 @@ func calculateHowManySendTokenA(amountToSendEstimated: Int, minTokenReceiveAmoun
 func calculateHowManySendTokenB(amountToSendEstimated: Int, minTokenReceiveAmount: Int, amountTokenA: Int, amountTokenB: Int, tokenReceiveAmount: Int) = {
     let slippageValue = scaleValue8 - scaleValue8 * 1 / 10000000 # 0.000001% of slippage
     let deltaBetweenMaxAndMinSendValue = amountToSendEstimated - minTokenReceiveAmount
-    let amountToSendStep1 = amountToSendEstimated - 1 * deltaBetweenMaxAndMinSendValue / 5
-    let amountToSendStep2 = amountToSendEstimated - 2 * deltaBetweenMaxAndMinSendValue / 5
-    let amountToSendStep3 = amountToSendEstimated - 3 * deltaBetweenMaxAndMinSendValue / 5
-    let amountToSendStep4 = amountToSendEstimated - 4 * deltaBetweenMaxAndMinSendValue / 5
-    let amountToSendStep5 = amountToSendEstimated - 5 * deltaBetweenMaxAndMinSendValue / 5
+    let amountToSendStep1 = amountToSendEstimated - 1 * deltaBetweenMaxAndMinSendValue / 4
+    let amountToSendStep2 = amountToSendEstimated - 2 * deltaBetweenMaxAndMinSendValue / 4
+    let amountToSendStep3 = amountToSendEstimated - 3 * deltaBetweenMaxAndMinSendValue / 4
+    let amountToSendStep4 = amountToSendEstimated - 4 * deltaBetweenMaxAndMinSendValue / 4
 
     let x = amountTokenA + tokenReceiveAmount
     let invariantNew = invariantCalc(x, amountTokenB - amountToSendEstimated)
@@ -142,7 +150,7 @@ func calculateHowManySendTokenB(amountToSendEstimated: Int, minTokenReceiveAmoun
                 fraction(invariant, scaleValue8, invariantNew)
 
     # before start check last condition. If it wrong we can stop
-    if invariantCalc(x, amountTokenB - amountToSendStep5) - invariant <= 0 then
+    if invariantCalc(x, amountTokenB - amountToSendStep4) - invariant <= 0 then
         throw("minTokenReceiveAmount too large.err1")
     else if invariantEstimatedRatio > slippageValue && invariantNew - invariant > 0 then
         amountToSendEstimated
@@ -154,8 +162,6 @@ func calculateHowManySendTokenB(amountToSendEstimated: Int, minTokenReceiveAmoun
         amountToSendStep3 * (commissionScaleDelimiter - commission) / commissionScaleDelimiter
     else if invariantCalc(x, amountTokenB - amountToSendStep4) - invariant > 0 then
         amountToSendStep4 * (commissionScaleDelimiter - commission) / commissionScaleDelimiter
-    else if invariantCalc(x, amountTokenB - amountToSendStep5) - invariant > 0 then
-        amountToSendStep5 * (commissionScaleDelimiter - commission) / commissionScaleDelimiter
     else
         throw("something went wrong while working with amountToSendStep. err2")
 }
@@ -172,6 +178,10 @@ func suspend(cause: String) = [
     BooleanEntry(keyActive, false),
     StringEntry(keyCause, cause)
 ]
+
+func deductCommissionForStakingOperation(amount:Int, asssetId: ByteVector|Unit) = {
+    if asssetId == USDNid then amount - stakingFeeInUSDN else amount
+}
 
 @Callable(i)
 func init() = {
@@ -220,9 +230,12 @@ func init() = {
 #if someone ready to replenish in both tokens. It's necessary to bring tokens amount in proportion according to dApp state
 @Callable(i)
 func replenishWithTwoTokens(slippageTolerance: Int) = {
-    let (pmtAmountA, pmtAssetIdA) = (i.payments[0].amount, i.payments[0].assetId)
-    let (pmtAmountB, pmtAssetIdB) = (i.payments[1].amount, i.payments[1].assetId)
-
+    let (pmtAmountAwithoutTxStakingFee, pmtAssetIdA) = (i.payments[0].amount, i.payments[0].assetId)
+    let (pmtAmountBwithoutTxStakingFee, pmtAssetIdB) = (i.payments[1].amount, i.payments[1].assetId)
+    
+    # block for accounting the cost of commissions for staking operations
+    let pmtAmountA = deductCommissionForStakingOperation(pmtAmountAwithoutTxStakingFee, pmtAssetIdA)
+    let pmtAmountB = deductCommissionForStakingOperation(pmtAmountBwithoutTxStakingFee, pmtAssetIdB) 
     # fraction should be equal 1(multiple by 1000) if depositor replenish with proportion according to actual price
     let tokenRatio = fraction(balanceA, scaleValue8, pmtAmountA).fraction(scaleValue3,fraction(balanceB, scaleValue8, pmtAmountB))
 
@@ -273,7 +286,7 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
     let slippageValueMinForSwap = scaleValue8 - scaleValue8 * 1 / 10000000 
     let slippageValueMaxForSwap = scaleValue8 + scaleValue8 * 1/ 10000000
     if pmtAmount < 5000000 then  
-        throw("Payment amount does not exceed the minimum amount of 5 tokens")
+        throw("The exchange amount does not exceed the minimum amount of 0.001")
     else if !isActive then
         throw("DApp is inactive at this moment")
     else if i.payments.size() != 1 then
@@ -290,14 +303,17 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
         let invatiantNew = invariantCalc(balanceAfterVirtualSwapA, balanceAfterVirtualSwapB)
         let invariantEstimatedRatio = fraction(invariant, scaleValue8,invatiantNew)
         if invariantEstimatedRatio > slippageValueMinForSwap && invatiantNew - invariant > 0 then {
-
             let ratioVirtualBalanceToVirtualReplenish = fraction(balanceAfterVirtualSwapA, scaleValue8 * scaleValue8, balanceAfterVirtualSwapB)
                                                         / fraction(amountVirtualReplenishTokenA, scaleValue8, amountVirtualReplenishTokenB)
             if ratioVirtualBalanceToVirtualReplenish < slippageValueMinForReplenish || ratioVirtualBalanceToVirtualReplenish > slippageValueMaxForReplenish then
                 throw("swop with virtualSwapTokenPay and virtualSwapTokenGet possible, but ratio after virtual swap incorrect")
             else {
-                let ratioShareTokensInA = fraction(amountVirtualReplenishTokenA, scaleValue8, balanceAfterVirtualSwapA)
-                let ratioShareTokensInB =  fraction(amountVirtualReplenishTokenB, scaleValue8, balanceAfterVirtualSwapB)
+                # fee for staking operation
+                let amountVirtualReplenishTokenAwithStakingFee = deductCommissionForStakingOperation(amountVirtualReplenishTokenA, assetIdA)
+                let amountVirtualReplenishTokenBwithStakingFee = deductCommissionForStakingOperation(amountVirtualReplenishTokenB, assetIdB)
+                let ratioShareTokensInA = fraction(amountVirtualReplenishTokenAwithStakingFee, scaleValue8, balanceAfterVirtualSwapA)
+                let ratioShareTokensInB =  fraction(amountVirtualReplenishTokenBwithStakingFee, scaleValue8, balanceAfterVirtualSwapB)
+
                 let shareTokenToPayAmount = min([ratioShareTokensInA, ratioShareTokensInB]).fraction(shareAssetSupply, scaleValue8)
                 let invariantCalculated = invariantCalc(balanceA + pmtAmount, balanceB)
 
@@ -323,20 +339,22 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
         let amountVirtualReplenishTokenA = virtualSwapTokenGet
         let balanceAfterVirtualSwapA = balanceA - virtualSwapTokenGet
         let balanceAfterVirtualSwapB = balanceB + virtualSwapTokenPay
-        
         let invatiantNew = invariantCalc(balanceAfterVirtualSwapA, balanceAfterVirtualSwapB)
         let invariantEstimatedRatio = fraction(invariant, scaleValue8,invatiantNew)
         if invariantEstimatedRatio > slippageValueMinForSwap && invatiantNew - invariant > 0 then {
-
             let ratioVirtualBalanceToVirtualReplenish = fraction(balanceAfterVirtualSwapA, scaleValue8 * scaleValue8, balanceAfterVirtualSwapB)
                                                         / fraction(amountVirtualReplenishTokenA, scaleValue8, amountVirtualReplenishTokenB)
+            
             if ratioVirtualBalanceToVirtualReplenish < slippageValueMinForReplenish || ratioVirtualBalanceToVirtualReplenish > slippageValueMaxForReplenish then
                 throw("swop with virtualSwapTokenPay and virtualSwapTokenGet possible, but ratio after virtual swap incorrect")
             else {
-                let ratioShareTokensInA = fraction(amountVirtualReplenishTokenA, scaleValue8, balanceAfterVirtualSwapA)
-                let ratioShareTokensInB =  fraction(amountVirtualReplenishTokenB, scaleValue8, balanceAfterVirtualSwapB)
-                
+                let amountVirtualReplenishTokenAwithStakingFee = deductCommissionForStakingOperation(amountVirtualReplenishTokenA, assetIdA)
+                let amountVirtualReplenishTokenBwithStakingFee = deductCommissionForStakingOperation(amountVirtualReplenishTokenB, assetIdB)
+                let ratioShareTokensInA = fraction(amountVirtualReplenishTokenAwithStakingFee, scaleValue8, balanceAfterVirtualSwapA)
+                let ratioShareTokensInB = fraction(amountVirtualReplenishTokenBwithStakingFee, scaleValue8, balanceAfterVirtualSwapB)
+
                 let shareTokenToPayAmount = min([ratioShareTokensInA, ratioShareTokensInB]).fraction(shareAssetSupply, scaleValue8)
+                #if true then throw(toString(ratioShareTokensInA) +" " + toString(ratioShareTokensInB) + " "+ toString(shareTokenToPayAmount)) else
                 let invariantCalculated = invariantCalc(balanceA, balanceB + pmtAmount)
 
                 let newAmountTokenA = balanceA 
@@ -364,8 +382,11 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
 func withdraw() = {
     let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
 
-    let amountToPayA = fraction(pmtAmount, balanceA, shareAssetSupply)
-    let amountToPayB = fraction(pmtAmount, balanceB, shareAssetSupply)
+    let amountToPayWithoutFeeA = fraction(pmtAmount, balanceA, shareAssetSupply)
+    let amountToPayWithoutFeeB = fraction(pmtAmount, balanceB, shareAssetSupply)
+    # block for accounting the cost of commissions for staking operations
+    let amountToPayA = deductCommissionForStakingOperation(amountToPayWithoutFeeA, assetIdA)
+    let amountToPayB = deductCommissionForStakingOperation(amountToPayWithoutFeeB, assetIdB)
 
     let invariantCalculated = invariantCalc(balanceA - amountToPayA, balanceB - amountToPayB)
 
@@ -466,10 +487,37 @@ func activate() = if [adminPubKey1, adminPubKey2, adminPubKey3,adminPubKey4start
     throw("Only admin can call this function")
 
 
+@Callable(i)
+func takeIntoAccountExtraFunds(ShareForAccounting: Int) ={
+    if [adminPubKey1, adminPubKey2, adminPubKey3,adminPubKey4startStop,adminPubKey5staking].containsElement(i.callerPublicKey) then 
+        if ShareForAccounting < 0 || ShareForAccounting > 100 
+            then throw("ShareForAccounting must be between 0 and 100")
+        else 
+            # with ShareForAccounting == 100 enroll all uncountable assets
+            let uncountableAmountEnrollAssetA = (balanceAccountPlusStakingA - balanceA).fraction(ShareForAccounting,100)
+            let uncountableAmountEnrollAssetB = (balanceAccountPlusStakingB - balanceB).fraction(ShareForAccounting,100)
+            if uncountableAmountEnrollAssetA < 0 || uncountableAmountEnrollAssetB < 0 then suspend("Enroll amount negative") else
+            [
+                IntegerEntry(keyBalanceA, balanceA + uncountableAmountEnrollAssetA),
+                IntegerEntry(keyBalanceB, balanceB + uncountableAmountEnrollAssetB)
+            ]
+    else 
+        throw("Only admin can call this function")
+}
+
 @Verifier(tx)
 func verify() = {
-    let adminPubKey1Signed = if sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1) then 1 else 0
-    let adminPubKey2Signed = if sigVerify(tx.bodyBytes, tx.proofs[1], adminPubKey2) then 1 else 0
-    let adminPubKey3Signed = if sigVerify(tx.bodyBytes, tx.proofs[2], adminPubKey3) then 1 else 0
-    adminPubKey1Signed + adminPubKey2Signed + adminPubKey3Signed >= 2
+    match tx{
+        case tx:InvokeScriptTransaction => {
+            let adminPubKey5stakingSigned = if sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey5staking) then true else false
+            let isDAppCorrect = if tx.dApp == stakingAddress then true else false
+            adminPubKey5stakingSigned && isDAppCorrect
+        }
+        case _ =>{
+            let adminPubKey1Signed = if sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1) then 1 else 0
+            let adminPubKey2Signed = if sigVerify(tx.bodyBytes, tx.proofs[1], adminPubKey2) then 1 else 0
+            let adminPubKey3Signed = if sigVerify(tx.bodyBytes, tx.proofs[2], adminPubKey3) then 1 else 0
+            adminPubKey1Signed + adminPubKey2Signed + adminPubKey3Signed >= 2
+        }
+    }
 }
