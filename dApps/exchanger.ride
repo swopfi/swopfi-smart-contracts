@@ -256,19 +256,19 @@ func activate() = if [adminPubKey1, adminPubKey2, adminPubKey3,adminPubKey4start
     DeleteEntry(keyCause)
 ] else
     throw("Only admin can call this function")
-
+    
 @Callable(i)
-func takeIntoAccountExtraFunds(ShareForAccounting: Int) ={
-    if [adminPubKey1, adminPubKey2, adminPubKey3,adminPubKey4startStop,adminPubKey5staking].containsElement(i.callerPublicKey) then 
-        if ShareForAccounting < 0 || ShareForAccounting > 100 
-            then throw("ShareForAccounting must be between 0 and 100")
-        else 
-            # with ShareForAccounting == 100 enroll all uncountable assets
-            let uncountableAmountEnrollAssetA = (balanceAccountPlusStakingA - balanceA).fraction(ShareForAccounting,100)
-            let uncountableAmountEnrollAssetB = (balanceAccountPlusStakingB - balanceB).fraction(ShareForAccounting,100)
+func takeIntoAccountExtraFunds(amountLeave: Int) = {
+    if [adminPubKey1, adminPubKey2, adminPubKey3,adminPubKey4startStop,adminPubKey5staking].containsElement(i.callerPublicKey) then  
+            let uncountableAmountEnrollAssetA = (balanceAccountPlusStakingA - balanceA)
+            let uncountableAmountEnrollAssetB = (balanceAccountPlusStakingB - balanceB)
+            if uncountableAmountEnrollAssetA < 0 || uncountableAmountEnrollAssetB < 0 then suspend("Enroll amount negative") else
+            let amountEnrollA = if assetIdA == USDNid then uncountableAmountEnrollAssetA - amountLeave else uncountableAmountEnrollAssetA
+            let amountEnrollB = if assetIdB == USDNid then uncountableAmountEnrollAssetB - amountLeave else uncountableAmountEnrollAssetB
+            if amountEnrollA < 0 || amountEnrollB < 0 then throw("Too large amountLeave") else
             [
-                IntegerEntry(keyBalanceA, balanceA + uncountableAmountEnrollAssetA),
-                IntegerEntry(keyBalanceB, balanceB + uncountableAmountEnrollAssetB)
+                IntegerEntry(keyBalanceA, balanceA + amountEnrollA),
+                IntegerEntry(keyBalanceB, balanceB + amountEnrollB)
             ]
     else 
         throw("Only admin can call this function")
