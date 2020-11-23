@@ -104,13 +104,14 @@ func calculateHowManySendTokenA(amountToSendEstimated: Int, minTokenReceiveAmoun
     let amountToSendStep5 = amountToSendEstimated - 5 * deltaBetweenMaxAndMinSendValue / 5
 
     let y = amountTokenB + tokenReceiveAmount
+    let invariantNew = invariantCalc(amountTokenA - amountToSendEstimated, y)
     let invariantEstimatedRatio =
-                fraction(invariant, scaleValue8, invariantCalc(amountTokenA - amountToSendEstimated, y))
+                fraction(invariant, scaleValue8, invariantNew)
 
     # before start check last condition. If it wrong we can stop
-    if invariantCalc(amountTokenA - amountToSendStep5, y) - invariant < 0 then
+    if invariantCalc(amountTokenA - amountToSendStep5, y) - invariant <= 0 then
         throw("minTokenReceiveAmount too large.err1")
-    else if invariantEstimatedRatio > slippageValue && invariantEstimatedRatio < scaleValue8 then
+    else if invariantEstimatedRatio > slippageValue && invariantNew - invariant > 0 then
         amountToSendEstimated
     else if invariantCalc(amountTokenA - amountToSendStep1, y) - invariant > 0 then
         amountToSendStep1 * (commissionScaleDelimiter - commission) / commissionScaleDelimiter
@@ -136,13 +137,14 @@ func calculateHowManySendTokenB(amountToSendEstimated: Int, minTokenReceiveAmoun
     let amountToSendStep5 = amountToSendEstimated - 5 * deltaBetweenMaxAndMinSendValue / 5
 
     let x = amountTokenA + tokenReceiveAmount
+    let invariantNew = invariantCalc(x, amountTokenB - amountToSendEstimated)
     let invariantEstimatedRatio =
-                fraction(invariant, scaleValue8, invariantCalc(x, amountTokenB - amountToSendEstimated))
+                fraction(invariant, scaleValue8, invariantNew)
 
     # before start check last condition. If it wrong we can stop
-    if invariantCalc(x, amountTokenB - amountToSendStep5) - invariant < 0 then
+    if invariantCalc(x, amountTokenB - amountToSendStep5) - invariant <= 0 then
         throw("minTokenReceiveAmount too large.err1")
-    else if invariantEstimatedRatio > slippageValue && invariantEstimatedRatio < scaleValue8 then
+    else if invariantEstimatedRatio > slippageValue && invariantNew - invariant > 0 then
         amountToSendEstimated
     else if invariantCalc(x, amountTokenB - amountToSendStep1) - invariant > 0 then
         amountToSendStep1 * (commissionScaleDelimiter - commission) / commissionScaleDelimiter
@@ -270,8 +272,8 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
     
     let slippageValueMinForSwap = scaleValue8 - scaleValue8 * 1 / 10000000 
     let slippageValueMaxForSwap = scaleValue8 + scaleValue8 * 1/ 10000000
-    if pmtAmount < 1000 then  
-        throw("The exchange amount does not exceed the minimum amount of 0.001")
+    if pmtAmount < 5000000 then  
+        throw("Payment amount does not exceed the minimum amount of 5 tokens")
     else if !isActive then
         throw("DApp is inactive at this moment")
     else if i.payments.size() != 1 then
@@ -284,10 +286,11 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
         let amountVirtualReplenishTokenB = virtualSwapTokenGet
         let balanceAfterVirtualSwapA = balanceA + virtualSwapTokenPay
         let balanceAfterVirtualSwapB = balanceB - virtualSwapTokenGet
+        
+        let invatiantNew = invariantCalc(balanceAfterVirtualSwapA, balanceAfterVirtualSwapB)
+        let invariantEstimatedRatio = fraction(invariant, scaleValue8,invatiantNew)
+        if invariantEstimatedRatio > slippageValueMinForSwap && invatiantNew - invariant > 0 then {
 
-        let invariantEstimatedRatio = fraction(invariant, scaleValue8, invariantCalc(balanceAfterVirtualSwapA, balanceAfterVirtualSwapB))
-
-        if invariantEstimatedRatio > slippageValueMinForSwap && invariantEstimatedRatio <= scaleValue8 then {
             let ratioVirtualBalanceToVirtualReplenish = fraction(balanceAfterVirtualSwapA, scaleValue8 * scaleValue8, balanceAfterVirtualSwapB)
                                                         / fraction(amountVirtualReplenishTokenA, scaleValue8, amountVirtualReplenishTokenB)
             if ratioVirtualBalanceToVirtualReplenish < slippageValueMinForReplenish || ratioVirtualBalanceToVirtualReplenish > slippageValueMaxForReplenish then
@@ -320,8 +323,11 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
         let amountVirtualReplenishTokenA = virtualSwapTokenGet
         let balanceAfterVirtualSwapA = balanceA - virtualSwapTokenGet
         let balanceAfterVirtualSwapB = balanceB + virtualSwapTokenPay
-        let invariantEstimatedRatio = fraction(invariant, scaleValue8, invariantCalc(balanceAfterVirtualSwapA, balanceAfterVirtualSwapB))
-        if invariantEstimatedRatio > slippageValueMinForSwap && invariantEstimatedRatio <= scaleValue8 then {
+        
+        let invatiantNew = invariantCalc(balanceAfterVirtualSwapA, balanceAfterVirtualSwapB)
+        let invariantEstimatedRatio = fraction(invariant, scaleValue8,invatiantNew)
+        if invariantEstimatedRatio > slippageValueMinForSwap && invatiantNew - invariant > 0 then {
+
             let ratioVirtualBalanceToVirtualReplenish = fraction(balanceAfterVirtualSwapA, scaleValue8 * scaleValue8, balanceAfterVirtualSwapB)
                                                         / fraction(amountVirtualReplenishTokenA, scaleValue8, amountVirtualReplenishTokenB)
             if ratioVirtualBalanceToVirtualReplenish < slippageValueMinForReplenish || ratioVirtualBalanceToVirtualReplenish > slippageValueMaxForReplenish then
@@ -329,6 +335,7 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
             else {
                 let ratioShareTokensInA = fraction(amountVirtualReplenishTokenA, scaleValue8, balanceAfterVirtualSwapA)
                 let ratioShareTokensInB =  fraction(amountVirtualReplenishTokenB, scaleValue8, balanceAfterVirtualSwapB)
+                
                 let shareTokenToPayAmount = min([ratioShareTokensInA, ratioShareTokensInB]).fraction(shareAssetSupply, scaleValue8)
                 let invariantCalculated = invariantCalc(balanceA, balanceB + pmtAmount)
 
