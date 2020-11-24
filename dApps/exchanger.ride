@@ -134,7 +134,8 @@ func replenishWithTwoTokens(slippageTolerance: Int) = {
     let pmtAmountB = deductStakingFee(i.payments[1].amount, pmtAssetIdB)
 
     # fraction should be equal 1(multiple by 1000) if depositor replenish with proportion according to actual price
-    let tokenRatio = fraction(balanceA, scaleValue8, pmtAmountA).fraction(scaleValue3,fraction(balanceB, scaleValue8, pmtAmountB))
+    let tokenRatio = fraction(balanceA, scaleValue8, pmtAmountA)
+                    .fraction(scaleValue3, balanceB.fraction(scaleValue8, pmtAmountB))
 
     let ratioShareTokensInA = fraction(pmtAmountA, scaleValue8, balanceA)
     let ratioShareTokensInB = fraction(pmtAmountB, scaleValue8, balanceB)
