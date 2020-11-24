@@ -318,85 +318,59 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
         throw("One attached payment expected")
     else if !hasEnoughBalance then
         suspendSuspicious()
-    else if pmtAssetId == assetIdA then {
-        let amountVirtualReplenishTokenA = pmtAmount - virtualSwapTokenPay
-        let amountVirtualReplenishTokenB = virtualSwapTokenGet
-        let balanceAfterVirtualSwapA = balanceA + virtualSwapTokenPay
-        let balanceAfterVirtualSwapB = balanceB - virtualSwapTokenGet
+    else if pmtAssetId != assetIdA && pmtAssetId != assetIdB then
+        throwAssets()
+    else {
+        let (virtualReplenishA, virtualReplenishB,
+            balanceAfterVirtualSwapA, balanceAfterVirtualSwapB,
+            invariantCalculated,
+            newAmountTokenA, newAmountTokenB) =
+            if pmtAssetId == assetIdA then (
+                virtualSwapTokenGet, pmtAmount - virtualSwapTokenPay,
+                balanceA + virtualSwapTokenPay, balanceB - virtualSwapTokenGet,
+                invariantCalc(balanceA + pmtAmount, balanceB),
+                balanceA + pmtAmount, balanceB
+            ) else (
+                pmtAmount - virtualSwapTokenPay, virtualSwapTokenGet,
+                balanceA - virtualSwapTokenGet, balanceB + virtualSwapTokenPay,
+                invariantCalc(balanceA, balanceB + pmtAmount),
+                balanceA, balanceB + pmtAmount
+            )
+        let newBalanceEntry =
+            if pmtAssetId == assetIdA then
+                IntegerEntry(keyBalanceA, newAmountTokenA)
+            else IntegerEntry(keyBalanceB, newAmountTokenB)
 
         let invariantNew = invariantCalc(balanceAfterVirtualSwapA, balanceAfterVirtualSwapB)
         let invariantEstimatedRatio = fraction(invariant, scaleValue8, invariantNew)
 
-        if invariantEstimatedRatio > slippageValueMinForSwap && invariantNew - invariant > 0 then {
-            let ratioVirtualBalanceToVirtualReplenish = fraction(balanceAfterVirtualSwapA, scaleValue8 * scaleValue8, balanceAfterVirtualSwapB)
-                                                        / fraction(amountVirtualReplenishTokenA, scaleValue8, amountVirtualReplenishTokenB)
-            if ratioVirtualBalanceToVirtualReplenish < slippageValueMinForReplenish || ratioVirtualBalanceToVirtualReplenish > slippageValueMaxForReplenish then
-                throw("swop with virtualSwapTokenPay and virtualSwapTokenGet possible, but ratio after virtual swap incorrect")
-            else {
-                # fee for staking operation
-                let ratioShareTokensInA = amountVirtualReplenishTokenA.deductStakingFee(assetIdA).fraction(scaleValue8, balanceAfterVirtualSwapA)
-                let ratioShareTokensInB = amountVirtualReplenishTokenB.deductStakingFee(assetIdB).fraction(scaleValue8, balanceAfterVirtualSwapB)
+        let ratioVirtualBalanceToVirtualReplenish = fraction(balanceAfterVirtualSwapA, scaleValue8 * scaleValue8, balanceAfterVirtualSwapB)
+                                                    / fraction(virtualReplenishA, scaleValue8, virtualReplenishB)
 
-                let shareTokenToPayAmount = min([ratioShareTokensInA, ratioShareTokensInB]).fraction(shareAssetSupply, scaleValue8)
-                let invariantCalculated = invariantCalc(balanceA + pmtAmount, balanceB)
+        let dAppThresholdAmount = fraction(newAmountTokenA + newAmountTokenB, dAppThreshold, 2 * dAppThresholdDelimiter)
 
-                let newAmountTokenA = balanceA + pmtAmount
-                let newAmountTokenB = balanceB
-                let dAppThresholdAmount = fraction(newAmountTokenA + newAmountTokenB, dAppThreshold, 2 * dAppThresholdDelimiter)
-
-                if newAmountTokenA < dAppThresholdAmount || newAmountTokenB < dAppThresholdAmount then
-                    throwThreshold(dAppThresholdAmount, newAmountTokenA, newAmountTokenB)
-                else
-                [
-                    Reissue(shareAssetId, shareTokenToPayAmount, true),
-                    ScriptTransfer(i.caller, shareTokenToPayAmount, shareAssetId),
-                    IntegerEntry(keyShareAssetSupply, shareAssetSupply + shareTokenToPayAmount),
-                    IntegerEntry(keyBalanceA, newAmountTokenA),
-                    IntegerEntry(keyInvariant, invariantCalculated)
-                ]
-            }
-        } else
+        if invariantEstimatedRatio > slippageValueMinForSwap && invariantNew - invariant <= 0 then
             throw("incorrect virtualSwapTokenPay or virtualSwapTokenGet value")
-    } else if pmtAssetId == assetIdB then {
-        let amountVirtualReplenishTokenB = pmtAmount - virtualSwapTokenPay
-        let amountVirtualReplenishTokenA = virtualSwapTokenGet
-        let balanceAfterVirtualSwapA = balanceA - virtualSwapTokenGet
-        let balanceAfterVirtualSwapB = balanceB + virtualSwapTokenPay
+        else if ratioVirtualBalanceToVirtualReplenish < slippageValueMinForReplenish || ratioVirtualBalanceToVirtualReplenish > slippageValueMaxForReplenish then
+            throw("swop with virtualSwapTokenPay and virtualSwapTokenGet possible, but ratio after virtual swap incorrect")
+        else if newAmountTokenA < dAppThresholdAmount || newAmountTokenB < dAppThresholdAmount then
+            throwThreshold(dAppThresholdAmount, newAmountTokenA, newAmountTokenB)
+        else {
+            # fee for staking operation
+            let ratioShareTokensInA = virtualReplenishA.deductStakingFee(assetIdA).fraction(scaleValue8, balanceAfterVirtualSwapA)
+            let ratioShareTokensInB = virtualReplenishB.deductStakingFee(assetIdB).fraction(scaleValue8, balanceAfterVirtualSwapB)
 
-        let invariantNew = invariantCalc(balanceAfterVirtualSwapA, balanceAfterVirtualSwapB)
-        let invariantEstimatedRatio = fraction(invariant, scaleValue8,invariantNew)
+            let shareTokenToPayAmount = min([ratioShareTokensInA, ratioShareTokensInB]).fraction(shareAssetSupply, scaleValue8)
 
-        if invariantEstimatedRatio > slippageValueMinForSwap && invariantNew - invariant > 0 then {
-            let ratioVirtualBalanceToVirtualReplenish = fraction(balanceAfterVirtualSwapA, scaleValue8 * scaleValue8, balanceAfterVirtualSwapB)
-                                                        / fraction(amountVirtualReplenishTokenA, scaleValue8, amountVirtualReplenishTokenB)
-
-            if ratioVirtualBalanceToVirtualReplenish < slippageValueMinForReplenish || ratioVirtualBalanceToVirtualReplenish > slippageValueMaxForReplenish then
-                throw("swop with virtualSwapTokenPay and virtualSwapTokenGet possible, but ratio after virtual swap incorrect")
-            else {
-                let ratioShareTokensInA = amountVirtualReplenishTokenA.deductStakingFee(assetIdA).fraction(scaleValue8, balanceAfterVirtualSwapA)
-                let ratioShareTokensInB = amountVirtualReplenishTokenB.deductStakingFee(assetIdB).fraction(scaleValue8, balanceAfterVirtualSwapB)
-
-                let shareTokenToPayAmount = min([ratioShareTokensInA, ratioShareTokensInB]).fraction(shareAssetSupply, scaleValue8)
-                let invariantCalculated = invariantCalc(balanceA, balanceB + pmtAmount)
-
-                let newAmountTokenA = balanceA
-                let newAmountTokenB = balanceB + pmtAmount
-                let dAppThresholdAmount = fraction(newAmountTokenA + newAmountTokenB, dAppThreshold, 2 * dAppThresholdDelimiter)
-                if newAmountTokenA < dAppThresholdAmount || newAmountTokenB < dAppThresholdAmount then
-                    throwThreshold(dAppThresholdAmount, newAmountTokenA, newAmountTokenB)
-                else
-                [
-                    Reissue(shareAssetId, shareTokenToPayAmount, true),
-                    ScriptTransfer(i.caller, shareTokenToPayAmount, shareAssetId),
-                    IntegerEntry(keyShareAssetSupply, shareAssetSupply + shareTokenToPayAmount),
-                    IntegerEntry(keyBalanceB, newAmountTokenB),
-                    IntegerEntry(keyInvariant, invariantCalculated)
-                ]
-            }
-        } else
-            throw("incorrect virtualSwapTokenPay or virtualSwapTokenGet value")
-    } else
-        throwAssets()
+            [
+                Reissue(shareAssetId, shareTokenToPayAmount, true),
+                ScriptTransfer(i.caller, shareTokenToPayAmount, shareAssetId),
+                IntegerEntry(keyShareAssetSupply, shareAssetSupply + shareTokenToPayAmount),
+                newBalanceEntry,
+                IntegerEntry(keyInvariant, invariantCalculated)
+            ]
+        }
+    }
 }
 
 @Callable(i)
