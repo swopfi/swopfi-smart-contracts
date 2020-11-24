@@ -112,12 +112,7 @@ func calculateHowManySendToken(amountToSendEstimated: Int, minTokenReceiveAmount
     let slippageValue = scaleValue8 - scaleValue8 * 1 / 10000000 # 0.000001% of slippage
     let deltaBetweenMaxAndMinSendValue = amountToSendEstimated - minTokenReceiveAmount
 
-    let amountToSendStep1 = amountToSendEstimated - 1 * deltaBetweenMaxAndMinSendValue / 5
-    let amountToSendStep2 = amountToSendEstimated - 2 * deltaBetweenMaxAndMinSendValue / 5
-    let amountToSendStep3 = amountToSendEstimated - 3 * deltaBetweenMaxAndMinSendValue / 5
-    let amountToSendStep4 = amountToSendEstimated - 4 * deltaBetweenMaxAndMinSendValue / 5
-    let amountToSendStep5 = amountToSendEstimated - 5 * deltaBetweenMaxAndMinSendValue / 5
-
+    # only one of the variables will be used depending on the token
     let x = balanceA + tokenReceiveAmount
     let y = balanceB + tokenReceiveAmount
 
@@ -125,40 +120,28 @@ func calculateHowManySendToken(amountToSendEstimated: Int, minTokenReceiveAmount
         if tokenId == assetIdA then
             invariantCalc(x, balanceB - amountToSendEstimated)
         else invariantCalc(balanceA - amountToSendEstimated, y)
-    let invariantDiffs =
-        if tokenId == assetIdA then [
-            invariantCalc(x, balanceB - amountToSendStep1) - invariant,
-            invariantCalc(x, balanceB - amountToSendStep2) - invariant,
-            invariantCalc(x, balanceB - amountToSendStep3) - invariant,
-            invariantCalc(x, balanceB - amountToSendStep4) - invariant,
-            invariantCalc(x, balanceB - amountToSendStep5) - invariant
-        ] else [
-            invariantCalc(balanceA - amountToSendStep1, y) - invariant,
-            invariantCalc(balanceA - amountToSendStep2, y) - invariant,
-            invariantCalc(balanceA - amountToSendStep3, y) - invariant,
-            invariantCalc(balanceA - amountToSendStep4, y) - invariant,
-            invariantCalc(balanceA - amountToSendStep5, y) - invariant
-        ]
 
     let invariantEstimatedRatio = fraction(invariant, scaleValue8, invariantNew)
 
-    # before start check last condition. If it wrong we can stop
-    if invariantDiffs[4] <= 0 then
-        throw("minTokenReceiveAmount too large.err1")
+    func getStepAmount(acc: Int, step: Int) = {
+        let amountToSendStep = amountToSendEstimated - step * deltaBetweenMaxAndMinSendValue / 5
+        let stepInvariant =
+            if tokenId == assetIdA then
+                invariantCalc(x, balanceB - amountToSendStep)
+            else invariantCalc(balanceA - amountToSendStep, y)
+
+        if stepInvariant - invariant > 0 then
+            amountToSendStep
+        else acc
+    }
+    let stepAmount = FOLD<5>([1, 2, 3, 4, 5], -1, getStepAmount)
+
+    if stepAmount < 0 then
+        throw("something went wrong while working with amountToSendStep. err2")
     else if invariantEstimatedRatio > slippageValue && invariantNew - invariant > 0 then
         amountToSendEstimated
-    else if invariantDiffs[0] > 0 then
-        amountToSendStep1 * (commissionScaleDelimiter - commission) / commissionScaleDelimiter
-    else if invariantDiffs[1] > 0 then
-        amountToSendStep2 * (commissionScaleDelimiter - commission) / commissionScaleDelimiter
-    else if invariantDiffs[2] > 0 then
-        amountToSendStep3 * (commissionScaleDelimiter - commission) / commissionScaleDelimiter
-    else if invariantDiffs[3] > 0 then
-        amountToSendStep4 * (commissionScaleDelimiter - commission) / commissionScaleDelimiter
-    else if invariantDiffs[4] > 0 then
-        amountToSendStep5 * (commissionScaleDelimiter - commission) / commissionScaleDelimiter
     else
-        throw("something went wrong while working with amountToSendStep. err2")
+        stepAmount * (commissionScaleDelimiter - commission) / commissionScaleDelimiter
 }
 
 func getAssetInfo(assetId: ByteVector|Unit) = match assetId {
