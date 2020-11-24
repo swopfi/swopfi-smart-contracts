@@ -418,54 +418,38 @@ func exchange(estimatedAmountToReceive: Int, minAmountToReceive: Int) = {
         throw("One attached payment expected")
     else if !hasEnoughBalance then
         suspendSuspicious()
-    else if pmtAssetId == assetIdA then {
-        let assetIdSend = assetIdB
-        let amountWithoutFee = calculateHowManySendTokenB(estimatedAmountToReceive, minAmountToReceive, balanceA, balanceB, pmtAmount)
+    else if pmtAssetId != assetIdA && pmtAssetId != assetIdB then
+        throwAssets()
+    else {
+        let amountWithoutFee =
+            if pmtAssetId == assetIdA then
+                calculateHowManySendTokenB(estimatedAmountToReceive, minAmountToReceive, balanceA, balanceB, pmtAmount)
+            else calculateHowManySendTokenA(estimatedAmountToReceive, minAmountToReceive, balanceA, balanceB, pmtAmount)
         let amountWithFee = fraction(amountWithoutFee, commissionScaleDelimiter - commission, commissionScaleDelimiter)
         let governanceReward = fraction(amountWithoutFee, commissionGovernance, commissionScaleDelimiter)
 
-        let newAmountTokenA = balanceA + pmtAmount
-        let newAmountTokenB = balanceB - amountWithFee - governanceReward
+        let (newAmountTokenA, newAmountTokenB) =
+            if pmtAssetId == assetIdA then
+                (balanceA + pmtAmount, balanceB - amountWithFee - governanceReward)
+            else (balanceA - amountWithFee - governanceReward, balanceB + pmtAmount)
         let dAppThresholdAmount = fraction(newAmountTokenA + newAmountTokenB, dAppThreshold, 2 * dAppThresholdDelimiter)
 
         if newAmountTokenA < dAppThresholdAmount || newAmountTokenB < dAppThresholdAmount then
             throwThreshold(dAppThresholdAmount, newAmountTokenA, newAmountTokenB)
-        else if newAmountTokenA < availableBalanceA || newAmountTokenB < availableBalanceB then
+        else if newAmountTokenA < availableBalanceA && pmtAssetId == assetIdA then
             throwInsufficientAvailableBalance(amountWithFee, availableBalanceB, assetNameB)
+        else if newAmountTokenB < availableBalanceB && pmtAssetId == assetIdB then
+            throwInsufficientAvailableBalance(amountWithFee, availableBalanceA, assetNameA)
         else
             # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
             [
                 IntegerEntry(keyBalanceA, newAmountTokenA),
                 IntegerEntry(keyBalanceB, newAmountTokenB),
-                IntegerEntry(keyInvariant, invariantCalc(balanceA + pmtAmount, balanceB - amountWithFee - governanceReward)),
-                ScriptTransfer(i.caller, amountWithFee, assetIdSend),
-                ScriptTransfer(governanceAddress, governanceReward, assetIdSend)
+                IntegerEntry(keyInvariant, invariantCalc(newAmountTokenA, newAmountTokenB)),
+                ScriptTransfer(i.caller, amountWithFee, pmtAssetId),
+                ScriptTransfer(governanceAddress, governanceReward, pmtAssetId)
             ]
-    } else if pmtAssetId == assetIdB then {
-        let assetIdSend = assetIdA
-        let amountWithoutFee = calculateHowManySendTokenA(estimatedAmountToReceive, minAmountToReceive, balanceA, balanceB, pmtAmount)
-        let amountWithFee = fraction(amountWithoutFee, commissionScaleDelimiter - commission, commissionScaleDelimiter)
-        let governanceReward = fraction(amountWithoutFee, commissionGovernance, commissionScaleDelimiter)
-
-        let newAmountTokenA = balanceA - amountWithFee - governanceReward
-        let newAmountTokenB = balanceB + pmtAmount
-        let dAppThresholdAmount = fraction(newAmountTokenA + newAmountTokenB, dAppThreshold, 2 * dAppThresholdDelimiter)
-
-        if newAmountTokenA < dAppThresholdAmount || newAmountTokenB < dAppThresholdAmount then
-            throwThreshold(dAppThresholdAmount, newAmountTokenA, newAmountTokenB)
-        else if newAmountTokenA < availableBalanceA || newAmountTokenB < availableBalanceB then
-            throwInsufficientAvailableBalance(amountWithFee, availableBalanceA, assetNameA)
-        else
-            # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
-            [
-                IntegerEntry(keyBalanceA, newAmountTokenA ),
-                IntegerEntry(keyBalanceB,  newAmountTokenB),
-                IntegerEntry(keyInvariant, invariantCalc( balanceA - amountWithFee - governanceReward,balanceB + pmtAmount)),
-                ScriptTransfer(i.caller, amountWithFee, assetIdSend),
-                ScriptTransfer(governanceAddress, governanceReward, assetIdSend)
-            ]
-    } else
-        throwAssets()
+    }
 }
 
 @Callable(i)
