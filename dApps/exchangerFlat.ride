@@ -195,10 +195,10 @@ func throwOnlyAdmin() = throw("Only admin can call this function")
 func throwAssets() = throw("Incorrect assets attached. Expected: " + strAssetIdA + " and " + strAssetIdB)
 func throwThreshold(threshold: Int, amountA: Int, amountB: Int) = throw("New balance in assets of the DApp is less than threshold " + threshold.toString()
     + ": " + amountA.toString() + " " + assetNameA + ", " + amountB.toString() + " " + assetNameB)
-func throwNotEnoughAvailableBalance(amount: Int, available: Int, assetName: String) = throw("Insufficient DApp balance to pay "
+func throwInsufficientAvailableBalance(amount: Int, available: Int, assetName: String) = throw("Insufficient DApp balance to pay "
     + amount.toString() + " " + assetName + " due to staking. Available: "
     + available.toString() + " " + assetName +  ". Please contact support in Telegram: https://t.me/swopfisupport")
-func throwNotEnoughAvailableBalances(amountA: Int, amountB: Int) = throw("Insufficient DApp balance to pay "
+func throwInsufficientAvailableBalances(amountA: Int, amountB: Int) = throw("Insufficient DApp balance to pay "
     + amountA.toString() + " " + assetNameA + " and "  + amountB.toString() + " " + assetNameB
     + " due to staking. Available: "
     + availableBalanceA.toString() + " " + assetNameA + " and "  + availableBalanceB.toString() + " " + assetNameB
@@ -324,7 +324,7 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
         let balanceAfterVirtualSwapB = balanceB - virtualSwapTokenGet
 
         let invariantNew = invariantCalc(balanceAfterVirtualSwapA, balanceAfterVirtualSwapB)
-        let invariantEstimatedRatio = fraction(invariant, scaleValue8,invariantNew)
+        let invariantEstimatedRatio = fraction(invariant, scaleValue8, invariantNew)
 
         if invariantEstimatedRatio > slippageValueMinForSwap && invariantNew - invariant > 0 then {
             let ratioVirtualBalanceToVirtualReplenish = fraction(balanceAfterVirtualSwapA, scaleValue8 * scaleValue8, balanceAfterVirtualSwapB)
@@ -417,7 +417,7 @@ func withdraw() = {
     else if !hasEnoughBalance then
         suspendSuspicious()
     else if amountToPayA > availableBalanceA || amountToPayB > availableBalanceB then
-        throwNotEnoughAvailableBalances(amountToPayA, amountToPayB)
+        throwInsufficientAvailableBalances(amountToPayA, amountToPayB)
     else [
         IntegerEntry(keyBalanceA, balanceA - amountToPayA),
         IntegerEntry(keyBalanceB, balanceB - amountToPayB),
@@ -456,7 +456,7 @@ func exchange(estimatedAmountToReceive: Int, minAmountToReceive: Int) = {
         if newAmountTokenA < dAppThresholdAmount || newAmountTokenB < dAppThresholdAmount then
             throwThreshold(dAppThresholdAmount, newAmountTokenA, newAmountTokenB)
         else if newAmountTokenA < availableBalanceA || newAmountTokenB < availableBalanceB then
-            throwNotEnoughAvailableBalance(amountWithFee, availableBalanceB, assetNameB)
+            throwInsufficientAvailableBalance(amountWithFee, availableBalanceB, assetNameB)
         else
             # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
             [
@@ -479,7 +479,7 @@ func exchange(estimatedAmountToReceive: Int, minAmountToReceive: Int) = {
         if newAmountTokenA < dAppThresholdAmount || newAmountTokenB < dAppThresholdAmount then
             throwThreshold(dAppThresholdAmount, newAmountTokenA, newAmountTokenB)
         else if newAmountTokenA < availableBalanceA || newAmountTokenB < availableBalanceB then
-            throwNotEnoughAvailableBalance(amountWithFee, availableBalanceA, assetNameA)
+            throwInsufficientAvailableBalance(amountWithFee, availableBalanceA, assetNameA)
         else
             # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
             [
