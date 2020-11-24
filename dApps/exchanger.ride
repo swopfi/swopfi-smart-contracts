@@ -65,10 +65,12 @@ let stakedAmountUSDN = match stakingAddress.getInteger("rpd_balance_" + USDN.toB
     case nothing: Unit => 0
 }
 
-let balanceWithStakedA = accountBalance(assetIdA) + if assetIdA == USDN then stakedAmountUSDN else 0
-let balanceWithStakedB = accountBalance(assetIdB) + if assetIdB == USDN then stakedAmountUSDN else 0
+let availableBalanceA = balanceA - if assetIdA == USDN then stakedAmountUSDN else 0
+let availableBalanceB = balanceB - if assetIdB == USDN then stakedAmountUSDN else 0
+let accountBalanceWithStakedA = accountBalance(assetIdA) + if assetIdA == USDN then stakedAmountUSDN else 0
+let accountBalanceWithStakedB = accountBalance(assetIdB) + if assetIdB == USDN then stakedAmountUSDN else 0
 
-let hasEnoughBalance = balanceWithStakedA >= balanceA && balanceWithStakedB >= balanceB
+let hasEnoughBalance = accountBalanceWithStakedA >= balanceA && accountBalanceWithStakedB >= balanceB
 
 func getAssetInfo(assetId: ByteVector|Unit) = match assetId {
     case id: ByteVector =>
@@ -84,6 +86,15 @@ func suspend(cause: String) = [
 ]
 
 func deductStakingFee(amount:Int, assetId: ByteVector|Unit) = amount - if assetId == USDN then stakingFeeInUSDN else 0
+
+func throwNotEnoughAvailableBalance(amount: Int, available: Int, assetName: String) = throw("Insufficient DApp balance to pay "
+    + amount.toString() + " " + assetName + " due to staking. Available: "
+    + available.toString() + " " + assetName +  ". Please contact support in Telegram: https://t.me/swopfisupport")
+func throwNotEnoughAvailableBalances(amountA: Int, amountB: Int) = throw("Not enough balance on DApp to pay "
+    + amountA.toString() + " " + assetNameA + " and "  + amountB.toString() + " " + assetNameB
+    + " at this moment. Available: "
+    + availableBalanceA.toString() + " " + assetNameA + " and "  + availableBalanceB.toString() + " " + assetNameB
+    +  ". Please contact support in Telegram: https://t.me/swopfisupport")
 
 @Callable(i)
 func init() = {
@@ -183,6 +194,8 @@ func withdraw() = {
     else if !hasEnoughBalance then
         suspend("Suspicious state. Actual balances: " + balanceA.toString() + " " + assetNameA + ", " + balanceB.toString() + " " + assetNameB
         + ". State: " + accountBalance(assetIdA).toString() + " " + assetNameA + ", " + accountBalance(assetIdB).toString() + " " + assetNameB)
+    else if amountToPayA > availableBalanceA || amountToPayB > availableBalanceB then
+        throwNotEnoughAvailableBalances(amountToPayA, amountToPayB)
     else [
         IntegerEntry(keyBalanceA, balanceA - amountToPayA),
         IntegerEntry(keyBalanceB, balanceB - amountToPayB),
@@ -222,6 +235,8 @@ func exchange(minAmountToReceive: Int) = {
         let (amountWithoutFee, amountWithFee, governanceReward) = calculateFees(balanceA, balanceB)
 
         # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
+        if newAmountTokenA < availableBalanceA || newAmountTokenB < availableBalanceB then
+            throwNotEnoughAvailableBalance(amountWithFee, availableBalanceB, assetNameB)
         [
             IntegerEntry(keyBalanceA, balanceA + pmtAmount),
             IntegerEntry(keyBalanceB, balanceB - amountWithFee - governanceReward),
@@ -233,6 +248,8 @@ func exchange(minAmountToReceive: Int) = {
         let (amountWithoutFee, amountWithFee, governanceReward) = calculateFees(balanceB, balanceA)
 
         # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
+        if newAmountTokenA < availableBalanceA || newAmountTokenB < availableBalanceB then
+            throwNotEnoughAvailableBalance(amountWithFee, availableBalanceB, assetNameB)
         [
             IntegerEntry(keyBalanceA, balanceA - amountWithFee - governanceReward),
             IntegerEntry(keyBalanceB, balanceB + pmtAmount),
@@ -265,8 +282,8 @@ func activate() =
 
 @Callable(i)
 func takeIntoAccountExtraFunds(amountLeave: Int) = {
-    let uncountableAmountEnrollAssetA = balanceWithStakedA - balanceA
-    let uncountableAmountEnrollAssetB = balanceWithStakedB - balanceB
+    let uncountableAmountEnrollAssetA = accountBalanceWithStakedA - balanceA
+    let uncountableAmountEnrollAssetB = accountBalanceWithStakedB - balanceB
     let amountEnrollA = uncountableAmountEnrollAssetA - if assetIdA == USDN then amountLeave else 0
     let amountEnrollB = uncountableAmountEnrollAssetB - if assetIdB == USDN then amountLeave else 0
 
