@@ -19,7 +19,8 @@ let keyCause = "shutdown_cause"
 let adminPubKey1 = base58'${adminPubKey1}'
 let adminPubKey2 = base58'${adminPubKey2}'
 let adminPubKey3 = base58'${adminPubKey3}'
-let adminPubKey4startStop = base58'${adminPubKey4startStop}'
+let adminPubKeyStartStop = base58'${adminPubKeyStartStop}'
+let adminPubKeyStaking = base58'${adminPubKeyStaking}'
 
 let governanceAddress = Address(base58'${governanceAddress}')
 let stakingAddress = Address(base58'${stakingAddress}')
@@ -272,7 +273,7 @@ func exchange(minAmountToReceive: Int) = {
 func shutdown() =
     if !isActive then
         throw("DApp is already suspended. Cause: " + this.getString(keyCause).valueOrElse("the cause wasn't specified"))
-    else if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKey4startStop].containsElement(i.callerPublicKey) then
+    else if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStartStop].containsElement(i.callerPublicKey) then
         throw("Only admin can call this function")
     else
         suspend("Paused by admin")
@@ -281,7 +282,7 @@ func shutdown() =
 func activate() =
     if isActive then
         throw("DApp is already active")
-    else if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKey4startStop].containsElement(i.callerPublicKey) then
+    else if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStartStop].containsElement(i.callerPublicKey) then
         throw("Only admin can call this function")
     else [
         BooleanEntry(keyActive, true),
@@ -297,7 +298,7 @@ func takeIntoAccountExtraFunds(amountLeave: Int) = {
 
     if !isActive then
         throw("DApp is inactive at this moment")
-    else if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKey4startStop, adminPubKey5staking].containsElement(i.callerPublicKey) then
+    else if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStaking].containsElement(i.callerPublicKey) then
         throw("Only admin can call this function")
     else if amountLeave < 0 then
         throw("Argument 'amountLeave' cannot be negative. Actual: " + amountLeave.toString())
@@ -315,7 +316,7 @@ func takeIntoAccountExtraFunds(amountLeave: Int) = {
 @Verifier(tx)
 func verify() = match tx {
     case invoke: InvokeScriptTransaction =>
-        sigVerify(invoke.bodyBytes, invoke.proofs[0], adminPubKey5staking) && invoke.dApp == stakingAddress
+        sigVerify(invoke.bodyBytes, invoke.proofs[0], adminPubKeyStaking) && invoke.dApp == stakingAddress
     case _ => {
         let adminPubKey1Signed = if sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1) then 1 else 0
         let adminPubKey2Signed = if sigVerify(tx.bodyBytes, tx.proofs[1], adminPubKey2) then 1 else 0
