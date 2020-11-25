@@ -323,6 +323,10 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
         let amountVirtualReplenishTokenB = virtualSwapTokenGet
         let balanceAfterVirtualSwapA = balanceA + virtualSwapTokenPay
         let balanceAfterVirtualSwapB = balanceB - virtualSwapTokenGet
+        
+        let invatiantNew = invariantCalc(balanceAfterVirtualSwapA, balanceAfterVirtualSwapB)
+        let invariantEstimatedRatio = fraction(invariant, scaleValue8,invatiantNew)
+        if invariantEstimatedRatio > slippageValueMinForSwap && invatiantNew - invariant > 0 then {
 
         let invariantNew = invariantCalc(balanceAfterVirtualSwapA, balanceAfterVirtualSwapB)
         let invariantEstimatedRatio = fraction(invariant, scaleValue8, invariantNew)
