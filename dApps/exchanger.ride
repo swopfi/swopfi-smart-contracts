@@ -87,14 +87,14 @@ func suspend(cause: String) = [
 ]
 
 func deductStakingFee(amount: Int, assetId: ByteVector|Unit) =
-    if assetId == USDN then
+    if assetId == USDN then {
         let result = amount - stakingFeeInUSDN
 
         if result <= 0 then
             throw("Insufficient amount " + amount.toString()
                 + " to deduct staking fee " + stakedAmountUSDN.toString() + " USD-N")
         else result
-    else amount
+    } else amount
 
 func throwInsufficientAvailableBalance(amount: Int, available: Int, assetName: String) = throw("Insufficient DApp balance to pay "
     + amount.toString() + " " + assetName + " due to staking. Available: "
@@ -243,16 +243,16 @@ func exchange(minAmountToReceive: Int) = {
         let assetIdSend = assetIdB
         let (amountWithoutFee, amountWithFee, governanceReward) = calculateFees(balanceA, balanceB)
 
-        let newAmountTokenA = balanceA + pmtAmount
-        let newAmountTokenB = balanceB - amountWithFee - governanceReward
+        let newBalanceA = balanceA + pmtAmount
+        let newBalanceB = balanceB - amountWithFee - governanceReward
 
         # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
         if (assetIdA == USDN && newBalanceA <= stakedAmountUSDN) || (assetIdB == USDN && newBalanceB <= stakedAmountUSDN) then
             throwInsufficientAvailableBalance(amountWithFee, availableBalanceB, assetNameB)
         else
             [
-                IntegerEntry(keyBalanceA, newAmountTokenA),
-                IntegerEntry(keyBalanceB, newAmountTokenB),
+                IntegerEntry(keyBalanceA, newBalanceA),
+                IntegerEntry(keyBalanceB, newBalanceB),
                 ScriptTransfer(i.caller, amountWithFee, assetIdSend),
                 ScriptTransfer(governanceAddress, governanceReward, assetIdSend)
             ]
@@ -260,16 +260,16 @@ func exchange(minAmountToReceive: Int) = {
         let assetIdSend = assetIdA
         let (amountWithoutFee, amountWithFee, governanceReward) = calculateFees(balanceB, balanceA)
 
-        let newAmountTokenA = balanceA - amountWithFee - governanceReward
-        let newAmountTokenB = balanceB + pmtAmount
+        let newBalanceA = balanceA - amountWithFee - governanceReward
+        let newBalanceB = balanceB + pmtAmount
 
         # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
         if (assetIdA == USDN && newBalanceA <= stakedAmountUSDN) || (assetIdB == USDN && newBalanceB <= stakedAmountUSDN) then
             throwInsufficientAvailableBalance(amountWithFee, availableBalanceA, assetNameA)
         else
             [
-                IntegerEntry(keyBalanceA, newAmountTokenA),
-                IntegerEntry(keyBalanceB, newAmountTokenB),
+                IntegerEntry(keyBalanceA, newBalanceA),
+                IntegerEntry(keyBalanceB, newBalanceB),
                 ScriptTransfer(i.caller, amountWithFee, assetIdSend),
                 ScriptTransfer(governanceAddress, governanceReward, assetIdSend)
             ]
