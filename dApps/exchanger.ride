@@ -239,7 +239,7 @@ func exchange(minAmountToReceive: Int) = {
         let newAmountTokenB = balanceB - amountWithFee - governanceReward
 
         # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
-        if (assetIdA == USDN && newBalanceA <= stakedAmountUSDN || (assetIdB == USDN && newBalanceB <= stakedAmountUSDN) then
+        if (assetIdA == USDN && newBalanceA <= stakedAmountUSDN) || (assetIdB == USDN && newBalanceB <= stakedAmountUSDN) then
             throwInsufficientAvailableBalance(amountWithFee, availableBalanceB, assetNameB)
         else
             [
@@ -256,7 +256,7 @@ func exchange(minAmountToReceive: Int) = {
         let newAmountTokenB = balanceB + pmtAmount
 
         # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
-        if (assetIdA == USDN && newBalanceA <= stakedAmountUSDN || (assetIdB == USDN && newBalanceB <= stakedAmountUSDN) then
+        if (assetIdA == USDN && newBalanceA <= stakedAmountUSDN) || (assetIdB == USDN && newBalanceB <= stakedAmountUSDN) then
             throwInsufficientAvailableBalance(amountWithFee, availableBalanceA, assetNameA)
         else
             [

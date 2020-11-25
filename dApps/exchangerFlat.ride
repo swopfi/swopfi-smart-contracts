@@ -460,7 +460,7 @@ func exchange(estimatedAmountToReceive: Int, minAmountToReceive: Int) = {
 
         if newAmountTokenA < dAppThresholdAmount || newAmountTokenB < dAppThresholdAmount then
             throwThreshold(dAppThresholdAmount, newAmountTokenA, newAmountTokenB)
-        else if (assetIdA == USDN && newBalanceA <= stakedAmountUSDN || (assetIdB == USDN && newBalanceB <= stakedAmountUSDN) then
+        else if (assetIdA == USDN && newBalanceA <= stakedAmountUSDN) || (assetIdB == USDN && newBalanceB <= stakedAmountUSDN) then
             throwInsufficientAvailableBalance(amountWithFee, availableBalanceB, assetNameB)
         else
             # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
@@ -483,7 +483,7 @@ func exchange(estimatedAmountToReceive: Int, minAmountToReceive: Int) = {
 
         if newAmountTokenA < dAppThresholdAmount || newAmountTokenB < dAppThresholdAmount then
             throwThreshold(dAppThresholdAmount, newAmountTokenA, newAmountTokenB)
-        else if (assetIdA == USDN && newBalanceA <= stakedAmountUSDN || (assetIdB == USDN && newBalanceB <= stakedAmountUSDN) then
+        else if (assetIdA == USDN && newBalanceA <= stakedAmountUSDN) || (assetIdB == USDN && newBalanceB <= stakedAmountUSDN) then
             throwInsufficientAvailableBalance(amountWithFee, availableBalanceA, assetNameA)
         else
             # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
