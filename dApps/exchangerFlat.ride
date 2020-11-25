@@ -188,7 +188,15 @@ func suspend(cause: String) = [
     StringEntry(keyCause, cause)
 ]
 
-func deductStakingFee(amount: Int, assetId: ByteVector|Unit) = amount - if assetId == USDN then stakingFeeInUSDN else 0
+func deductStakingFee(amount: Int, assetId: ByteVector|Unit) =
+    if assetId == USDN then
+        let result = amount - stakingFeeInUSDN
+
+        if result <= 0 then
+            throw("Insufficient amount " + amount.toString()
+                + " to deduct staking fee " + stakedAmountUSDN.toString() + " USD-N")
+        else result
+    else amount
 
 func throwIsActive() = throw("DApp is already active")
 func throwIsInactive() = throw("DApp is inactive at this moment")
