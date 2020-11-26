@@ -44,7 +44,8 @@ public class SwopfiFlatTest {
             .replace("${governanceAddress}", governanceAddress)
             .replace("${adminPubKey1}",Base58.encode(secondCaller.publicKey()))
             .replace("${adminPubKey2}",Base58.encode(secondCaller.publicKey()))
-            .replace("${adminPubKey3}",Base58.encode(secondCaller.publicKey()));
+            .replace("${adminPubKey3}",Base58.encode(secondCaller.publicKey()))
+            .replace("${adminPubKey4startStop}",Base58.encode(secondCaller.publicKey()));
 
 
     @BeforeAll
