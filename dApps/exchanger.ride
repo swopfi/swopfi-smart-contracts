@@ -92,16 +92,16 @@ func deductStakingFee(amount: Int, assetId: ByteVector|Unit) =
 
         if result <= 0 then
             throw("Insufficient amount " + amount.toString()
-                + " to deduct staking fee " + stakedAmountUSDN.toString() + " USD-N")
+                + " to deduct staking fee " + stakingFeeInUSDN.toString() + " USD-N")
         else result
     } else amount
 
 func throwInsufficientAvailableBalance(amount: Int, available: Int, assetName: String) = throw("Insufficient DApp balance to pay "
     + amount.toString() + " " + assetName + " due to staking. Available: "
     + available.toString() + " " + assetName +  ". Please contact support in Telegram: https://t.me/swopfisupport")
-func throwInsufficientAvailableBalances(amountA: Int, amountB: Int) = throw("Not enough balance on DApp to pay "
+func throwInsufficientAvailableBalances(amountA: Int, amountB: Int) = throw("Insufficient DApp balance to pay "
     + amountA.toString() + " " + assetNameA + " and "  + amountB.toString() + " " + assetNameB
-    + " at this moment. Available: "
+    + " due to staking. Available: "
     + availableBalanceA.toString() + " " + assetNameA + " and "  + availableBalanceB.toString() + " " + assetNameB
     +  ". Please contact support in Telegram: https://t.me/swopfisupport")
 

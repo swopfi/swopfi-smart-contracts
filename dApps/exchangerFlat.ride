@@ -194,7 +194,7 @@ func deductStakingFee(amount: Int, assetId: ByteVector|Unit) =
 
         if result <= 0 then
             throw("Insufficient amount " + amount.toString()
-                + " to deduct staking fee " + stakedAmountUSDN.toString() + " USD-N")
+                + " to deduct staking fee " + stakingFeeInUSDN.toString() + " USD-N")
         else result
     } else amount
 
