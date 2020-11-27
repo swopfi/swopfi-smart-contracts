@@ -40,10 +40,14 @@ class SwopfiTest {
     private String governanceAddress = "3MP9d7iovdAZtsPeRcq97skdsQH5MPEsfgm";
     private Account secondCaller = new Account(1000_00000000L);
     private String dAppScript = fromFile("dApps/exchanger.ride")
-            .replace("${governanceAddress}", governanceAddress)
-            .replace("${adminPubKey1}", Base58.encode(secondCaller.publicKey()))
-            .replace("${adminPubKey2}", Base58.encode(secondCaller.publicKey()))
-            .replace("${adminPubKey3}", Base58.encode(secondCaller.publicKey()));
+            .replace("3P6J84oH51DzY6xk2mT5TheXRbrCwBMxonp", governanceAddress)
+            //TODO staking
+            //TODO USDN
+            .replace("DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA", Base58.encode(secondCaller.publicKey()))
+            .replace("E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7", Base58.encode(secondCaller.publicKey()))
+            .replace("AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ", Base58.encode(secondCaller.publicKey()))
+            .replace("EtVkT6ed8GtbUiVVEqdmEqsp2J4qbb3rre2HFgxeVYdg", Base58.encode(secondCaller.publicKey()))
+            .replace("Czn4yoAuUZCVCLJDRfskn8URfkwpknwBTZDbs1wFrY7h", Base58.encode(secondCaller.publicKey()));
 
     @BeforeAll
     void before() {
