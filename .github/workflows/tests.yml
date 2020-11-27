@@ -31,5 +31,10 @@ jobs:
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
 
-      - name: Run tests with Maven
+      - name: Run Paddle tests
         run: mvn -B test --file pom.xml
+
+      - name: Publish test report
+        uses: scacap/action-surefire-report@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
