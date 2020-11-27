@@ -1,14 +1,16 @@
 __pycache__/
-target/
-pom.xml.tag
-pom.xml.releaseBackup
-pom.xml.versionsBackup
-pom.xml.next
-release.properties
-dependency-reduced-pom.xml
-buildNumber.properties
-.mvn/timing.properties
-# https://github.com/takari/maven-wrapper#usage-without-binary-jar
-.mvn/wrapper/maven-wrapper.jar
-.idea/
-*.iml
+
+target/	target/
+pom.xml.tag	pom.xml.tag
+pom.xml.releaseBackup	pom.xml.releaseBackup
+@@ -10,5 +11,10 @@ buildNumber.properties
+.mvn/timing.properties	.mvn/timing.properties
+# https://github.com/takari/maven-wrapper#usage-without-binary-jar	# https://github.com/takari/maven-wrapper#usage-without-binary-jar
+.mvn/wrapper/maven-wrapper.jar	.mvn/wrapper/maven-wrapper.jar
+
+.idea/	.idea/
+*.iml	*.iml
+*.ipr
+*.iws
+
+local.conf
