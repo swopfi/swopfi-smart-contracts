@@ -16,14 +16,14 @@ let keyCommission = "commission"
 let keyCommissionScaleDelimiter = "commission_scale_delimiter"
 let keyCause = "shutdown_cause"
 
-let adminPubKey1 = base58'${adminPubKey1}'
-let adminPubKey2 = base58'${adminPubKey2}'
-let adminPubKey3 = base58'${adminPubKey3}'
-let adminPubKeyStartStop = base58'${adminPubKeyStartStop}'
-let adminPubKeyStaking = base58'${adminPubKeyStaking}'
+let adminPubKey1 = base58'DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA'
+let adminPubKey2 = base58'E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7'
+let adminPubKey3 = base58'AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ'
+let adminPubKeyStartStop = base58'EtVkT6ed8GtbUiVVEqdmEqsp2J4qbb3rre2HFgxeVYdg'
+let adminPubKeyStaking = base58'Czn4yoAuUZCVCLJDRfskn8URfkwpknwBTZDbs1wFrY7h'
 
-let governanceAddress = Address(base58'${governanceAddress}')
-let stakingAddress = Address(base58'${stakingAddress}')
+let governanceAddress = Address(base58'3P6J84oH51DzY6xk2mT5TheXRbrCwBMxonp')
+let stakingAddress = Address(base58'3PNikM6yp4NqcSU8guxQtmR5onr2D4e8yTJ')
 
 let USDN = base58'DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p'
 let stakingFeeInUSDN = 9 * assetInfo(USDN).value().minSponsoredFee.value() # sponsored fee for invoke called from scripted account
