@@ -32,7 +32,7 @@ jobs:
           restore-keys: ${{ runner.os }}-m2
 
       - name: Run Paddle tests
-        run: mvn -B test --file pom.xml
+        run: mvn -B test -Dmaven.test.failure.ignore=true
 
       - name: Publish test report
         uses: scacap/action-surefire-report@v1
