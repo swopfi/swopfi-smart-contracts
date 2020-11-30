@@ -306,8 +306,8 @@ func takeIntoAccountExtraFunds(amountLeave: Int) = {
 
     if !isActive then
         throw("DApp is inactive at this moment")
-    else if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStaking].containsElement(i.callerPublicKey) then
-        throw("Only admin can call this function")
+    else if i.caller != this then
+        throw("Only the DApp itself can call this function")
     else if amountLeave < 0 then
         throw("Argument 'amountLeave' cannot be negative. Actual: " + amountLeave.toString())
     else if uncountableAmountEnrollAssetA < 0 || uncountableAmountEnrollAssetB < 0 then
@@ -324,7 +324,20 @@ func takeIntoAccountExtraFunds(amountLeave: Int) = {
 @Verifier(tx)
 func verify() = match tx {
     case invoke: InvokeScriptTransaction =>
-        sigVerify(invoke.bodyBytes, invoke.proofs[0], adminPubKeyStaking) && invoke.dApp == stakingAddress
+        let callTakeIntoAccount = invoke.dApp == this && invoke.function == "takeIntoAccountExtraFunds"
+        let callStaking =
+            invoke.dApp == stakingAddress
+            && (
+                (invoke.function == "lockNeutrino" && invoke.payments.size() == 1 && invoke.payments[0].assetId == USDN)
+                || (invoke.function == "unlockNeutrino" && invoke.payments.size() == 0)
+            )
+        let signedByAdmin =
+            sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1)
+            && sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey2)
+            && sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey3)
+            && sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKeyStaking)
+
+        (callTakeIntoAccount || callStaking) && signedByAdmin
     case _ => {
         let adminPubKey1Signed = if sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1) then 1 else 0
         let adminPubKey2Signed = if sigVerify(tx.bodyBytes, tx.proofs[1], adminPubKey2) then 1 else 0
