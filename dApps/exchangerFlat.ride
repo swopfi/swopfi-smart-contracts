@@ -559,9 +559,9 @@ func verify() = match tx {
             )
         let signedByAdmin =
             sigVerify(tx.bodyBytes, tx.proofs[0], admin1)
-            && sigVerify(tx.bodyBytes, tx.proofs[0], admin2)
-            && sigVerify(tx.bodyBytes, tx.proofs[0], admin3)
-            && sigVerify(tx.bodyBytes, tx.proofs[0], adminStaking)
+            || sigVerify(tx.bodyBytes, tx.proofs[0], admin2)
+            || sigVerify(tx.bodyBytes, tx.proofs[0], admin3)
+            || sigVerify(tx.bodyBytes, tx.proofs[0], adminStaking)
 
         (callTakeIntoAccount || callStaking) && signedByAdmin
     case _ => {
