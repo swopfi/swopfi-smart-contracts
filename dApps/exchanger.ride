@@ -96,6 +96,10 @@ func deductStakingFee(amount: Int, assetId: ByteVector|Unit) =
         else result
     } else amount
 
+func throwIsActive() = throw("DApp is already active")
+func throwIsInactive() = throw("DApp is inactive at this moment")
+func throwOnlyAdmin() = throw("Only admin can call this function")
+func throwAssets() = throw("Incorrect assets attached. Expected: " + strAssetIdA + " and " + strAssetIdB)
 func throwInsufficientAvailableBalance(amount: Int, available: Int, assetName: String) = throw("Insufficient DApp balance to pay "
     + amount.toString() + " " + assetName + " due to staking. Available: "
     + available.toString() + " " + assetName +  ". Please contact support in Telegram: https://t.me/swopfisupport")
@@ -104,6 +108,8 @@ func throwInsufficientAvailableBalances(amountA: Int, amountB: Int) = throw("Ins
     + " due to staking. Available: "
     + availableBalanceA.toString() + " " + assetNameA + " and "  + availableBalanceB.toString() + " " + assetNameB
     +  ". Please contact support in Telegram: https://t.me/swopfisupport")
+func suspendSuspicious() = suspend("Suspicious state. Actual balances: " + balanceA.toString() + " " + assetNameA + ", " + balanceB.toString() + " " + assetNameB
+        + ". State: " + accountBalance(assetIdA).toString() + " " + assetNameA + ", " + accountBalance(assetIdB).toString() + " " + assetNameB)
 
 @Callable(i)
 func init() = {
@@ -113,7 +119,7 @@ func init() = {
     let (pmtStrAssetIdB, pmtAssetNameB, pmtDecimalsB) = getAssetInfo(pmtAssetIdB)
 
     if this.getBoolean(keyActive).isDefined() then
-        throw("DApp is already active")
+        throwIsActive()
     else if pmtAssetIdA == pmtAssetIdB then
         throw("Assets must be different")
     else {
@@ -162,21 +168,20 @@ func replenishWithTwoTokens(slippageTolerance: Int) = {
     let shareTokenToPayAmount = min([ratioShareTokensInA, ratioShareTokensInB]).fraction(shareAssetSupply, scaleValue8)
 
     if !isActive then
-        throw("DApp is inactive at this moment")
+        throwIsInactive()
     else if slippageTolerance < 0 || slippageTolerance > slippageToleranceDelimiter then
         throw("Slippage tolerance must be between 0 and " + slippageToleranceDelimiter.toString() + " inclusively. Actual: " + slippageTolerance.toString())
     else if i.payments.size() != 2 then
         throw("Two attached assets expected")
     else if pmtAssetIdA != assetIdA || pmtAssetIdB != assetIdB then
-        throw("Incorrect assets attached. Expected: " + strAssetIdA + " and " + strAssetIdB)
+        throwAssets()
     else if tokenRatio < (scaleValue3 * (slippageToleranceDelimiter - slippageTolerance)) / slippageToleranceDelimiter
             || tokenRatio > (scaleValue3 * (slippageToleranceDelimiter + slippageTolerance)) / slippageToleranceDelimiter then
         throw("Incorrect assets amount: amounts must have the contract ratio")
     else if shareTokenToPayAmount == 0 then
         throw("Too small amount to replenish")
     else if !hasEnoughBalance then
-        suspend("Suspicious state. Actual balances: " + balanceA.toString() + " " + assetNameA + ", " + balanceB.toString() + " " + assetNameB
-        + ". State: " + accountBalance(assetIdA).toString() + " " + assetNameA + ", " + accountBalance(assetIdB).toString() + " " + assetNameB)
+        suspendSuspicious()
     else [
         IntegerEntry(keyBalanceA, balanceA + pmtAmountA),
         IntegerEntry(keyBalanceB, balanceB + pmtAmountB),
@@ -195,14 +200,13 @@ func withdraw() = {
     let amountToPayB = pmtAmount.fraction(balanceB, shareAssetSupply).deductStakingFee(assetIdB)
 
     if !isActive then
-        throw("DApp is inactive at this moment")
+        throwIsInactive()
     else if i.payments.size() != 1 then
         throw("One attached payment expected")
     else if pmtAssetId != shareAssetId then
         throw("Incorrect asset attached. Expected: " + shareAssetId.toBase58String())
     else if !hasEnoughBalance then
-        suspend("Suspicious state. Actual balances: " + balanceA.toString() + " " + assetNameA + ", " + balanceB.toString() + " " + assetNameB
-        + ". State: " + accountBalance(assetIdA).toString() + " " + assetNameA + ", " + accountBalance(assetIdB).toString() + " " + assetNameB)
+        suspendSuspicious()
     else if amountToPayA > availableBalanceA || amountToPayB > availableBalanceB then
         throwInsufficientAvailableBalances(amountToPayA, amountToPayB)
     else [
@@ -219,62 +223,46 @@ func withdraw() = {
 func exchange(minAmountToReceive: Int) = {
     let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
 
-    func calculateFees(tokenFrom: Int, tokenTo: Int) = {
-        let amountWithoutFee = fraction(tokenTo, pmtAmount, pmtAmount + tokenFrom)
-        let amountWithFee = fraction(amountWithoutFee, commissionScaleDelimiter - commission, commissionScaleDelimiter)
-        let governanceReward = fraction(amountWithoutFee, commissionGovernance, commissionScaleDelimiter)
-
-        if amountWithFee < minAmountToReceive then
-            throw("Calculated amount to receive " + amountWithFee.toString() + " is less than specified minimum " + minAmountToReceive.toString())
-        else
-            (amountWithoutFee, amountWithFee, governanceReward)
-    }
-
     if !isActive then
-        throw("DApp is inactive at this moment")
+        throwIsInactive()
     else if minAmountToReceive <= 0 then
         throw("Minimal amount to receive must be positive. Actual: " + minAmountToReceive.toString())
     else if i.payments.size() != 1 then
         throw("One attached payment expected")
     else if !hasEnoughBalance then
-        suspend("Suspicious state. Actual balances: " + balanceA.toString() + " " + assetNameA + ", " + balanceB.toString() + " " + assetNameB
-        + ". State: " + accountBalance(assetIdA).toString() + " " + assetNameA + ", " + accountBalance(assetIdB).toString() + " " + assetNameB)
-    else if pmtAssetId == assetIdA then {
-        let assetIdSend = assetIdB
-        let (amountWithoutFee, amountWithFee, governanceReward) = calculateFees(balanceA, balanceB)
+        suspendSuspicious()
+    else if pmtAssetId != assetIdA && pmtAssetId != assetIdB then
+        throwAssets()
+    else {
+        let sendAssetId = if pmtAssetId == assetIdA then assetIdB else assetIdA
 
-        let newBalanceA = balanceA + pmtAmount
-        let newBalanceB = balanceB - amountWithFee - governanceReward
+        let amountWithoutFee =
+            if pmtAssetId == assetIdA then
+                balanceB.fraction(pmtAmount, balanceA + pmtAmount)
+            else balanceA.fraction(pmtAmount, balanceB + pmtAmount)
+        let amountWithFee = fraction(amountWithoutFee, commissionScaleDelimiter - commission, commissionScaleDelimiter)
+        let governanceReward = fraction(amountWithoutFee, commissionGovernance, commissionScaleDelimiter)
+
+        let (newBalanceA, newBalanceB) =
+            if pmtAssetId == assetIdA then
+                (balanceA + pmtAmount, balanceB - amountWithFee - governanceReward)
+            else (balanceA - amountWithFee - governanceReward, balanceB + pmtAmount)
 
         # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
-        if (assetIdA == USDN && newBalanceA <= stakedAmountUSDN) || (assetIdB == USDN && newBalanceB <= stakedAmountUSDN) then
+        if amountWithFee < minAmountToReceive then
+            throw("Calculated amount to receive " + amountWithFee.toString() + " is less than specified minimum " + minAmountToReceive.toString())
+        else if assetIdA == USDN && sendAssetId == assetIdA && newBalanceA <= stakedAmountUSDN then
+            throwInsufficientAvailableBalance(amountWithFee, availableBalanceA, assetNameA)
+        else if assetIdB == USDN && sendAssetId == assetIdB && newBalanceB <= stakedAmountUSDN then
             throwInsufficientAvailableBalance(amountWithFee, availableBalanceB, assetNameB)
         else
             [
                 IntegerEntry(keyBalanceA, newBalanceA),
                 IntegerEntry(keyBalanceB, newBalanceB),
-                ScriptTransfer(i.caller, amountWithFee, assetIdSend),
-                ScriptTransfer(governanceAddress, governanceReward, assetIdSend)
+                ScriptTransfer(i.caller, amountWithFee, sendAssetId),
+                ScriptTransfer(governanceAddress, governanceReward, sendAssetId)
             ]
-    } else if pmtAssetId == assetIdB then {
-        let assetIdSend = assetIdA
-        let (amountWithoutFee, amountWithFee, governanceReward) = calculateFees(balanceB, balanceA)
-
-        let newBalanceA = balanceA - amountWithFee - governanceReward
-        let newBalanceB = balanceB + pmtAmount
-
-        # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
-        if (assetIdA == USDN && newBalanceA <= stakedAmountUSDN) || (assetIdB == USDN && newBalanceB <= stakedAmountUSDN) then
-            throwInsufficientAvailableBalance(amountWithFee, availableBalanceA, assetNameA)
-        else
-            [
-                IntegerEntry(keyBalanceA, newBalanceA),
-                IntegerEntry(keyBalanceB, newBalanceB),
-                ScriptTransfer(i.caller, amountWithFee, assetIdSend),
-                ScriptTransfer(governanceAddress, governanceReward, assetIdSend)
-            ]
-    } else
-        throw("Incorrect asset attached. Expected: " + strAssetIdA + " or " + strAssetIdB)
+    }
 }
 
 @Callable(i)
@@ -282,16 +270,16 @@ func shutdown() =
     if !isActive then
         throw("DApp is already suspended. Cause: " + this.getString(keyCause).valueOrElse("the cause wasn't specified"))
     else if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStartStop].containsElement(i.callerPublicKey) then
-        throw("Only admin can call this function")
+        throwOnlyAdmin()
     else
         suspend("Paused by admin")
 
 @Callable(i)
 func activate() =
     if isActive then
-        throw("DApp is already active")
+        throwIsActive()
     else if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStartStop].containsElement(i.callerPublicKey) then
-        throw("Only admin can call this function")
+        throwOnlyAdmin()
     else [
         BooleanEntry(keyActive, true),
         DeleteEntry(keyCause)
@@ -305,7 +293,7 @@ func takeIntoAccountExtraFunds(amountLeave: Int) = {
     let amountEnrollB = uncountableAmountEnrollAssetB - if assetIdB == USDN then amountLeave else 0
 
     if !isActive then
-        throw("DApp is inactive at this moment")
+        throwIsInactive()
     else if i.caller != this then
         throw("Only the DApp itself can call this function")
     else if amountLeave < 0 then
