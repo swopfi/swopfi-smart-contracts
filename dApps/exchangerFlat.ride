@@ -13,7 +13,7 @@ let keyBalanceB = "B_asset_balance"
 let keyShareAssetId = "share_asset_id"
 let keyShareAssetSupply = "share_asset_supply"
 let keyCommission = "commission"
-let keyFeeScaleDelimiter = "commission_scale_delimiter"
+let keyCommissionScaleDelimiter = "commission_scale_delimiter"
 let keyCommissionGovernance = "commission_governance"
 let keyInvariant = "invariant"
 let keyCause = "shutdown_cause"
@@ -50,9 +50,9 @@ let shareAssetId = this.getStringValue(keyShareAssetId).fromBase58String()
 let shareAssetSupply = this.getIntegerValue(keyShareAssetSupply)
 let invariant = this.getIntegerValue(keyInvariant)
 
-let commission = 500 # commission/feeScaleDelimiter = 0.0005
-let commissionGovernance = 200 # commissionGovernance/feeScaleDelimiter = 0.0002. 3/5 fee back to the dApp, 2/5 sends to the governance address
-let feeScaleDelimiter = 1000000
+let commission = 500 # commission/commissionScaleDelimiter = 0.0005
+let commissionGovernance = 200 # commissionGovernance/commissionScaleDelimiter = 0.0002. 3/5 fee back to the dApp, 2/5 sends to the governance address
+let commissionScaleDelimiter = 1000000
 
 let scaleValue3 = 1000
 let scaleValue8 = 100000000
@@ -108,71 +108,40 @@ func invariantCalc(x: Int, y: Int) = {
     )
 }
 
-func calculateHowManySendA(amountToSendEstimated: Int, minTokenReceiveAmount: Int, amountA: Int, amountB: Int, tokenReceiveAmount: Int) = {
+func calculateSendAmount(amountToSendEstimated: Int, minTokenReceiveAmount: Int, tokenReceiveAmount: Int, tokenId: ByteVector|Unit) = {
     let slippageValue = scaleValue8 - scaleValue8 * 1 / 10000000 # 0.000001% of slippage
-    let deltaMaxAndMinSendValue = amountToSendEstimated - minTokenReceiveAmount
+    let deltaBetweenMaxAndMinSendValue = amountToSendEstimated - minTokenReceiveAmount
 
-    let amountToSendStep1 = amountToSendEstimated - 1 * deltaMaxAndMinSendValue / 5
-    let amountToSendStep2 = amountToSendEstimated - 2 * deltaMaxAndMinSendValue / 5
-    let amountToSendStep3 = amountToSendEstimated - 3 * deltaMaxAndMinSendValue / 5
-    let amountToSendStep4 = amountToSendEstimated - 4 * deltaMaxAndMinSendValue / 5
-    let amountToSendStep5 = amountToSendEstimated - 5 * deltaMaxAndMinSendValue / 5
+    # only one of the variables will be used depending on the token
+    let x = balanceA + tokenReceiveAmount
+    let y = balanceB + tokenReceiveAmount
 
-    let y = amountB + tokenReceiveAmount
-    let invariantNew = invariantCalc(amountA - amountToSendEstimated, y)
-    let invariantEstimatedRatio =
-                fraction(invariant, scaleValue8, invariantNew)
+    let invariantNew =
+        if tokenId == assetIdA then
+            invariantCalc(x, balanceB - amountToSendEstimated)
+        else invariantCalc(balanceA - amountToSendEstimated, y)
 
-    # before start check last condition. If it wrong we can stop
-    if invariantCalc(amountA - amountToSendStep5, y) - invariant <= 0 then
-        throw("minTokenReceiveAmount too large.err1")
+    let invariantEstimatedRatio = fraction(invariant, scaleValue8, invariantNew)
+
+    func getStepAmount(acc: Int, step: Int) = {
+        let amountToSendStep = amountToSendEstimated - step * deltaBetweenMaxAndMinSendValue / 5
+        let stepInvariant =
+            if tokenId == assetIdA then
+                invariantCalc(x, balanceB - amountToSendStep)
+            else invariantCalc(balanceA - amountToSendStep, y)
+
+        if stepInvariant - invariant > 0 then
+            amountToSendStep
+        else acc
+    }
+    let stepAmount = FOLD<5>([1, 2, 3, 4, 5], -1, getStepAmount)
+
+    if stepAmount < 0 then
+        throw("something went wrong while working with amountToSendStep. err2")
     else if invariantEstimatedRatio > slippageValue && invariantNew - invariant > 0 then
         amountToSendEstimated
-    else if invariantCalc(amountA - amountToSendStep1, y) - invariant > 0 then
-        amountToSendStep1 * (feeScaleDelimiter - commission) / feeScaleDelimiter
-    else if invariantCalc(amountA - amountToSendStep2, y) - invariant > 0 then
-        amountToSendStep2 * (feeScaleDelimiter - commission) / feeScaleDelimiter
-    else if invariantCalc(amountA - amountToSendStep3, y) - invariant > 0 then
-        amountToSendStep3 * (feeScaleDelimiter - commission) / feeScaleDelimiter
-    else if invariantCalc(amountA - amountToSendStep4, y) - invariant > 0 then
-        amountToSendStep4 * (feeScaleDelimiter - commission) / feeScaleDelimiter
-    else if invariantCalc(amountA - amountToSendStep5, y) - invariant > 0 then
-        amountToSendStep5 * (feeScaleDelimiter - commission) / feeScaleDelimiter
     else
-        throw("something went wrong while working with amountToSendStep. err2")
-}
-
-func calculateHowManySendB(amountToSendEstimated: Int, minTokenReceiveAmount: Int, amountA: Int, amountB: Int, tokenReceiveAmount: Int) = {
-    let slippageValue = scaleValue8 - scaleValue8 * 1 / 10000000 # 0.000001% of slippage
-    let deltaMaxAndMinSendValue = amountToSendEstimated - minTokenReceiveAmount
-    let amountToSendStep1 = amountToSendEstimated - 1 * deltaMaxAndMinSendValue / 5
-    let amountToSendStep2 = amountToSendEstimated - 2 * deltaMaxAndMinSendValue / 5
-    let amountToSendStep3 = amountToSendEstimated - 3 * deltaMaxAndMinSendValue / 5
-    let amountToSendStep4 = amountToSendEstimated - 4 * deltaMaxAndMinSendValue / 5
-    let amountToSendStep5 = amountToSendEstimated - 5 * deltaMaxAndMinSendValue / 5
-
-    let x = amountA + tokenReceiveAmount
-    let invariantNew = invariantCalc(x, amountB - amountToSendEstimated)
-    let invariantEstimatedRatio =
-                fraction(invariant, scaleValue8, invariantNew)
-
-    # before start check last condition. If it wrong we can stop
-    if invariantCalc(x, amountB - amountToSendStep5) - invariant <= 0 then
-        throw("minTokenReceiveAmount too large.err1")
-    else if invariantEstimatedRatio > slippageValue && invariantNew - invariant > 0 then
-        amountToSendEstimated
-    else if invariantCalc(x, amountB - amountToSendStep1) - invariant > 0 then
-        amountToSendStep1 * (feeScaleDelimiter - commission) / feeScaleDelimiter
-    else if invariantCalc(x, amountB - amountToSendStep2) - invariant > 0 then
-        amountToSendStep2 * (feeScaleDelimiter - commission) / feeScaleDelimiter
-    else if invariantCalc(x, amountB - amountToSendStep3) - invariant > 0 then
-        amountToSendStep3 * (feeScaleDelimiter - commission) / feeScaleDelimiter
-    else if invariantCalc(x, amountB - amountToSendStep4) - invariant > 0 then
-        amountToSendStep4 * (feeScaleDelimiter - commission) / feeScaleDelimiter
-    else if invariantCalc(x, amountB - amountToSendStep5) - invariant > 0 then
-        amountToSendStep5 * (feeScaleDelimiter - commission) / feeScaleDelimiter
-    else
-        throw("something went wrong while working with amountToSendStep. err2")
+        stepAmount * (commissionScaleDelimiter - commission) / commissionScaleDelimiter
 }
 
 func getAssetInfo(assetId: ByteVector|Unit) = match assetId {
@@ -250,7 +219,7 @@ func init() = {
             IntegerEntry(keyBalanceB, pmtAmountB),
             IntegerEntry(keyInvariant, invariantCalculated),
             IntegerEntry(keyCommission, commission),
-            IntegerEntry(keyFeeScaleDelimiter, feeScaleDelimiter),
+            IntegerEntry(keyCommissionScaleDelimiter, commissionScaleDelimiter),
             shareIssue,
             StringEntry(keyShareAssetId, shareIssueId.toBase58String()),
             IntegerEntry(keyShareAssetSupply, shareInitialSupply),
@@ -429,12 +398,10 @@ func exchange(estimatedAmountToReceive: Int, minAmountToReceive: Int) = {
         throwAssets()
     else {
         let sendAssetId = if pmtAssetId == assetIdA then assetIdB else assetIdA
-        let amountWithoutFee =
-            if pmtAssetId == assetIdA then
-                calculateHowManySendB(estimatedAmountToReceive, minAmountToReceive, balanceA, balanceB, pmtAmount)
-            else calculateHowManySendA(estimatedAmountToReceive, minAmountToReceive, balanceA, balanceB, pmtAmount)
-        let amountWithFee = fraction(amountWithoutFee, feeScaleDelimiter - commission, feeScaleDelimiter)
-        let governanceReward = fraction(amountWithoutFee, commissionGovernance, feeScaleDelimiter)
+
+        let amountWithoutFee = calculateSendAmount(estimatedAmountToReceive, minAmountToReceive, pmtAmount, pmtAssetId)
+        let amountWithFee = fraction(amountWithoutFee, commissionScaleDelimiter - commission, commissionScaleDelimiter)
+        let governanceReward = fraction(amountWithoutFee, commissionGovernance, commissionScaleDelimiter)
 
         let (newBalanceA, newBalanceB) =
             if pmtAssetId == assetIdA then
