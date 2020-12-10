@@ -126,69 +126,69 @@ func invariantCalc(x: Int, y: Int) = {
     )
 }
 
-func calculateHowManySendA(amountToSendEstimated: Int, minTokenReceiveAmount: Int, amountA: Int, amountB: Int, tokenReceiveAmount: Int) = {
+func calculateHowManySendA(amtToSendEstimated: Int, minTokenReceiveAmount: Int, amtA: Int, amtB: Int, tokenReceiveAmount: Int) = {
     let slippageValue = scale8 - scale8 * 1 / 10000000 # 0.000001% of slippage
-    let deltaMaxAndMinSendValue = amountToSendEstimated - minTokenReceiveAmount
+    let deltaMaxAndMinSendValue = amtToSendEstimated - minTokenReceiveAmount
 
-    let amountToSendStep1 = amountToSendEstimated - 1 * deltaMaxAndMinSendValue / 5
-    let amountToSendStep2 = amountToSendEstimated - 2 * deltaMaxAndMinSendValue / 5
-    let amountToSendStep3 = amountToSendEstimated - 3 * deltaMaxAndMinSendValue / 5
-    let amountToSendStep4 = amountToSendEstimated - 4 * deltaMaxAndMinSendValue / 5
-    let amountToSendStep5 = amountToSendEstimated - 5 * deltaMaxAndMinSendValue / 5
+    let amtToSendStep1 = amtToSendEstimated - 1 * deltaMaxAndMinSendValue / 5
+    let amtToSendStep2 = amtToSendEstimated - 2 * deltaMaxAndMinSendValue / 5
+    let amtToSendStep3 = amtToSendEstimated - 3 * deltaMaxAndMinSendValue / 5
+    let amtToSendStep4 = amtToSendEstimated - 4 * deltaMaxAndMinSendValue / 5
+    let amtToSendStep5 = amtToSendEstimated - 5 * deltaMaxAndMinSendValue / 5
 
-    let y = amountB + tokenReceiveAmount
-    let invariantNew = invariantCalc(amountA - amountToSendEstimated, y)
+    let y = amtB + tokenReceiveAmount
+    let invariantNew = invariantCalc(amtA - amtToSendEstimated, y)
     let invariantEstimatedRatio =
                 fraction(invariant, scale8, invariantNew)
 
     # before start check last condition. If it wrong we can stop
-    if invariantCalc(amountA - amountToSendStep5, y) - invariant <= 0 then
+    if invariantCalc(amtA - amtToSendStep5, y) - invariant <= 0 then
         throw("minTokenReceiveAmount too large.err1")
     else if invariantEstimatedRatio > slippageValue && invariantNew - invariant > 0 then
-        amountToSendEstimated
-    else if invariantCalc(amountA - amountToSendStep1, y) - invariant > 0 then
-        amountToSendStep1 * (feeScaleDelimiter - fee) / feeScaleDelimiter
-    else if invariantCalc(amountA - amountToSendStep2, y) - invariant > 0 then
-        amountToSendStep2 * (feeScaleDelimiter - fee) / feeScaleDelimiter
-    else if invariantCalc(amountA - amountToSendStep3, y) - invariant > 0 then
-        amountToSendStep3 * (feeScaleDelimiter - fee) / feeScaleDelimiter
-    else if invariantCalc(amountA - amountToSendStep4, y) - invariant > 0 then
-        amountToSendStep4 * (feeScaleDelimiter - fee) / feeScaleDelimiter
-    else if invariantCalc(amountA - amountToSendStep5, y) - invariant > 0 then
-        amountToSendStep5 * (feeScaleDelimiter - fee) / feeScaleDelimiter
+        amtToSendEstimated
+    else if invariantCalc(amtA - amtToSendStep1, y) - invariant > 0 then
+        amtToSendStep1 * (feeScaleDelimiter - fee) / feeScaleDelimiter
+    else if invariantCalc(amtA - amtToSendStep2, y) - invariant > 0 then
+        amtToSendStep2 * (feeScaleDelimiter - fee) / feeScaleDelimiter
+    else if invariantCalc(amtA - amtToSendStep3, y) - invariant > 0 then
+        amtToSendStep3 * (feeScaleDelimiter - fee) / feeScaleDelimiter
+    else if invariantCalc(amtA - amtToSendStep4, y) - invariant > 0 then
+        amtToSendStep4 * (feeScaleDelimiter - fee) / feeScaleDelimiter
+    else if invariantCalc(amtA - amtToSendStep5, y) - invariant > 0 then
+        amtToSendStep5 * (feeScaleDelimiter - fee) / feeScaleDelimiter
     else
         throw("something went wrong while working with amountToSendStep. err2")
 }
 
-func calculateHowManySendB(amountToSendEstimated: Int, minTokenReceiveAmount: Int, amountA: Int, amountB: Int, tokenReceiveAmount: Int) = {
+func calculateHowManySendB(amtToSendEstimated: Int, minTokenReceiveAmount: Int, amtA: Int, amtB: Int, tokenReceiveAmount: Int) = {
     let slippageValue = scale8 - scale8 * 1 / 10000000 # 0.000001% of slippage
-    let deltaMaxAndMinSendValue = amountToSendEstimated - minTokenReceiveAmount
-    let amountToSendStep1 = amountToSendEstimated - 1 * deltaMaxAndMinSendValue / 5
-    let amountToSendStep2 = amountToSendEstimated - 2 * deltaMaxAndMinSendValue / 5
-    let amountToSendStep3 = amountToSendEstimated - 3 * deltaMaxAndMinSendValue / 5
-    let amountToSendStep4 = amountToSendEstimated - 4 * deltaMaxAndMinSendValue / 5
-    let amountToSendStep5 = amountToSendEstimated - 5 * deltaMaxAndMinSendValue / 5
+    let deltaMaxAndMinSendValue = amtToSendEstimated - minTokenReceiveAmount
+    let amtToSendStep1 = amtToSendEstimated - 1 * deltaMaxAndMinSendValue / 5
+    let amtToSendStep2 = amtToSendEstimated - 2 * deltaMaxAndMinSendValue / 5
+    let amtToSendStep3 = amtToSendEstimated - 3 * deltaMaxAndMinSendValue / 5
+    let amtToSendStep4 = amtToSendEstimated - 4 * deltaMaxAndMinSendValue / 5
+    let amtToSendStep5 = amtToSendEstimated - 5 * deltaMaxAndMinSendValue / 5
 
-    let x = amountA + tokenReceiveAmount
-    let invariantNew = invariantCalc(x, amountB - amountToSendEstimated)
+    let x = amtA + tokenReceiveAmount
+    let invariantNew = invariantCalc(x, amtB - amtToSendEstimated)
     let invariantEstimatedRatio =
                 fraction(invariant, scale8, invariantNew)
 
     # before start check last condition. If it wrong we can stop
-    if invariantCalc(x, amountB - amountToSendStep5) - invariant <= 0 then
+    if invariantCalc(x, amtB - amtToSendStep5) - invariant <= 0 then
         throw("minTokenReceiveAmount too large.err1")
     else if invariantEstimatedRatio > slippageValue && invariantNew - invariant > 0 then
-        amountToSendEstimated
-    else if invariantCalc(x, amountB - amountToSendStep1) - invariant > 0 then
-        amountToSendStep1 * (feeScaleDelimiter - fee) / feeScaleDelimiter
-    else if invariantCalc(x, amountB - amountToSendStep2) - invariant > 0 then
-        amountToSendStep2 * (feeScaleDelimiter - fee) / feeScaleDelimiter
-    else if invariantCalc(x, amountB - amountToSendStep3) - invariant > 0 then
-        amountToSendStep3 * (feeScaleDelimiter - fee) / feeScaleDelimiter
-    else if invariantCalc(x, amountB - amountToSendStep4) - invariant > 0 then
-        amountToSendStep4 * (feeScaleDelimiter - fee) / feeScaleDelimiter
-    else if invariantCalc(x, amountB - amountToSendStep5) - invariant > 0 then
-        amountToSendStep5 * (feeScaleDelimiter - fee) / feeScaleDelimiter
+        amtToSendEstimated
+    else if invariantCalc(x, amtB - amtToSendStep1) - invariant > 0 then
+        amtToSendStep1 * (feeScaleDelimiter - fee) / feeScaleDelimiter
+    else if invariantCalc(x, amtB - amtToSendStep2) - invariant > 0 then
+        amtToSendStep2 * (feeScaleDelimiter - fee) / feeScaleDelimiter
+    else if invariantCalc(x, amtB - amtToSendStep3) - invariant > 0 then
+        amtToSendStep3 * (feeScaleDelimiter - fee) / feeScaleDelimiter
+    else if invariantCalc(x, amtB - amtToSendStep4) - invariant > 0 then
+        amtToSendStep4 * (feeScaleDelimiter - fee) / feeScaleDelimiter
+    else if invariantCalc(x, amtB - amtToSendStep5) - invariant > 0 then
+        amtToSendStep5 * (feeScaleDelimiter - fee) / feeScaleDelimiter
     else
         throw("something went wrong while working with amountToSendStep. err2")
 }
@@ -208,27 +208,27 @@ func suspend(cause: String) = [
 
 let stakingFeeInUSDN = 9 * assetInfo(USDN).value().minSponsoredFee.value() # sponsored fee for invoke called from scripted account
 
-func deductStakingFee(amount: Int, assetId: ByteVector|Unit) =
+func deductStakingFee(amt: Int, assetId: ByteVector|Unit) =
     if assetId == USDN then {
-        let result = amount - stakingFeeInUSDN
+        let result = amt - stakingFeeInUSDN
 
         if result <= 0 then
-            throw("Insufficient amount " + amount.toString()
+            throw("Insufficient amount " + amt.toString()
                 + " to deduct staking fee " + stakingFeeInUSDN.toString() + " USD-N")
         else result
-    } else amount
+    } else amt
 
 func throwIsActive() = throw("DApp is already active")
 func throwIsInactive() = throw("DApp is inactive at this moment")
 func throwOnlyAdmin() = throw("Only adm can call this function")
 func throwAssets() = throw("Incorrect assets attached. Expected: " + strAssetIdA + " and " + strAssetIdB)
-func throwThreshold(threshold: Int, amountA: Int, amountB: Int) = throw("New balance in assets of the DApp is less than threshold " + threshold.toString()
-    + ": " + amountA.toString() + " " + assetNameA + ", " + amountB.toString() + " " + assetNameB)
-func throwInsufficientAvailableBalance(amount: Int, available: Int, assetName: String) = throw("Insufficient DApp balance to pay "
-    + amount.toString() + " " + assetName + " due to staking. Available: "
+func throwThreshold(threshold: Int, amtA: Int, amtB: Int) = throw("New balance in assets of the DApp is less than threshold " + threshold.toString()
+    + ": " + amtA.toString() + " " + assetNameA + ", " + amtB.toString() + " " + assetNameB)
+func throwInsufficientAvailableBalance(amt: Int, available: Int, assetName: String) = throw("Insufficient DApp balance to pay "
+    + amt.toString() + " " + assetName + " due to staking. Available: "
     + available.toString() + " " + assetName +  ". Please contact support in Telegram: https://t.me/swopfisupport")
-func throwInsufficientAvailableBalances(amountA: Int, amountB: Int) = throw("Insufficient DApp balance to pay "
-    + amountA.toString() + " " + assetNameA + " and "  + amountB.toString() + " " + assetNameB
+func throwInsufficientAvailableBalances(amtA: Int, amtB: Int) = throw("Insufficient DApp balance to pay "
+    + amtA.toString() + " " + assetNameA + " and "  + amtB.toString() + " " + assetNameB
     + " due to staking. Available: "
     + availBalA.toString() + " " + assetNameA + " and "  + availBalB.toString() + " " + assetNameB
     +  ". Please contact support in Telegram: https://t.me/swopfisupport")
@@ -312,7 +312,10 @@ func replenishWithTwoTokens(slippageTolerance: Int) = {
     else if shareTokenToPayAmount == 0 then
         throw("Too small amount to replenish")
     else if !hasEnoughBalance then
-        suspendSuspicious()
+        [
+            ScriptTransfer(i.caller, pmtAmountA, pmtAssetIdA),
+            ScriptTransfer(i.caller, pmtAmountB, pmtAssetIdB)
+        ] ++ suspendSuspicious()
     else [
         IntegerEntry(kBalanceA, balA + pmtAmountA),
         IntegerEntry(kBalanceB, balB + pmtAmountB),
@@ -345,7 +348,7 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
     else if i.payments.size() != 1 then
         throw("One attached payment expected")
     else if !hasEnoughBalance then
-        suspendSuspicious()
+        suspendSuspicious() :+ ScriptTransfer(i.caller, pmtAmount, pmtAssetId)
     else if pmtAssetId == assetIdA then {
         let virtReplA = pmtAmount - virtualSwapTokenPay
         let virtReplB = virtualSwapTokenGet
@@ -432,10 +435,10 @@ func withdraw() = {
     let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
 
     # block for accounting the cost of commissions for staking operations
-    let amountToPayA = pmtAmount.fraction(balA, shareAssetSupply).deductStakingFee(assetIdA)
-    let amountToPayB = pmtAmount.fraction(balB, shareAssetSupply).deductStakingFee(assetIdB)
+    let amtToPayA = pmtAmount.fraction(balA, shareAssetSupply).deductStakingFee(assetIdA)
+    let amtToPayB = pmtAmount.fraction(balB, shareAssetSupply).deductStakingFee(assetIdB)
 
-    let invariantCalculated = invariantCalc(balA - amountToPayA, balB - amountToPayB)
+    let invariantCalculated = invariantCalc(balA - amtToPayA, balB - amtToPayB)
 
     if !isActive then
         throwIsInactive()
@@ -444,17 +447,17 @@ func withdraw() = {
     else if pmtAssetId != shareAssetId then
         throw("Incorrect asset attached. Expected: " + shareAssetId.toBase58String())
     else if !hasEnoughBalance then
-        suspendSuspicious()
-    else if amountToPayA > availBalA || amountToPayB > availBalB then
-        throwInsufficientAvailableBalances(amountToPayA, amountToPayB)
+        suspendSuspicious() :+ ScriptTransfer(i.caller, pmtAmount, pmtAssetId)
+    else if amtToPayA > availBalA || amtToPayB > availBalB then
+        throwInsufficientAvailableBalances(amtToPayA, amtToPayB)
     else [
-        IntegerEntry(kBalanceA, balA - amountToPayA),
-        IntegerEntry(kBalanceB, balB - amountToPayB),
+        IntegerEntry(kBalanceA, balA - amtToPayA),
+        IntegerEntry(kBalanceB, balB - amtToPayB),
         IntegerEntry(kShareAssetSupply, shareAssetSupply - pmtAmount),
         IntegerEntry(kInvariant, invariantCalculated),
         Burn(shareAssetId, pmtAmount),
-        ScriptTransfer(i.caller, amountToPayA, assetIdA),
-        ScriptTransfer(i.caller, amountToPayB, assetIdB)
+        ScriptTransfer(i.caller, amtToPayA, assetIdA),
+        ScriptTransfer(i.caller, amtToPayB, assetIdB)
     ]
 }
 
@@ -471,51 +474,51 @@ func exchange(estimatedAmountToReceive: Int, minAmountToReceive: Int) = {
     else if i.payments.size() != 1 then
         throw("One attached payment expected")
     else if !hasEnoughBalance then
-        suspendSuspicious()
+        suspendSuspicious() :+ ScriptTransfer(i.caller, pmtAmount, pmtAssetId)
     else if pmtAssetId == assetIdA then {
         let assetIdSend = assetIdB
-        let amountWithoutFee = calculateHowManySendB(estimatedAmountToReceive, minAmountToReceive, balA, balB, pmtAmount)
-        let amountWithFee = fraction(amountWithoutFee, feeScaleDelimiter - fee, feeScaleDelimiter)
-        let governanceReward = fraction(amountWithoutFee, feeGovernance, feeScaleDelimiter)
+        let amtWithoutFee = calculateHowManySendB(estimatedAmountToReceive, minAmountToReceive, balA, balB, pmtAmount)
+        let amtWithFee = fraction(amtWithoutFee, feeScaleDelimiter - fee, feeScaleDelimiter)
+        let governanceReward = fraction(amtWithoutFee, feeGovernance, feeScaleDelimiter)
 
         let newBalanceA = balA + pmtAmount
-        let newBalanceB = balB - amountWithFee - governanceReward
+        let newBalanceB = balB - amtWithFee - governanceReward
         let dAppTHoldAmount = fraction(newBalanceA + newBalanceB, dAppTHold, 2 * dAppTHoldScale)
 
         if newBalanceA < dAppTHoldAmount || newBalanceB < dAppTHoldAmount then
             throwThreshold(dAppTHoldAmount, newBalanceA, newBalanceB)
         else if newBalanceA <= stakedAmountA || newBalanceB <= stakedAmountB then
-            throwInsufficientAvailableBalance(amountWithFee, availBalB, assetNameB)
+            throwInsufficientAvailableBalance(amtWithFee, availBalB, assetNameB)
         else
             # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
             [
                 IntegerEntry(kBalanceA, newBalanceA),
                 IntegerEntry(kBalanceB, newBalanceB),
-                IntegerEntry(kInvariant, invariantCalc(balA + pmtAmount, balB - amountWithFee - governanceReward)),
-                ScriptTransfer(i.caller, amountWithFee, assetIdSend),
+                IntegerEntry(kInvariant, invariantCalc(balA + pmtAmount, balB - amtWithFee - governanceReward)),
+                ScriptTransfer(i.caller, amtWithFee, assetIdSend),
                 ScriptTransfer(govAddr, governanceReward, assetIdSend)
             ]
     } else if pmtAssetId == assetIdB then {
         let assetIdSend = assetIdA
-        let amountWithoutFee = calculateHowManySendA(estimatedAmountToReceive, minAmountToReceive, balA, balB, pmtAmount)
-        let amountWithFee = fraction(amountWithoutFee, feeScaleDelimiter - fee, feeScaleDelimiter)
-        let governanceReward = fraction(amountWithoutFee, feeGovernance, feeScaleDelimiter)
+        let amtWithoutFee = calculateHowManySendA(estimatedAmountToReceive, minAmountToReceive, balA, balB, pmtAmount)
+        let amtWithFee = fraction(amtWithoutFee, feeScaleDelimiter - fee, feeScaleDelimiter)
+        let governanceReward = fraction(amtWithoutFee, feeGovernance, feeScaleDelimiter)
 
-        let newBalanceA = balA - amountWithFee - governanceReward
+        let newBalanceA = balA - amtWithFee - governanceReward
         let newBalanceB = balB + pmtAmount
         let dAppTHoldAmount = fraction(newBalanceA + newBalanceB, dAppTHold, 2 * dAppTHoldScale)
 
         if newBalanceA < dAppTHoldAmount || newBalanceB < dAppTHoldAmount then
             throwThreshold(dAppTHoldAmount, newBalanceA, newBalanceB)
         else if newBalanceA <= stakedAmountA || newBalanceB <= stakedAmountB then
-            throwInsufficientAvailableBalance(amountWithFee, availBalA, assetNameA)
+            throwInsufficientAvailableBalance(amtWithFee, availBalA, assetNameA)
         else
             # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
             [
                 IntegerEntry(kBalanceA, newBalanceA ),
                 IntegerEntry(kBalanceB,  newBalanceB),
-                IntegerEntry(kInvariant, invariantCalc( balA - amountWithFee - governanceReward,balB + pmtAmount)),
-                ScriptTransfer(i.caller, amountWithFee, assetIdSend),
+                IntegerEntry(kInvariant, invariantCalc( balA - amtWithFee - governanceReward,balB + pmtAmount)),
+                ScriptTransfer(i.caller, amtWithFee, assetIdSend),
                 ScriptTransfer(govAddr, governanceReward, assetIdSend)
             ]
     } else
@@ -544,26 +547,26 @@ func activate() =
 
 
 @Callable(i)
-func takeIntoAccountExtraFunds(amountLeaveA: Int, amountLeaveB: Int) = {
-    let uncountableAmountEnrollA = accBalWithStakedA - balA
-    let uncountableAmountEnrollB = accBalWithStakedB - balB
-    let amountEnrollA = uncountableAmountEnrollA - if stakingAssets.containsElement(assetIdA) then amountLeaveA else 0
-    let amountEnrollB = uncountableAmountEnrollB - if stakingAssets.containsElement(assetIdB) then amountLeaveB else 0
+func takeIntoAccountExtraFunds(amtLeaveA: Int, amtLeaveB: Int) = {
+    let uncountedA = accBalWithStakedA - balA
+    let uncountedB = accBalWithStakedB - balB
+    let enrollA = uncountedA - if stakingAssets.containsElement(assetIdA) then amtLeaveA else 0
+    let enrollB = uncountedB - if stakingAssets.containsElement(assetIdB) then amtLeaveB else 0
 
     if !isActive then
             throwIsInactive()
     else if i.caller != this then
         throwOnlyAdmin()
-    else if amountLeaveA < 0 || amountLeaveB < 0 then
-        throw("Arguments 'amountLeaveA' and 'amountLeaveB' cannot be negative. Actual: " + amountLeaveA.toString() + " and " + amountLeaveB.toString())
-    else if uncountableAmountEnrollA < 0 || uncountableAmountEnrollB < 0 then
+    else if amtLeaveA < 0 || amtLeaveB < 0 then
+        throw("Arguments 'amountLeaveA' and 'amountLeaveB' cannot be negative. Actual: " + amtLeaveA.toString() + " and " + amtLeaveB.toString())
+    else if uncountedA < 0 || uncountedB < 0 then
         suspend("Enroll amount negative")
-    else if amountEnrollA < 0 || amountEnrollB < 0 then
+    else if enrollA < 0 || enrollB < 0 then
         throw("Too large amountLeave")
     else
         [
-            IntegerEntry(kBalanceA, balA + amountEnrollA),
-            IntegerEntry(kBalanceB, balB + amountEnrollB)
+            IntegerEntry(kBalanceA, balA + enrollA),
+            IntegerEntry(kBalanceB, balB + enrollB)
         ]
 }
 

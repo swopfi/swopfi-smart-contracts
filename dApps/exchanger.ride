@@ -195,8 +195,11 @@ func replenishWithTwoTokens(slippageTolerance: Int) = {
     else if shareTokenToPayAmount == 0 then
         throw("Too small amount to replenish")
     else if !hasEnoughBalance then
-        suspend("Suspicious state. Actual balances: " + balanceA.toString() + " " + assetNameA + ", " + balanceB.toString() + " " + assetNameB
-        + ". State: " + accountBalance(assetIdA).toString() + " " + assetNameA + ", " + accountBalance(assetIdB).toString() + " " + assetNameB)
+        [
+            ScriptTransfer(i.caller, pmtAmountA, pmtAssetIdA),
+            ScriptTransfer(i.caller, pmtAmountB, pmtAssetIdB)
+        ] ++ suspend("Suspicious state. Actual balances: " + balanceA.toString() + " " + assetNameA + ", " + balanceB.toString() + " " + assetNameB
+            + ". State: " + accountBalance(assetIdA).toString() + " " + assetNameA + ", " + accountBalance(assetIdB).toString() + " " + assetNameB)
     else [
         IntegerEntry(keyBalanceA, balanceA + pmtAmountA),
         IntegerEntry(keyBalanceB, balanceB + pmtAmountB),
@@ -221,8 +224,10 @@ func withdraw() = {
     else if pmtAssetId != shareAssetId then
         throw("Incorrect asset attached. Expected: " + shareAssetId.toBase58String())
     else if !hasEnoughBalance then
-        suspend("Suspicious state. Actual balances: " + balanceA.toString() + " " + assetNameA + ", " + balanceB.toString() + " " + assetNameB
-        + ". State: " + accountBalance(assetIdA).toString() + " " + assetNameA + ", " + accountBalance(assetIdB).toString() + " " + assetNameB)
+        [
+            ScriptTransfer(i.caller, pmtAmount, pmtAssetId)
+        ] ++ suspend("Suspicious state. Actual balances: " + balanceA.toString() + " " + assetNameA + ", " + balanceB.toString() + " " + assetNameB
+            + ". State: " + accountBalance(assetIdA).toString() + " " + assetNameA + ", " + accountBalance(assetIdB).toString() + " " + assetNameB)
     else if amountToPayA > availableBalanceA || amountToPayB > availableBalanceB then
         throwInsufficientAvailableBalances(amountToPayA, amountToPayB)
     else [
@@ -257,8 +262,10 @@ func exchange(minAmountToReceive: Int) = {
     else if i.payments.size() != 1 then
         throw("One attached payment expected")
     else if !hasEnoughBalance then
-        suspend("Suspicious state. Actual balances: " + balanceA.toString() + " " + assetNameA + ", " + balanceB.toString() + " " + assetNameB
-        + ". State: " + accountBalance(assetIdA).toString() + " " + assetNameA + ", " + accountBalance(assetIdB).toString() + " " + assetNameB)
+        [
+            ScriptTransfer(i.caller, pmtAmount, pmtAssetId)
+        ] ++ suspend("Suspicious state. Actual balances: " + balanceA.toString() + " " + assetNameA + ", " + balanceB.toString() + " " + assetNameB
+            + ". State: " + accountBalance(assetIdA).toString() + " " + assetNameA + ", " + accountBalance(assetIdB).toString() + " " + assetNameB)
     else if pmtAssetId == assetIdA then {
         let assetIdSend = assetIdB
         let (amountWithoutFee, amountWithFee, governanceReward) = calculateFees(balanceA, balanceB)
