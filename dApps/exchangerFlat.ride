@@ -51,7 +51,7 @@ let balA = this.getIntegerValue(kBalanceA)
 let balB = this.getIntegerValue(kBalanceB)
 let shareAssetId = this.getStringValue(kShareAssetId).fromBase58String()
 let shareAssetSupply = this.getIntegerValue(kShareAssetSupply)
-let invariant = this.getIntegerValue(kInvariant)
+let invt = this.getIntegerValue(kInvariant)
 
 let fee = 500 # fee/feeScaleDelimiter = 0.0005
 let feeGovernance = 200 # feeGovernance/feeScaleDelimiter = 0.0002. 3/5 fee back to the dApp, 2/5 sends to the governance address
@@ -113,7 +113,7 @@ let hasEnoughBalance = accBalWithStakedA >= balA && accBalWithStakedB >= balB
 func skewness(x: Int, y: Int) = (scale12.fraction(x, y) + scale12.fraction(y, x)) / 2 / 10000
 
 # Calculate (x+y)*skewness^(-alpha) + 2*(x*y)^0.5*(skewness-beta)^alpha
-func invariantCalc(x: Int, y: Int) = {
+func invtCalc(x: Int, y: Int) = {
     let sk = skewness(x, y)
     fraction(
         x + y,
@@ -126,68 +126,68 @@ func invariantCalc(x: Int, y: Int) = {
     )
 }
 
-func calculateHowManySendA(amtToSendEstimated: Int, minTokenReceiveAmount: Int, amtA: Int, amtB: Int, tokenReceiveAmount: Int) = {
+func calculateHowManySendA(amtToSendEstm: Int, minTokenReceiveAmount: Int, amtA: Int, amtB: Int, tokenReceiveAmount: Int) = {
     let slippageValue = scale8 - scale8 * 1 / 10000000 # 0.000001% of slippage
-    let deltaMaxAndMinSendValue = amtToSendEstimated - minTokenReceiveAmount
+    let deltaMaxAndMinSendValue = amtToSendEstm - minTokenReceiveAmount
 
-    let amtToSendStep1 = amtToSendEstimated - 1 * deltaMaxAndMinSendValue / 5
-    let amtToSendStep2 = amtToSendEstimated - 2 * deltaMaxAndMinSendValue / 5
-    let amtToSendStep3 = amtToSendEstimated - 3 * deltaMaxAndMinSendValue / 5
-    let amtToSendStep4 = amtToSendEstimated - 4 * deltaMaxAndMinSendValue / 5
-    let amtToSendStep5 = amtToSendEstimated - 5 * deltaMaxAndMinSendValue / 5
+    let amtToSendStep1 = amtToSendEstm - 1 * deltaMaxAndMinSendValue / 5
+    let amtToSendStep2 = amtToSendEstm - 2 * deltaMaxAndMinSendValue / 5
+    let amtToSendStep3 = amtToSendEstm - 3 * deltaMaxAndMinSendValue / 5
+    let amtToSendStep4 = amtToSendEstm - 4 * deltaMaxAndMinSendValue / 5
+    let amtToSendStep5 = amtToSendEstm - 5 * deltaMaxAndMinSendValue / 5
 
     let y = amtB + tokenReceiveAmount
-    let invariantNew = invariantCalc(amtA - amtToSendEstimated, y)
-    let invariantEstimatedRatio =
-                fraction(invariant, scale8, invariantNew)
+    let invtNew = invtCalc(amtA - amtToSendEstm, y)
+    let invtEstmRatio =
+                fraction(invt, scale8, invtNew)
 
     # before start check last condition. If it wrong we can stop
-    if invariantCalc(amtA - amtToSendStep5, y) - invariant <= 0 then
+    if invtCalc(amtA - amtToSendStep5, y) - invt <= 0 then
         throw("minTokenReceiveAmount too large.err1")
-    else if invariantEstimatedRatio > slippageValue && invariantNew - invariant > 0 then
-        amtToSendEstimated
-    else if invariantCalc(amtA - amtToSendStep1, y) - invariant > 0 then
+    else if invtEstmRatio > slippageValue && invtNew - invt > 0 then
+        amtToSendEstm
+    else if invtCalc(amtA - amtToSendStep1, y) - invt > 0 then
         amtToSendStep1 * (feeScaleDelimiter - fee) / feeScaleDelimiter
-    else if invariantCalc(amtA - amtToSendStep2, y) - invariant > 0 then
+    else if invtCalc(amtA - amtToSendStep2, y) - invt > 0 then
         amtToSendStep2 * (feeScaleDelimiter - fee) / feeScaleDelimiter
-    else if invariantCalc(amtA - amtToSendStep3, y) - invariant > 0 then
+    else if invtCalc(amtA - amtToSendStep3, y) - invt > 0 then
         amtToSendStep3 * (feeScaleDelimiter - fee) / feeScaleDelimiter
-    else if invariantCalc(amtA - amtToSendStep4, y) - invariant > 0 then
+    else if invtCalc(amtA - amtToSendStep4, y) - invt > 0 then
         amtToSendStep4 * (feeScaleDelimiter - fee) / feeScaleDelimiter
-    else if invariantCalc(amtA - amtToSendStep5, y) - invariant > 0 then
+    else if invtCalc(amtA - amtToSendStep5, y) - invt > 0 then
         amtToSendStep5 * (feeScaleDelimiter - fee) / feeScaleDelimiter
     else
         throw("something went wrong while working with amountToSendStep. err2")
 }
 
-func calculateHowManySendB(amtToSendEstimated: Int, minTokenReceiveAmount: Int, amtA: Int, amtB: Int, tokenReceiveAmount: Int) = {
+func calculateHowManySendB(amtToSendEstm: Int, minTokenReceiveAmount: Int, amtA: Int, amtB: Int, tokenReceiveAmount: Int) = {
     let slippageValue = scale8 - scale8 * 1 / 10000000 # 0.000001% of slippage
-    let deltaMaxAndMinSendValue = amtToSendEstimated - minTokenReceiveAmount
-    let amtToSendStep1 = amtToSendEstimated - 1 * deltaMaxAndMinSendValue / 5
-    let amtToSendStep2 = amtToSendEstimated - 2 * deltaMaxAndMinSendValue / 5
-    let amtToSendStep3 = amtToSendEstimated - 3 * deltaMaxAndMinSendValue / 5
-    let amtToSendStep4 = amtToSendEstimated - 4 * deltaMaxAndMinSendValue / 5
-    let amtToSendStep5 = amtToSendEstimated - 5 * deltaMaxAndMinSendValue / 5
+    let deltaMaxAndMinSendValue = amtToSendEstm - minTokenReceiveAmount
+    let amtToSendStep1 = amtToSendEstm - 1 * deltaMaxAndMinSendValue / 5
+    let amtToSendStep2 = amtToSendEstm - 2 * deltaMaxAndMinSendValue / 5
+    let amtToSendStep3 = amtToSendEstm - 3 * deltaMaxAndMinSendValue / 5
+    let amtToSendStep4 = amtToSendEstm - 4 * deltaMaxAndMinSendValue / 5
+    let amtToSendStep5 = amtToSendEstm - 5 * deltaMaxAndMinSendValue / 5
 
     let x = amtA + tokenReceiveAmount
-    let invariantNew = invariantCalc(x, amtB - amtToSendEstimated)
-    let invariantEstimatedRatio =
-                fraction(invariant, scale8, invariantNew)
+    let invtNew = invtCalc(x, amtB - amtToSendEstm)
+    let invtEstmRatio =
+                fraction(invt, scale8, invtNew)
 
     # before start check last condition. If it wrong we can stop
-    if invariantCalc(x, amtB - amtToSendStep5) - invariant <= 0 then
+    if invtCalc(x, amtB - amtToSendStep5) - invt <= 0 then
         throw("minTokenReceiveAmount too large.err1")
-    else if invariantEstimatedRatio > slippageValue && invariantNew - invariant > 0 then
-        amtToSendEstimated
-    else if invariantCalc(x, amtB - amtToSendStep1) - invariant > 0 then
+    else if invtEstmRatio > slippageValue && invtNew - invt > 0 then
+        amtToSendEstm
+    else if invtCalc(x, amtB - amtToSendStep1) - invt > 0 then
         amtToSendStep1 * (feeScaleDelimiter - fee) / feeScaleDelimiter
-    else if invariantCalc(x, amtB - amtToSendStep2) - invariant > 0 then
+    else if invtCalc(x, amtB - amtToSendStep2) - invt > 0 then
         amtToSendStep2 * (feeScaleDelimiter - fee) / feeScaleDelimiter
-    else if invariantCalc(x, amtB - amtToSendStep3) - invariant > 0 then
+    else if invtCalc(x, amtB - amtToSendStep3) - invt > 0 then
         amtToSendStep3 * (feeScaleDelimiter - fee) / feeScaleDelimiter
-    else if invariantCalc(x, amtB - amtToSendStep4) - invariant > 0 then
+    else if invtCalc(x, amtB - amtToSendStep4) - invt > 0 then
         amtToSendStep4 * (feeScaleDelimiter - fee) / feeScaleDelimiter
-    else if invariantCalc(x, amtB - amtToSendStep5) - invariant > 0 then
+    else if invtCalc(x, amtB - amtToSendStep5) - invt > 0 then
         amtToSendStep5 * (feeScaleDelimiter - fee) / feeScaleDelimiter
     else
         throw("something went wrong while working with amountToSendStep. err2")
@@ -206,17 +206,27 @@ func suspend(cause: String) = [
     StringEntry(kCause, cause)
 ]
 
-let stakingFeeInUSDN = 9 * assetInfo(USDN).value().minSponsoredFee.value() # sponsored fee for invoke called from scripted account
+func stakingFee(assetId: ByteVector) = 9 * assetInfo(assetId).value().minSponsoredFee.value() # sponsored fee for invoke called from scripted account
+# let stakingFeeInUSDN = 9 * assetInfo(USDN).value().minSponsoredFee.value()
 
-func deductStakingFee(amt: Int, assetId: ByteVector|Unit) =
-    if assetId == USDN then {
-        let result = amt - stakingFeeInUSDN
-
-        if result <= 0 then
-            throw("Insufficient amount " + amt.toString()
-                + " to deduct staking fee " + stakingFeeInUSDN.toString() + " USD-N")
-        else result
-    } else amt
+func deductStakingFee(amtA: Int, amtB: Int) =
+    #if assetIdB == unit then (amtA, amtB - 900000)
+    #else if assetIdA == unit then (amtA - 900000, amtB) else
+    if stakingAssets.containsElement(assetIdB) then {
+        let deduct = stakingFee(assetIdB.value())
+        let resB = amtB - deduct
+        if resB <= 0 then
+            throw("Insufficient amount " + amtB.toString() + " " + assetNameB
+                + " to deduct staking fee " + deduct.toString())
+        else (amtA, resB)
+    } else if stakingAssets.containsElement(assetIdA) then {
+        let deduct = stakingFee(assetIdA.value())
+        let resA = amtA - deduct
+        if resA <= 0 then
+            throw("Insufficient amount " + amtA.toString() + " " + assetNameA
+                + " to deduct staking fee " + deduct.toString())
+        else (resA, amtB)
+    } else (amtA, amtB)
 
 func throwIsActive() = throw("DApp is already active")
 func throwIsInactive() = throw("DApp is inactive at this moment")
@@ -260,7 +270,7 @@ func init() = {
         let shareIssue = Issue(shareName, shareDescription, shareInitialSupply, shareDecimals, true)
         let shareIssueId = shareIssue.calculateAssetId()
 
-        let invariantCalculated = invariantCalc(pmtAmountA, pmtAmountB)
+        let invtCalculated = invtCalc(pmtAmountA, pmtAmountB)
         [
             StringEntry(kVersion, version),
             BooleanEntry(kActive, true),
@@ -268,7 +278,7 @@ func init() = {
             StringEntry(kAssetIdB, pmtStrAssetIdB),
             IntegerEntry(kBalanceA, pmtAmountA),
             IntegerEntry(kBalanceB, pmtAmountB),
-            IntegerEntry(kInvariant, invariantCalculated),
+            IntegerEntry(kInvariant, invtCalculated),
             IntegerEntry(kCommission, fee),
             IntegerEntry(kFeeScaleDelimiter, feeScaleDelimiter),
             shareIssue,
@@ -285,8 +295,7 @@ func replenishWithTwoTokens(slippageTolerance: Int) = {
     let pmtAssetIdA = i.payments[0].assetId
     let pmtAssetIdB = i.payments[1].assetId
     # block for accounting the cost of commissions for staking operations
-    let pmtAmountA = deductStakingFee(i.payments[0].amount, pmtAssetIdA)
-    let pmtAmountB = deductStakingFee(i.payments[1].amount, pmtAssetIdB)
+    let (pmtAmountA, pmtAmountB) = deductStakingFee(i.payments[0].amount, i.payments[1].amount)
 
     # fraction should be equal 1(multiple by 1000) if depositor replenish with proportion according to actual price
     let tokenRatio = fraction(balA, scale8, pmtAmountA)
@@ -296,7 +305,7 @@ func replenishWithTwoTokens(slippageTolerance: Int) = {
     let ratioShareTokensInB = fraction(pmtAmountB, scale8, balB)
     let shareTokenToPayAmount = min([ratioShareTokensInA, ratioShareTokensInB]).fraction(shareAssetSupply, scale8)
 
-    let invariantCalculated = invariantCalc(balA + pmtAmountA, balB + pmtAmountB)
+    let invtCalculated = invtCalc(balA + pmtAmountA, balB + pmtAmountB)
 
     if !isActive then
         throwIsInactive()
@@ -320,7 +329,7 @@ func replenishWithTwoTokens(slippageTolerance: Int) = {
         IntegerEntry(kBalanceA, balA + pmtAmountA),
         IntegerEntry(kBalanceB, balB + pmtAmountB),
         IntegerEntry(kShareAssetSupply, shareAssetSupply + shareTokenToPayAmount),
-        IntegerEntry(kInvariant, invariantCalculated),
+        IntegerEntry(kInvariant, invtCalculated),
         Reissue(shareAssetId, shareTokenToPayAmount, true),
         ScriptTransfer(i.caller, shareTokenToPayAmount, shareAssetId)
     ]
@@ -350,26 +359,25 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
     else if !hasEnoughBalance then
         suspendSuspicious() :+ ScriptTransfer(i.caller, pmtAmount, pmtAssetId)
     else if pmtAssetId == assetIdA then {
-        let virtReplA = pmtAmount - virtualSwapTokenPay
-        let virtReplB = virtualSwapTokenGet
+        let (virtReplA, virtReplB) = deductStakingFee(pmtAmount - virtualSwapTokenPay, virtualSwapTokenGet)
         let balAfterSwapA = balA + virtualSwapTokenPay
         let balAfterSwapB = balB - virtualSwapTokenGet
 
-        let invariantNew = invariantCalc(balAfterSwapA, balAfterSwapB)
-        let invariantEstimatedRatio = fraction(invariant, scale8, invariantNew)
+        let invtNew = invtCalc(balAfterSwapA, balAfterSwapB)
+        let invtEstmRatio = fraction(invt, scale8, invtNew)
 
-        if invariantEstimatedRatio > slippageValueMinForSwap && invariantNew - invariant >= 0 then {
+        if invtEstmRatio > slippageValueMinForSwap && invtNew - invt >= 0 then {
             let ratioVirtualBalanceToVirtualReplenish = fraction(balAfterSwapA, scale8 * scale8, balAfterSwapB)
                                                         / fraction(virtReplA, scale8, virtReplB)
             if ratioVirtualBalanceToVirtualReplenish < slippageValueMinForReplenish || ratioVirtualBalanceToVirtualReplenish > slippageValueMaxForReplenish then
                 throw("swop with virtualSwapTokenPay and virtualSwapTokenGet possible, but ratio after virtual swap incorrect")
             else {
                 # fee for staking operation
-                let ratioShareTokensInA = virtReplA.deductStakingFee(assetIdA).fraction(scale8, balAfterSwapA)
-                let ratioShareTokensInB = virtReplB.deductStakingFee(assetIdB).fraction(scale8, balAfterSwapB)
+                let ratioShareTokensInA = virtReplA.fraction(scale8, balAfterSwapA)
+                let ratioShareTokensInB = virtReplB.fraction(scale8, balAfterSwapB)
 
                 let shareTokenToPayAmount = min([ratioShareTokensInA, ratioShareTokensInB]).fraction(shareAssetSupply, scale8)
-                let invariantCalculated = invariantCalc(balA + pmtAmount, balB)
+                let invtCalculated = invtCalc(balA + pmtAmount, balB)
 
                 let newBalanceA = balA + pmtAmount
                 let newBalanceB = balB
@@ -383,32 +391,31 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
                     ScriptTransfer(i.caller, shareTokenToPayAmount, shareAssetId),
                     IntegerEntry(kShareAssetSupply, shareAssetSupply + shareTokenToPayAmount),
                     IntegerEntry(kBalanceA, newBalanceA),
-                    IntegerEntry(kInvariant, invariantCalculated)
+                    IntegerEntry(kInvariant, invtCalculated)
                 ]
             }
         } else
             throw("incorrect virtualSwapTokenPay or virtualSwapTokenGet value")
     } else if pmtAssetId == assetIdB then {
-        let virtReplB = pmtAmount - virtualSwapTokenPay
-        let virtReplA = virtualSwapTokenGet
+        let (virtReplA, virtReplB) = deductStakingFee(virtualSwapTokenGet, pmtAmount - virtualSwapTokenPay)
         let balAfterSwapA = balA - virtualSwapTokenGet
         let balAfterSwapB = balB + virtualSwapTokenPay
 
-        let invariantNew = invariantCalc(balAfterSwapA, balAfterSwapB)
-        let invariantEstimatedRatio = fraction(invariant, scale8,invariantNew)
+        let invtNew = invtCalc(balAfterSwapA, balAfterSwapB)
+        let invtEstmRatio = fraction(invt, scale8,invtNew)
 
-        if invariantEstimatedRatio > slippageValueMinForSwap && invariantNew - invariant >= 0 then {
+        if invtEstmRatio > slippageValueMinForSwap && invtNew - invt >= 0 then {
             let ratioVirtualBalanceToVirtualReplenish = fraction(balAfterSwapA, scale8 * scale8, balAfterSwapB)
                                                         / fraction(virtReplA, scale8, virtReplB)
 
             if ratioVirtualBalanceToVirtualReplenish < slippageValueMinForReplenish || ratioVirtualBalanceToVirtualReplenish > slippageValueMaxForReplenish then
                 throw("swop with virtualSwapTokenPay and virtualSwapTokenGet possible, but ratio after virtual swap incorrect")
             else {
-                let ratioShareTokensInA = virtReplA.deductStakingFee(assetIdA).fraction(scale8, balAfterSwapA)
-                let ratioShareTokensInB = virtReplB.deductStakingFee(assetIdB).fraction(scale8, balAfterSwapB)
+                let ratioShareTokensInA = virtReplA.fraction(scale8, balAfterSwapA)
+                let ratioShareTokensInB = virtReplB.fraction(scale8, balAfterSwapB)
 
                 let shareTokenToPayAmount = min([ratioShareTokensInA, ratioShareTokensInB]).fraction(shareAssetSupply, scale8)
-                let invariantCalculated = invariantCalc(balA, balB + pmtAmount)
+                let invtCalculated = invtCalc(balA, balB + pmtAmount)
 
                 let newBalanceA = balA
                 let newBalanceB = balB + pmtAmount
@@ -421,7 +428,7 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
                     ScriptTransfer(i.caller, shareTokenToPayAmount, shareAssetId),
                     IntegerEntry(kShareAssetSupply, shareAssetSupply + shareTokenToPayAmount),
                     IntegerEntry(kBalanceB, newBalanceB),
-                    IntegerEntry(kInvariant, invariantCalculated)
+                    IntegerEntry(kInvariant, invtCalculated)
                 ]
             }
         } else
@@ -435,10 +442,9 @@ func withdraw() = {
     let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
 
     # block for accounting the cost of commissions for staking operations
-    let amtToPayA = pmtAmount.fraction(balA, shareAssetSupply).deductStakingFee(assetIdA)
-    let amtToPayB = pmtAmount.fraction(balB, shareAssetSupply).deductStakingFee(assetIdB)
+    let (amtToPayA, amtToPayB) = deductStakingFee(pmtAmount.fraction(balA, shareAssetSupply), pmtAmount.fraction(balB, shareAssetSupply))
 
-    let invariantCalculated = invariantCalc(balA - amtToPayA, balB - amtToPayB)
+    let invtCalculated = invtCalc(balA - amtToPayA, balB - amtToPayB)
 
     if !isActive then
         throwIsInactive()
@@ -454,7 +460,7 @@ func withdraw() = {
         IntegerEntry(kBalanceA, balA - amtToPayA),
         IntegerEntry(kBalanceB, balB - amtToPayB),
         IntegerEntry(kShareAssetSupply, shareAssetSupply - pmtAmount),
-        IntegerEntry(kInvariant, invariantCalculated),
+        IntegerEntry(kInvariant, invtCalculated),
         Burn(shareAssetId, pmtAmount),
         ScriptTransfer(i.caller, amtToPayA, assetIdA),
         ScriptTransfer(i.caller, amtToPayB, assetIdB)
@@ -494,7 +500,7 @@ func exchange(estimatedAmountToReceive: Int, minAmountToReceive: Int) = {
             [
                 IntegerEntry(kBalanceA, newBalanceA),
                 IntegerEntry(kBalanceB, newBalanceB),
-                IntegerEntry(kInvariant, invariantCalc(balA + pmtAmount, balB - amtWithFee - governanceReward)),
+                IntegerEntry(kInvariant, invtCalc(balA + pmtAmount, balB - amtWithFee - governanceReward)),
                 ScriptTransfer(i.caller, amtWithFee, assetIdSend),
                 ScriptTransfer(govAddr, governanceReward, assetIdSend)
             ]
@@ -517,7 +523,7 @@ func exchange(estimatedAmountToReceive: Int, minAmountToReceive: Int) = {
             [
                 IntegerEntry(kBalanceA, newBalanceA ),
                 IntegerEntry(kBalanceB,  newBalanceB),
-                IntegerEntry(kInvariant, invariantCalc( balA - amtWithFee - governanceReward,balB + pmtAmount)),
+                IntegerEntry(kInvariant, invtCalc( balA - amtWithFee - governanceReward,balB + pmtAmount)),
                 ScriptTransfer(i.caller, amtWithFee, assetIdSend),
                 ScriptTransfer(govAddr, governanceReward, assetIdSend)
             ]

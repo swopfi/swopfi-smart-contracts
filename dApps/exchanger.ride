@@ -104,17 +104,26 @@ func suspend(cause: String) = [
     StringEntry(keyCause, cause)
 ]
 
-let stakingFeeInUSDN = 9 * assetInfo(USDN).value().minSponsoredFee.value() # sponsored fee for invoke called from scripted account
+func stakingFee(assetId: ByteVector) = 9 * assetInfo(assetId).value().minSponsoredFee.value() # sponsored fee for invoke called from scripted account
 
-func deductStakingFee(amount: Int, assetId: ByteVector|Unit) =
-    if assetId == USDN then {
-        let result = amount - stakingFeeInUSDN
-
-        if result <= 0 then
-            throw("Insufficient amount " + amount.toString()
-                + " to deduct staking fee " + stakingFeeInUSDN.toString() + " USD-N")
-        else result
-    } else amount
+func deductStakingFee(amtA: Int, amtB: Int) =
+    #if assetIdB == unit then (amtA, amtB - 900000)
+    #else if assetIdA == unit then (amtA - 900000, amtB) else
+    if stakingAssets.containsElement(assetIdB) then {
+        let deduct = stakingFee(assetIdB.value())
+        let resB = amtB - deduct
+        if resB <= 0 then
+            throw("Insufficient amount " + amtB.toString() + " " + assetNameB
+                + " to deduct staking fee " + deduct.toString())
+        else (amtA, resB)
+    } else if stakingAssets.containsElement(assetIdA) then {
+        let deduct = stakingFee(assetIdA.value())
+        let resA = amtA - deduct
+        if resA <= 0 then
+            throw("Insufficient amount " + amtA.toString() + " " + assetNameA
+                + " to deduct staking fee " + deduct.toString())
+        else (resA, amtB)
+    } else (amtA, amtB)
 
 func throwInsufficientAvailableBalance(amount: Int, available: Int, assetName: String) = throw("Insufficient DApp balance to pay "
     + amount.toString() + " " + assetName + " due to staking. Available: "
@@ -170,8 +179,7 @@ func replenishWithTwoTokens(slippageTolerance: Int) = {
     let pmtAssetIdA = i.payments[0].assetId
     let pmtAssetIdB = i.payments[1].assetId
     # block for accounting the cost of commissions for staking operations
-    let pmtAmountA = deductStakingFee(i.payments[0].amount, pmtAssetIdA)
-    let pmtAmountB = deductStakingFee(i.payments[1].amount, pmtAssetIdB)
+    let (pmtAmountA, pmtAmountB) = deductStakingFee(i.payments[0].amount, i.payments[1].amount)
 
     # fraction should be equal 1(multiple by 1000) if depositor replenish with proportion according to actual price
     let tokenRatio = fraction(balanceA, scaleValue8, pmtAmountA)
@@ -214,8 +222,7 @@ func withdraw() = {
     let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
 
     # block for accounting the cost of commissions for staking operations
-    let amountToPayA = pmtAmount.fraction(balanceA, shareAssetSupply).deductStakingFee(assetIdA)
-    let amountToPayB = pmtAmount.fraction(balanceB, shareAssetSupply).deductStakingFee(assetIdB)
+    let (amountToPayA, amountToPayB) = deductStakingFee(pmtAmount.fraction(balanceA, shareAssetSupply), pmtAmount.fraction(balanceB, shareAssetSupply))
 
     if !isActive then
         throw("DApp is inactive at this moment")
