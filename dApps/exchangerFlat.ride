@@ -587,7 +587,7 @@ func verify() = match tx {
                 || (["unlockNeutrino", "unlockNsbt"].containsElement(invoke.function) && invoke.payments.size() == 0)
             )
         let callStakingDeFo =
-            invoke.dApp == stakingAddressUsdnAndNsbt
+            invoke.dApp == stakingAddressDeFo
             && (
                 (invoke.function == "startStaking" && invoke.payments.size() == 1)
                 || (invoke.function == "stopStaking" && invoke.payments.size() == 0)
