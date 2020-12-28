@@ -543,7 +543,9 @@ func takeIntoAccountExtraFunds(amountLeave: Int) = {
     else
         [
             IntegerEntry(keyBalanceA, balanceA + amountEnrollA),
-            IntegerEntry(keyBalanceB, balanceB + amountEnrollB)
+            IntegerEntry(keyBalanceB, balanceB + amountEnrollB),
+            IntegerEntry("last_income_"+strAssetIdA, amountEnrollA),
+            IntegerEntry("last_income_"+strAssetIdB, amountEnrollB)
         ]
 }
 
