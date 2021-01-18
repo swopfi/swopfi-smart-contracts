@@ -330,28 +330,29 @@ func activate() =
         BooleanEntry(keyActive, true),
         DeleteEntry(keyCause)
     ]
-
 @Callable(i)
-func takeIntoAccountExtraFunds(amountLeaveA: Int, amountLeaveB: Int) = {
-    let uncountableAmountEnrollAssetA = accountBalanceWithStakedA - balanceA
-    let uncountableAmountEnrollAssetB = accountBalanceWithStakedB - balanceB
-    let amountEnrollA = uncountableAmountEnrollAssetA - if stakingAssets.containsElement(assetIdA) then amountLeaveA else 0
-    let amountEnrollB = uncountableAmountEnrollAssetB - if stakingAssets.containsElement(assetIdB) then amountLeaveB else 0
+func takeIntoAccountExtraFunds(amountLeave: Int) = {
+    let uncountableAmountEnrollA = accountBalanceWithStakedA - balanceA
+    let uncountableAmountEnrollB = accountBalanceWithStakedB - balanceB
+    let amountEnrollA = uncountableAmountEnrollA - if assetIdA == EURN then amountLeave else 0
+    let amountEnrollB = uncountableAmountEnrollB - if assetIdB == EURN then amountLeave else 0
 
     if !isActive then
         throw("DApp is inactive at this moment")
     else if i.caller != this then
         throw("Only the DApp itself can call this function")
-    else if amountLeaveA < 0 || amountLeaveB < 0 then
-        throw("Arguments 'amountLeaveA' and 'amountLeaveB' cannot be negative. Actual: " + amountLeaveA.toString() + " and " + amountLeaveB.toString())
-    else if uncountableAmountEnrollAssetA < 0 || uncountableAmountEnrollAssetB < 0 then
+    else if amountLeave < 0 then
+        throw("Argument 'amountLeave' cannot be negative. Actual: " + amountLeave.toString())
+    else if uncountableAmountEnrollA < 0 || uncountableAmountEnrollB < 0 then
         suspend("Enroll amount negative")
     else if amountEnrollA < 0 || amountEnrollB < 0 then
         throw("Too large amountLeave")
     else
         [
             IntegerEntry(keyBalanceA, balanceA + amountEnrollA),
-            IntegerEntry(keyBalanceB, balanceB + amountEnrollB)
+            IntegerEntry(keyBalanceB, balanceB + amountEnrollB),
+            IntegerEntry("last_income_"+strAssetIdA, amountEnrollA),
+            IntegerEntry("last_income_"+strAssetIdB, amountEnrollB)
         ]
 }
 
