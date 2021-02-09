@@ -452,6 +452,8 @@ func exchange(estimatedAmountToReceive: Int, minAmountToReceive: Int) = {
         throw("One attached payment expected")
     else if !hasEnoughBalance then
         suspendSuspicious()
+    else if pmtAmount < 10000000 then
+        throw("Only swap of 10.000000 USDT or USDN and more is allowed")
     else if pmtAssetId == assetIdA then {
         let assetIdSend = assetIdB
         let amountWithoutFee = calculateHowManySendB(estimatedAmountToReceive, minAmountToReceive, balanceA, balanceB, pmtAmount)
