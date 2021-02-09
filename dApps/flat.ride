@@ -527,10 +527,10 @@ func activate() =
 
 @Callable(i)
 func takeIntoAccountExtraFunds(amountLeave: Int) = {
-    let uncountableAmountEnrollA = accountBalanceWithStakedA - balanceA
-    let uncountableAmountEnrollB = accountBalanceWithStakedB - balanceB
-    let amountEnrollA = uncountableAmountEnrollA - if assetIdA == USDN then amountLeave else 0
-    let amountEnrollB = uncountableAmountEnrollB - if assetIdB == USDN then amountLeave else 0
+    let uncountableA = accountBalanceWithStakedA - balanceA
+    let uncountableB = accountBalanceWithStakedB - balanceB
+    let amountEnrollA = uncountableA - if assetIdA == USDN then amountLeave else 0
+    let amountEnrollB = uncountableB - if assetIdB == USDN then amountLeave else 0
 
     if !isActive then
             throwIsInactive()
@@ -538,7 +538,7 @@ func takeIntoAccountExtraFunds(amountLeave: Int) = {
         throwOnlyAdmin()
     else if amountLeave < 0 then
         throw("Argument 'amountLeave' cannot be negative. Actual: " + amountLeave.toString())
-    else if uncountableAmountEnrollA < 0 || uncountableAmountEnrollB < 0 then
+    else if uncountableA < 0 || uncountableB < 0 then
         suspend("Enroll amount negative")
     else if amountEnrollA < 0 || amountEnrollB < 0 then
         throw("Too large amountLeave")
