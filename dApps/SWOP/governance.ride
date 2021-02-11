@@ -1,0 +1,204 @@
+{-# STDLIB_VERSION 4 #-}
+{-# CONTENT_TYPE DAPP #-}
+{-# SCRIPT_TYPE ACCOUNT #-}
+
+let adminPubKey1 = base58'DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA'
+let adminPubKey2 = base58'E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7'
+let adminPubKey3 = base58'AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ'
+
+# SWOP voting: keys and function | start
+# let keyUserTotalSWOP = "_total_SWOP"
+let keyLastInterest = "last_interest"
+let keyUserLastInterest = "_last_interest"
+let keyUserSWOPAmount = "_SWOP_amount"
+let keyUserGetBackHeight = "_getBackHeight"
+let keyTotalSWOPAmount = "total_SWOP_amount"
+let keyUserVoteTotalAmount = "_total_SWOP_vote_amount"
+let keyUserVoteOptionAmount = "_SWOP_option_amount"
+let keyTotalVoteOptionAmount = "total_SWOP_option_amount"
+let keyUserSWOPClaimedAmount = "_SWOP_claimed_amount"
+let keyUserSWOPLastClaimedAmount = "_SWOP_last_claimed_amount"
+let keyVoteName = "vote_name"
+let keyOptionName = "_option_name"
+let keyVotingStartHeight = "_startHeight"
+let keyVoteDuration = "_vote_duration"
+
+let farmingSWOPAddress = Address(base58'3P73HDkPqG15nLXevjCbmXtazHYTZbpPoPw')
+let keySWOPid = "SWOP_id"
+let SWOP = farmingSWOPAddress.getStringValue(keySWOPid).fromBase58String()
+let scaleValue = 100000000 # 10^8
+
+func throwNotEnoughSWOP() = throw("Not enough SWOP: userSWOPAmount - userTotalVoteAmount < voteSWOPAmount")
+
+func getLastInterestInfo() = {
+    let lastInterest = this.getInteger(keyLastInterest)
+                           .valueOrElse(0)
+    lastInterest
+}
+
+func getUserSWOPAmount(user:Address) =  this.getInteger(user.toString() + keyUserSWOPAmount)
+                                                .valueOrElse(0)
+func getUserSWOPClaimedAmount(user:Address) =  this.getInteger(user.toString() + keyUserSWOPClaimedAmount)
+                                                .valueOrElse(0)
+
+func getUserInterestInfo(user:Address, lastInterest: Int) = {
+    let userSWOPAmount = getUserSWOPAmount(user)
+    let userLastInterest = this.getInteger(user.toString() + keyUserLastInterest)
+    let userLastInterestValue = match userLastInterest {
+        case userLastInterest: Int => userLastInterest
+        case _ => lastInterest
+    }
+    (userLastInterestValue,userSWOPAmount)
+}
+
+func getTotalSWOPLocked() = this.getInteger(keyTotalSWOPAmount)
+                                                .valueOrElse(0)
+
+func getUserTotalVoteAmount(user:Address) = this.getInteger(user.toString() + keyUserVoteTotalAmount).valueOrElse(0)
+
+func getUserVoteOptionAmount(user:Address) = this.getInteger(user.toString() + keyUserVoteOptionAmount)
+                                                .valueOrElse(0)
+
+func getVotingStartHeight(voteName:String) =  this.getInteger(voteName + keyVotingStartHeight)
+                                                .valueOrElse(0)
+
+func getVoteOptionAmount(user:Address, voteName:String, option:String) =  {
+    let userVoteOptionAmount = this.getInteger(voteName + option + user.toString() + keyUserVoteOptionAmount)
+    let uvoa = match userVoteOptionAmount {
+        case uvoa: Int => uvoa
+        case uvoa: Unit => 0
+        }
+    uvoa.valueOrErrorMessage("No data on the key: " + voteName + option + user.toString() + keyUserVoteOptionAmount)
+}
+
+func getVoteDuration(voteName:String) =  this.getInteger(voteName + keyVoteDuration)
+                                                .valueOrErrorMessage("No data on the key: " + voteName + keyVoteDuration)
+
+func getTotalVoteOptionAmount(voteName: String, option: String) = {
+    let totalVoteOptionAmount = this.getInteger(voteName + option +  keyTotalVoteOptionAmount)
+    let tvoa = match totalVoteOptionAmount {
+        case tvoa: Int => tvoa
+        case tvoa: Unit => 0
+        }
+    tvoa
+}
+
+func getUserGetBackAmount(voteName:String,option:String,user:Address,getBackSWOPHeight:Int) = {
+    let key = voteName + "_" + option + "_" + user.toString() + "_" + getBackSWOPHeight.toString()
+    this.getInteger(key)
+        .valueOrErrorMessage("No data on the key: " + key)
+}
+# SWOP voting: keys and function | end
+func claimCalc(caller:Address) = {
+    let shareTokenLocked = getTotalSWOPLocked()
+    let lastInterest = getLastInterestInfo()
+    let (userLastInterest,userSWOPAmount) = getUserInterestInfo(caller,lastInterest)
+    let claimAmount = fraction(userSWOPAmount,lastInterest-userLastInterest,scaleValue)
+    let userNewInterest = lastInterest
+    (userNewInterest,claimAmount)
+}
+
+@Callable(i)
+func airDrop() = {
+    let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
+    if ((pmtAssetId != SWOP))
+        then throw("Incorrect pmtAssetId")
+        else {
+            let totalSWOPAmount = getTotalSWOPLocked()
+            let totalSWOPAmountNew = (totalSWOPAmount + pmtAmount)
+            let lastInterest = getLastInterestInfo()
+            let interestNew = (lastInterest + fraction(pmtAmount, scaleValue, totalSWOPAmount))
+            [IntegerEntry(keyLastInterest, interestNew), IntegerEntry(keyTotalSWOPAmount, totalSWOPAmountNew)]
+            }
+    }
+
+@Callable(i)
+func lockSWOP() = {
+    let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
+    if pmtAssetId != SWOP then throw("Incorrect pmtAssetId") else
+    let lastInterest = getLastInterestInfo()
+    let (userLastInterest,userSWOPAmount) = getUserInterestInfo(i.caller,lastInterest)
+    let claimAmount = fraction(userSWOPAmount,lastInterest-userLastInterest,scaleValue)
+    let userSWOPAmountNew = userSWOPAmount+pmtAmount+claimAmount
+    let userNewInterest = lastInterest
+    let totalSWOPAmount = getTotalSWOPLocked()
+    let totalSWOPLockedNew = totalSWOPAmount + pmtAmount + claimAmount
+    let userClaimedAmount = getUserSWOPClaimedAmount(i.caller)
+    let userClaimedAmountNew = userClaimedAmount + claimAmount
+    [
+        IntegerEntry(i.caller.toString() + keyUserLastInterest, userNewInterest),
+        IntegerEntry(i.caller.toString() + keyUserSWOPAmount, userSWOPAmountNew),
+        IntegerEntry(keyTotalSWOPAmount, totalSWOPLockedNew),
+        IntegerEntry(i.caller.toString() + keyUserSWOPClaimedAmount, userClaimedAmountNew),
+        IntegerEntry(i.caller.toString() + keyUserSWOPLastClaimedAmount, claimAmount)
+    ]
+}
+
+@Callable(i)
+func withdrawSWOP(withdrawAmount: Int) = {
+    let totalSWOPLocked = getTotalSWOPLocked()
+    let userSWOPamount = getUserSWOPAmount(i.caller)
+    let (userNewInterest,claimAmount) = claimCalc(i.caller)
+    let userVoteAmount = getUserTotalVoteAmount(i.caller)
+    let availableFund = userSWOPamount - userVoteAmount
+    if withdrawAmount > availableFund then throw("withdrawAmount > availableFund") else
+    let totalSWOPLockedNew = totalSWOPLocked + claimAmount - withdrawAmount
+    let userSWOPamountNew = userSWOPamount + claimAmount - withdrawAmount
+    let userClaimedAmount = getUserSWOPClaimedAmount(i.caller)
+    let userClaimedAmountNew = userClaimedAmount + claimAmount
+
+    [
+        IntegerEntry(i.caller.toString() + keyUserLastInterest, userNewInterest),
+        IntegerEntry(i.caller.toString() + keyUserSWOPAmount, userSWOPamountNew),
+        IntegerEntry(keyTotalSWOPAmount, totalSWOPLockedNew),
+        ScriptTransfer(i.caller, withdrawAmount, SWOP),
+        IntegerEntry(i.caller.toString() + keyUserSWOPClaimedAmount, userClaimedAmountNew),
+        IntegerEntry(i.caller.toString() + keyUserSWOPLastClaimedAmount, claimAmount)
+    ]
+}
+
+@Callable(i)
+func claimAndWithdrawSWOP() = {
+    let totalSWOPLocked = getTotalSWOPLocked()
+    let lastInterest = getLastInterestInfo()
+    let (userNewInterest,claimAmount) = claimCalc(i.caller)
+    let userClaimedAmount = getUserSWOPClaimedAmount(i.caller)
+    let userClaimedAmountNew = userClaimedAmount + claimAmount
+    if claimAmount == 0 then throw("You have 0 available SWOP") else
+    [
+        IntegerEntry(i.caller.toString() + keyUserLastInterest, userNewInterest),
+        IntegerEntry(keyLastInterest, lastInterest),
+        IntegerEntry(i.caller.toString() + keyUserSWOPClaimedAmount, userClaimedAmountNew),
+        IntegerEntry(i.caller.toString() + keyUserSWOPLastClaimedAmount, claimAmount),
+        ScriptTransfer(i.caller, claimAmount, SWOP)
+    ]
+}
+
+@Callable(i)
+func claimAndStakeSWOP() = {
+    let totalSWOPLocked = getTotalSWOPLocked()
+    let lastInterest = getLastInterestInfo()
+    let (userNewInterest,claimAmount) = claimCalc(i.caller)
+    let userVoteAmount = getUserTotalVoteAmount(i.caller)
+    let availableFund = getUserSWOPAmount(i.caller) + claimAmount - userVoteAmount
+    let totalSWOPLockedNew = totalSWOPLocked - availableFund
+    let userClaimedAmount = getUserSWOPClaimedAmount(i.caller)
+    let userClaimedAmountNew = userClaimedAmount + claimAmount
+    if claimAmount == 0 then throw("You have 0 available SWOP") else
+    [
+        IntegerEntry(i.caller.toString() + keyUserLastInterest, userNewInterest),
+        IntegerEntry(keyLastInterest, lastInterest),
+        IntegerEntry(keyTotalSWOPAmount, totalSWOPLockedNew),
+        IntegerEntry(i.caller.toString() + keyUserSWOPAmount, availableFund + userVoteAmount),
+        IntegerEntry(i.caller.toString() + keyUserSWOPClaimedAmount, userClaimedAmountNew),
+        IntegerEntry(i.caller.toString() + keyUserSWOPLastClaimedAmount, claimAmount)
+    ]
+}
+
+@Verifier(tx)
+func verify() = {
+        let adminPubKey1Signed = if sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1) then 1 else 0
+        let adminPubKey2Signed = if sigVerify(tx.bodyBytes, tx.proofs[1], adminPubKey2) then 1 else 0
+        let adminPubKey3Signed = if sigVerify(tx.bodyBytes, tx.proofs[2], adminPubKey3) then 1 else 0
+        adminPubKey1Signed + adminPubKey2Signed + adminPubKey3Signed >= 2
+}
