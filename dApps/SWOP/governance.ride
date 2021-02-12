@@ -5,9 +5,12 @@
 let adminPubKey1 = base58'DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA'
 let adminPubKey2 = base58'E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7'
 let adminPubKey3 = base58'AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ'
+let adminPubKeyStartStop = base58'EtVkT6ed8GtbUiVVEqdmEqsp2J4qbb3rre2HFgxeVYdg'
 
 # SWOP voting: keys and function | start
 # let keyUserTotalSWOP = "_total_SWOP"
+let keyActive = "active"
+let keyCause = "shutdown_cause"
 let keyLastInterest = "last_interest"
 let keyUserLastInterest = "_last_interest"
 let keyUserSWOPAmount = "_SWOP_amount"
@@ -23,10 +26,17 @@ let keyOptionName = "_option_name"
 let keyVotingStartHeight = "_startHeight"
 let keyVoteDuration = "_vote_duration"
 
+let isActive = this.getBoolean(keyActive).valueOrElse(true)
+
 let farmingSWOPAddress = Address(base58'3P73HDkPqG15nLXevjCbmXtazHYTZbpPoPw')
 let keySWOPid = "SWOP_id"
 let SWOP = farmingSWOPAddress.getStringValue(keySWOPid).fromBase58String()
 let scaleValue = 100000000 # 10^8
+
+func suspend(cause: String) = [
+    BooleanEntry(keyActive, false),
+    StringEntry(keyCause, cause)
+]
 
 func throwNotEnoughSWOP() = throw("Not enough SWOP: userSWOPAmount - userTotalVoteAmount < voteSWOPAmount")
 
@@ -99,7 +109,7 @@ func claimCalc(caller:Address) = {
 }
 
 @Callable(i)
-func airDrop() = {
+func airDrop() = if !isActive then throw("DApp is inactive at this moment") else {
     let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
     if ((pmtAssetId != SWOP))
         then throw("Incorrect pmtAssetId")
@@ -113,7 +123,7 @@ func airDrop() = {
     }
 
 @Callable(i)
-func lockSWOP() = {
+func lockSWOP() = if !isActive then throw("DApp is inactive at this moment") else {
     let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
     if pmtAssetId != SWOP then throw("Incorrect pmtAssetId") else
     let lastInterest = getLastInterestInfo()
@@ -135,7 +145,7 @@ func lockSWOP() = {
 }
 
 @Callable(i)
-func withdrawSWOP(withdrawAmount: Int) = {
+func withdrawSWOP(withdrawAmount: Int) = if !isActive then throw("DApp is inactive at this moment") else {
     let totalSWOPLocked = getTotalSWOPLocked()
     let userSWOPamount = getUserSWOPAmount(i.caller)
     let (userNewInterest,claimAmount) = claimCalc(i.caller)
@@ -158,7 +168,7 @@ func withdrawSWOP(withdrawAmount: Int) = {
 }
 
 @Callable(i)
-func claimAndWithdrawSWOP() = {
+func claimAndWithdrawSWOP() = if !isActive then throw("DApp is inactive at this moment") else {
     let totalSWOPLocked = getTotalSWOPLocked()
     let lastInterest = getLastInterestInfo()
     let (userNewInterest,claimAmount) = claimCalc(i.caller)
@@ -175,7 +185,7 @@ func claimAndWithdrawSWOP() = {
 }
 
 @Callable(i)
-func claimAndStakeSWOP() = {
+func claimAndStakeSWOP() = if !isActive then throw("DApp is inactive at this moment") else {
     let totalSWOPLocked = getTotalSWOPLocked()
     let lastInterest = getLastInterestInfo()
     let (userNewInterest,claimAmount) = claimCalc(i.caller)
@@ -195,10 +205,30 @@ func claimAndStakeSWOP() = {
     ]
 }
 
+@Callable(i)
+func shutdown() =
+    if !isActive then
+        throw("DApp is already suspended. Cause: " + this.getString(keyCause).valueOrElse("the cause wasn't specified"))
+    else if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStartStop].containsElement(i.callerPublicKey) then
+        throw("Only admin can call this function")
+    else
+        suspend("Paused by admin")
+
+@Callable(i)
+func activate() =
+    if isActive then
+        throw("DApp is already active")
+    else if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStartStop].containsElement(i.callerPublicKey) then
+        throw("Only admin can call this function")
+    else [
+        BooleanEntry(keyActive, true),
+        DeleteEntry(keyCause)
+    ]
+
 @Verifier(tx)
 func verify() = {
-        let adminPubKey1Signed = if sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1) then 1 else 0
-        let adminPubKey2Signed = if sigVerify(tx.bodyBytes, tx.proofs[1], adminPubKey2) then 1 else 0
-        let adminPubKey3Signed = if sigVerify(tx.bodyBytes, tx.proofs[2], adminPubKey3) then 1 else 0
-        adminPubKey1Signed + adminPubKey2Signed + adminPubKey3Signed >= 2
+    let adminPubKey1Signed = if sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1) then 1 else 0
+    let adminPubKey2Signed = if sigVerify(tx.bodyBytes, tx.proofs[1], adminPubKey2) then 1 else 0
+    let adminPubKey3Signed = if sigVerify(tx.bodyBytes, tx.proofs[2], adminPubKey3) then 1 else 0
+    adminPubKey1Signed + adminPubKey2Signed + adminPubKey3Signed >= 2
 }
