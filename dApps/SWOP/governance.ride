@@ -13,9 +13,9 @@ let keyActive = "active"
 let keyCause = "shutdown_cause"
 let keyLastInterest = "last_interest"
 let keyUserLastInterest = "_last_interest"
-let keyUserSWOPLocked = "_SWOP_amount"
+let keyUserSWOPAmount = "_SWOP_amount"
 let keyUserGetBackHeight = "_getBackHeight"
-let keyTotalSWOPLocked = "total_SWOP_amount"
+let keyTotalSWOPAmount = "total_SWOP_amount"
 let keyUserVoteTotalAmount = "_total_SWOP_vote_amount"
 let keyUserVoteOptionAmount = "_SWOP_option_amount"
 let keyTotalVoteOptionAmount = "total_SWOP_option_amount"
@@ -28,7 +28,7 @@ let keyVoteDuration = "_vote_duration"
 
 let isActive = this.getBoolean(keyActive).valueOrElse(true)
 
-let farmingSWOPAddress = Address(base58'3PJPMPizTDqCfnuaKwXdXVb45Ff2SEFArsN') # !!!REPLACE!!!
+let farmingSWOPAddress = Address(base58'3P73HDkPqG15nLXevjCbmXtazHYTZbpPoPw')
 let keySWOPid = "SWOP_id"
 let SWOP = farmingSWOPAddress.getStringValue(keySWOPid).fromBase58String()
 let scaleValue = 100000000 # 10^8
@@ -38,7 +38,7 @@ func suspend(cause: String) = [
     StringEntry(keyCause, cause)
 ]
 
-func throwNotEnoughSWOP() = throw("Not enough SWOP: userSWOPLocked - userTotalVoteAmount < voteSWOPAmount")
+func throwNotEnoughSWOP() = throw("Not enough SWOP: userSWOPAmount - userTotalVoteAmount < voteSWOPAmount")
 
 func getLastInterestInfo() = {
     let lastInterest = this.getInteger(keyLastInterest)
@@ -46,13 +46,13 @@ func getLastInterestInfo() = {
     lastInterest
 }
 
-func getUserSWOPLocked(user:Address) =  this.getInteger(user.toString() + keyUserSWOPLocked)
+func getUserSWOPAmount(user:Address) =  this.getInteger(user.toString() + keyUserSWOPAmount)
                                                 .valueOrElse(0)
 func getUserSWOPClaimedAmount(user:Address) =  this.getInteger(user.toString() + keyUserSWOPClaimedAmount)
                                                 .valueOrElse(0)
 
 func getUserInterestInfo(user:Address, lastInterest: Int) = {
-    let userSWOPAmount = getUserSWOPLocked(user)
+    let userSWOPAmount = getUserSWOPAmount(user)
     let userLastInterest = this.getInteger(user.toString() + keyUserLastInterest)
     let userLastInterestValue = match userLastInterest {
         case userLastInterest: Int => userLastInterest
@@ -61,7 +61,7 @@ func getUserInterestInfo(user:Address, lastInterest: Int) = {
     (userLastInterestValue,userSWOPAmount)
 }
 
-func getTotalSWOPLocked() = this.getInteger(keyTotalSWOPLocked)
+func getTotalSWOPLocked() = this.getInteger(keyTotalSWOPAmount)
                                                 .valueOrElse(0)
 
 func getUserTotalVoteAmount(user:Address) = this.getInteger(user.toString() + keyUserVoteTotalAmount).valueOrElse(0)
@@ -100,9 +100,10 @@ func getUserGetBackAmount(voteName:String,option:String,user:Address,getBackSWOP
 }
 # SWOP voting: keys and function | end
 func claimCalc(caller:Address) = {
+    let shareTokenLocked = getTotalSWOPLocked()
     let lastInterest = getLastInterestInfo()
-    let (userLastInterest,userSWOPLocked) = getUserInterestInfo(caller,lastInterest)
-    let claimAmount = fraction(userSWOPLocked,lastInterest-userLastInterest,scaleValue)
+    let (userLastInterest,userSWOPAmount) = getUserInterestInfo(caller,lastInterest)
+    let claimAmount = fraction(userSWOPAmount,lastInterest-userLastInterest,scaleValue)
     let userNewInterest = lastInterest
     (userNewInterest,claimAmount)
 }
@@ -113,10 +114,11 @@ func airDrop() = if !isActive then throw("DApp is inactive at this moment") else
     if ((pmtAssetId != SWOP))
         then throw("Incorrect pmtAssetId")
         else {
-            let totalSWOPLocked = getTotalSWOPLocked()
+            let totalSWOPAmount = getTotalSWOPLocked()
+            let totalSWOPAmountNew = (totalSWOPAmount + pmtAmount)
             let lastInterest = getLastInterestInfo()
-            let interestNew = (lastInterest + fraction(pmtAmount, scaleValue, totalSWOPLocked))
-            [IntegerEntry(keyLastInterest, interestNew)]
+            let interestNew = (lastInterest + fraction(pmtAmount, scaleValue, totalSWOPAmount))
+            [IntegerEntry(keyLastInterest, interestNew), IntegerEntry(keyTotalSWOPAmount, totalSWOPAmountNew)]
             }
     }
 
@@ -125,18 +127,18 @@ func lockSWOP() = if !isActive then throw("DApp is inactive at this moment") els
     let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
     if pmtAssetId != SWOP then throw("Incorrect pmtAssetId") else
     let lastInterest = getLastInterestInfo()
-    let (userLastInterest,userSWOPLocked) = getUserInterestInfo(i.caller,lastInterest)
-    let claimAmount = fraction(userSWOPLocked,lastInterest-userLastInterest,scaleValue)
-    let userSWOPLockedNew = userSWOPLocked + pmtAmount + claimAmount
+    let (userLastInterest,userSWOPAmount) = getUserInterestInfo(i.caller,lastInterest)
+    let claimAmount = fraction(userSWOPAmount,lastInterest-userLastInterest,scaleValue)
+    let userSWOPAmountNew = userSWOPAmount+pmtAmount+claimAmount
     let userNewInterest = lastInterest
-    let totalSWOPLocked = getTotalSWOPLocked()
-    let totalSWOPLockedNew = totalSWOPLocked + pmtAmount + claimAmount
+    let totalSWOPAmount = getTotalSWOPLocked()
+    let totalSWOPLockedNew = totalSWOPAmount + pmtAmount
     let userClaimedAmount = getUserSWOPClaimedAmount(i.caller)
     let userClaimedAmountNew = userClaimedAmount + claimAmount
     [
         IntegerEntry(i.caller.toString() + keyUserLastInterest, userNewInterest),
-        IntegerEntry(i.caller.toString() + keyUserSWOPLocked, userSWOPLockedNew),
-        IntegerEntry(keyTotalSWOPLocked, totalSWOPLockedNew),
+        IntegerEntry(i.caller.toString() + keyUserSWOPAmount, userSWOPAmountNew),
+        IntegerEntry(keyTotalSWOPAmount, totalSWOPLockedNew),
         IntegerEntry(i.caller.toString() + keyUserSWOPClaimedAmount, userClaimedAmountNew),
         IntegerEntry(i.caller.toString() + keyUserSWOPLastClaimedAmount, claimAmount)
     ]
@@ -145,20 +147,20 @@ func lockSWOP() = if !isActive then throw("DApp is inactive at this moment") els
 @Callable(i)
 func withdrawSWOP(withdrawAmount: Int) = if !isActive then throw("DApp is inactive at this moment") else {
     let totalSWOPLocked = getTotalSWOPLocked()
-    let userSWOPLocked = getUserSWOPLocked(i.caller)
+    let userSWOPamount = getUserSWOPAmount(i.caller)
     let (userNewInterest,claimAmount) = claimCalc(i.caller)
     let userVoteAmount = getUserTotalVoteAmount(i.caller)
-    let availableFund = userSWOPLocked - userVoteAmount
+    let availableFund = userSWOPamount - userVoteAmount
     if withdrawAmount > availableFund then throw("withdrawAmount > availableFund") else
-    let totalSWOPLockedNew = totalSWOPLocked + claimAmount - withdrawAmount
-    let userSWOPamountNew = userSWOPLocked + claimAmount - withdrawAmount
+    let totalSWOPLockedNew = totalSWOPLocked - withdrawAmount
+    let userSWOPamountNew = userSWOPamount + claimAmount - withdrawAmount
     let userClaimedAmount = getUserSWOPClaimedAmount(i.caller)
     let userClaimedAmountNew = userClaimedAmount + claimAmount
 
     [
         IntegerEntry(i.caller.toString() + keyUserLastInterest, userNewInterest),
-        IntegerEntry(i.caller.toString() + keyUserSWOPLocked, userSWOPamountNew),
-        IntegerEntry(keyTotalSWOPLocked, totalSWOPLockedNew),
+        IntegerEntry(i.caller.toString() + keyUserSWOPAmount, userSWOPamountNew),
+        IntegerEntry(keyTotalSWOPAmount, totalSWOPLockedNew),
         ScriptTransfer(i.caller, withdrawAmount, SWOP),
         IntegerEntry(i.caller.toString() + keyUserSWOPClaimedAmount, userClaimedAmountNew),
         IntegerEntry(i.caller.toString() + keyUserSWOPLastClaimedAmount, claimAmount)
@@ -187,7 +189,8 @@ func claimAndStakeSWOP() = if !isActive then throw("DApp is inactive at this mom
     let totalSWOPLocked = getTotalSWOPLocked()
     let lastInterest = getLastInterestInfo()
     let (userNewInterest,claimAmount) = claimCalc(i.caller)
-    let availableFund = getUserSWOPLocked(i.caller) + claimAmount 
+    let userVoteAmount = getUserTotalVoteAmount(i.caller)
+    let availableFund = getUserSWOPAmount(i.caller) + claimAmount - userVoteAmount
     let totalSWOPLockedNew = totalSWOPLocked
     let userClaimedAmount = getUserSWOPClaimedAmount(i.caller)
     let userClaimedAmountNew = userClaimedAmount + claimAmount
@@ -195,8 +198,8 @@ func claimAndStakeSWOP() = if !isActive then throw("DApp is inactive at this mom
     [
         IntegerEntry(i.caller.toString() + keyUserLastInterest, userNewInterest),
         IntegerEntry(keyLastInterest, lastInterest),
-        IntegerEntry(keyTotalSWOPLocked, totalSWOPLockedNew),
-        IntegerEntry(i.caller.toString() + keyUserSWOPLocked, availableFund ),
+        IntegerEntry(keyTotalSWOPAmount, totalSWOPLockedNew),
+        IntegerEntry(i.caller.toString() + keyUserSWOPAmount, availableFund + userVoteAmount),
         IntegerEntry(i.caller.toString() + keyUserSWOPClaimedAmount, userClaimedAmountNew),
         IntegerEntry(i.caller.toString() + keyUserSWOPLastClaimedAmount, claimAmount)
     ]
