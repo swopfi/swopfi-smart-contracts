@@ -1,0 +1,58 @@
+{-# STDLIB_VERSION 4 #-}
+{-# CONTENT_TYPE DAPP #-}
+{-# SCRIPT_TYPE ACCOUNT #-}
+
+let keyActivateHeight = "activate_height"
+let keyFinishHeight = "finish_height"
+let activateHeight = this.getIntegerValue(keyActivateHeight)
+let finishHeight = this.getIntegerValue(keyFinishHeight)
+let totalShareSWOP = 100000000000000 # 1m with 8 digits
+let SWOP = base58'Ehie5xYpeN8op1Cctc6aGUrqx8jq3jtf1DSjXDbfm7aT'
+let keyUserSWOPClaimedAmount = "_SWOP_claimed_amount"
+let keyUserSWOPLastClaimedAmount = "_SWOP_last_claimed_amount"
+let adminPubKey1 = base58'DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA'
+let adminPubKey2 = base58'E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7'
+let adminPubKey3 = base58'AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ'
+
+func getCallerShare(caller:Address) = {
+    let callerShare = this.getInteger("share_" + caller.toString())
+    let callerShareAmount = match callerShare {
+        case share: Int => share
+        case share: Unit => throw("Only early liquidity providers can call this function")
+    }
+    callerShareAmount
+}
+
+func getClaimedAmount(caller:Address) = {
+    let callerWithdrawn = this.getInteger(caller.toString()+ keyUserSWOPClaimedAmount)
+    let callerWithdrawnAmount = match callerWithdrawn {
+        case share: Int => share
+        case share: Unit => 0
+    }
+    callerWithdrawnAmount
+}
+
+@Callable(i)
+func claimSWOP() = {
+    let blockDuration = finishHeight - activateHeight
+    let currentDuration  = if height < finishHeight then height else finishHeight
+    let userShare = getCallerShare(i.caller)
+    let userClaimedAmount = getClaimedAmount(i.caller) # already withdrawn amount
+    let claimAmount = (currentDuration-activateHeight).fraction(userShare,blockDuration) - userClaimedAmount
+    let userClaimedAmountNew = userClaimedAmount + claimAmount
+    [
+        ScriptTransfer(i.caller, claimAmount, SWOP),
+        IntegerEntry(i.caller.toString() + keyUserSWOPClaimedAmount, userClaimedAmountNew),
+        IntegerEntry(i.caller.toString() + keyUserSWOPLastClaimedAmount, claimAmount)
+    ]
+}
+
+@Verifier(tx)
+func verify() = match tx {
+    case _ => {
+        let adminPubKey1Signed = if sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1) then 1 else 0
+        let adminPubKey2Signed = if sigVerify(tx.bodyBytes, tx.proofs[1], adminPubKey2) then 1 else 0
+        let adminPubKey3Signed = if sigVerify(tx.bodyBytes, tx.proofs[2], adminPubKey3) then 1 else 0
+        adminPubKey1Signed + adminPubKey2Signed + adminPubKey3Signed >= 2
+    }
+}
