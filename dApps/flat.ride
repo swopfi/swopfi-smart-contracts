@@ -67,8 +67,8 @@ let dAppThresholdDelimiter = 100
 let ratioThresholdMax = 100000000
 let ratioThresholdMin = 99999000
 
-let exchangeRatioLimitMax = 90000000 # 0.9*scaleValue8. This parameter helps to avoid losses when an incorrect argument is passed 
-let exchangeRatioLimitMin = 110000000 #1.1*scaleValue8. This parameter helps to avoid losses when an incorrect argument is passed 
+let exchangeRatioLimitMin = 90000000 # 0.9*scaleValue8. This parameter helps to avoid losses when an incorrect argument is passed
+let exchangeRatioLimitMax = 110000000 #1.1*scaleValue8. This parameter helps to avoid losses when an incorrect argument is passed
 
 let alpha = 50 # model coefficient alpha = 0.15 with 2 digits
 let alphaDigits = 2
