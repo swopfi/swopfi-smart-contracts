@@ -67,6 +67,9 @@ let dAppThresholdDelimiter = 100
 let ratioThresholdMax = 100000000
 let ratioThresholdMin = 99999000
 
+let exchangeRatioLimitMin = 90000000 # 0.9*scaleValue8. This parameter helps to avoid losses when an incorrect argument is passed
+let exchangeRatioLimitMax = 110000000 #1.1*scaleValue8. This parameter helps to avoid losses when an incorrect argument is passed
+
 let alpha = 50 # model coefficient alpha = 0.15 with 2 digits
 let alphaDigits = 2
 let beta = 46000000 # model coefficient beta = 0.46 with 8 digits
@@ -125,7 +128,7 @@ func calculateHowManySendA(amountToSendEstimated: Int, minTokenReceiveAmount: In
 
     # before start check last condition. If it wrong we can stop
     if invariantCalc(amountA - amountToSendStep5, y) - invariant <= 0 then
-        throw("minTokenReceiveAmount too large.err1")
+        throw("err1")
     else if invariantEstimatedRatio > slippageValue && invariantNew - invariant > 0 then
         amountToSendEstimated
     else if invariantCalc(amountA - amountToSendStep1, y) - invariant > 0 then
@@ -139,7 +142,7 @@ func calculateHowManySendA(amountToSendEstimated: Int, minTokenReceiveAmount: In
     else if invariantCalc(amountA - amountToSendStep5, y) - invariant > 0 then
         amountToSendStep5 * (feeScaleDelimiter - commission) / feeScaleDelimiter
     else
-        throw("something went wrong while working with amountToSendStep. err2")
+        throw("err2")
 }
 
 func calculateHowManySendB(amountToSendEstimated: Int, minTokenReceiveAmount: Int, amountA: Int, amountB: Int, tokenReceiveAmount: Int) = {
@@ -158,7 +161,7 @@ func calculateHowManySendB(amountToSendEstimated: Int, minTokenReceiveAmount: In
 
     # before start check last condition. If it wrong we can stop
     if invariantCalc(x, amountB - amountToSendStep5) - invariant <= 0 then
-        throw("minTokenReceiveAmount too large.err1")
+        throw("err1")
     else if invariantEstimatedRatio > slippageValue && invariantNew - invariant > 0 then
         amountToSendEstimated
     else if invariantCalc(x, amountB - amountToSendStep1) - invariant > 0 then
@@ -172,7 +175,7 @@ func calculateHowManySendB(amountToSendEstimated: Int, minTokenReceiveAmount: In
     else if invariantCalc(x, amountB - amountToSendStep5) - invariant > 0 then
         amountToSendStep5 * (feeScaleDelimiter - commission) / feeScaleDelimiter
     else
-        throw("something went wrong while working with amountToSendStep. err2")
+        throw("err2")
 }
 
 func getAssetInfo(assetId: ByteVector|Unit) = match assetId {
@@ -339,7 +342,7 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
             let ratioVirtualBalanceToVirtualReplenish = fraction(balanceAfterSwapA, scaleValue8 * scaleValue8, balanceAfterSwapB)
                                                         / fraction(virtReplA, scaleValue8, virtReplB)
             if ratioVirtualBalanceToVirtualReplenish < slippageValueMinForReplenish || ratioVirtualBalanceToVirtualReplenish > slippageValueMaxForReplenish then
-                throw("swop with virtualSwapTokenPay and virtualSwapTokenGet possible, but ratio after virtual swap incorrect")
+                throw("Ratio after virtual swap incorrect")
             else {
                 # fee for staking operation
                 let ratioShareTokensInA = virtReplA.deductStakingFee(assetIdA).fraction(scaleValue8, balanceAfterSwapA)
@@ -364,7 +367,7 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
                 ]
             }
         } else
-            throw("incorrect virtualSwapTokenPay or virtualSwapTokenGet value")
+            throw("Incorrect virtualSwapTokenPay or virtualSwapTokenGet value")
     } else if pmtAssetId == assetIdB then {
         let virtReplB = pmtAmount - virtualSwapTokenPay
         let virtReplA = virtualSwapTokenGet
@@ -379,7 +382,7 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
                                                         / fraction(virtReplA, scaleValue8, virtReplB)
 
             if ratioVirtualBalanceToVirtualReplenish < slippageValueMinForReplenish || ratioVirtualBalanceToVirtualReplenish > slippageValueMaxForReplenish then
-                throw("swop with virtualSwapTokenPay and virtualSwapTokenGet possible, but ratio after virtual swap incorrect")
+                throw("Ratio after virtual swap incorrect")
             else {
                 let ratioShareTokensInA = virtReplA.deductStakingFee(assetIdA).fraction(scaleValue8, balanceAfterSwapA)
                 let ratioShareTokensInB = virtReplB.deductStakingFee(assetIdB).fraction(scaleValue8, balanceAfterSwapB)
@@ -402,7 +405,7 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
                 ]
             }
         } else
-            throw("incorrect virtualSwapTokenPay or virtualSwapTokenGet value")
+            throw("Incorrect virtualSwapTokenPay or virtualSwapTokenGet value")
     } else
         throwAssets()
 }
@@ -441,7 +444,9 @@ func withdraw() = {
 @Callable(i)
 func exchange(estimatedAmountToReceive: Int, minAmountToReceive: Int) = {
     let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
-
+    if fraction(minAmountToReceive,scaleValue8,pmtAmount) < exchangeRatioLimitMin || 
+        fraction(estimatedAmountToReceive,scaleValue8,pmtAmount) > exchangeRatioLimitMax then throw("Incorrect args and pmt ratio") 
+        else
     if !isActive then
         throwIsInactive()
     else if estimatedAmountToReceive <= 0 then
