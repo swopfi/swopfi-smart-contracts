@@ -49,8 +49,8 @@ let shareAssetId = this.getStringValue(kShareAssetId).fromBase58String()
 let shareAssetSupply = this.getIntegerValue(kShareAssetSupply)
 let invariant = this.getIntegerValue(kInvariant)
 
-let commission = 500 # commission/feeScaleDelimiter = 0.0005
-let commissionGovernance = 200 # commissionGovernance/feeScaleDelimiter = 0.0002. 3/5 fee back to the dApp, 2/5 sends to the governance address
+let fee = 500 # commission/feeScaleDelimiter = 0.0005
+let feeGovernance = 200 # commissionGovernance/feeScaleDelimiter = 0.0002. 3/5 fee back to the dApp, 2/5 sends to the governance address
 let feeScaleDelimiter = 1000000
 
 let scale3 = 1000
@@ -141,7 +141,7 @@ func calculateSendAmount(amountToSendEstimated: Int, minTokenReceiveAmount: Int,
     else if invariantEstimatedRatio > slippageValue && invariantNew > invariant then
         amountToSendEstimated
     else
-        stepAmount * (feeScaleDelimiter - commission) / feeScaleDelimiter
+        stepAmount * (feeScaleDelimiter - fee) / feeScaleDelimiter
 }
 
 func getAssetInfo(assetId: ByteVector|Unit) = match assetId {
@@ -218,7 +218,7 @@ func init() = {
             IntegerEntry(kBalanceA, pmtAmountA),
             IntegerEntry(kBalanceB, pmtAmountB),
             IntegerEntry(kInvariant, invariantCalculated),
-            IntegerEntry(kFee, commission),
+            IntegerEntry(kFee, fee),
             IntegerEntry(kFeeScaleDelimiter, feeScaleDelimiter),
             shareIssue,
             StringEntry(kShareAssetId, shareIssueId.toBase58String()),
@@ -233,7 +233,7 @@ func init() = {
 func replenishWithTwoTokens(slippageTolerance: Int) = {
     let pmtAssetIdA = i.payments[0].assetId
     let pmtAssetIdB = i.payments[1].assetId
-    # block for accounting the cost of commissions for staking operations
+    # block for accounting the cost of fees for staking operations
     let pmtAmountA = deductStakingFee(i.payments[0].amount, pmtAssetIdA)
     let pmtAmountB = deductStakingFee(i.payments[1].amount, pmtAssetIdB)
 
@@ -353,7 +353,7 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
 func withdraw() = {
     let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
 
-    # block for accounting the cost of commissions for staking operations
+    # block for accounting the cost of fees for staking operations
     let amountToPayA = pmtAmount.fraction(balanceA, shareAssetSupply).deductStakingFee(assetIdA)
     let amountToPayB = pmtAmount.fraction(balanceB, shareAssetSupply).deductStakingFee(assetIdB)
 
@@ -383,9 +383,7 @@ func withdraw() = {
 @Callable(i)
 func exchange(estimatedAmountToReceive: Int, minAmountToReceive: Int) = {
     let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
-    if fraction(minAmountToReceive,scale8,pmtAmount) < exchangeRatioLimitMin || 
-        fraction(estimatedAmountToReceive,scale8,pmtAmount) > exchangeRatioLimitMax then throw("Incorrect args and pmt ratio") 
-        else
+    
     if !isActive then
         throwIsInactive()
     else if estimatedAmountToReceive <= 0 then
@@ -398,12 +396,17 @@ func exchange(estimatedAmountToReceive: Int, minAmountToReceive: Int) = {
         suspendSuspicious()
     else if pmtAssetId != assetIdA && pmtAssetId != assetIdB then
         throwAssets()
+    else if pmtAmount < 10000000 then
+        throw("Only swap of 10.000000 or more tokens is allowed")
+    else if fraction(minAmountToReceive, scale8, pmtAmount) < exchangeRatioLimitMin || 
+        fraction(estimatedAmountToReceive, scale8, pmtAmount) > exchangeRatioLimitMax then
+        throw("Incorrect args and pmt ratio")
     else {
         let sendAssetId = if pmtAssetId == assetIdA then assetIdB else assetIdA
 
         let amountWithoutFee = calculateSendAmount(estimatedAmountToReceive, minAmountToReceive, pmtAmount, pmtAssetId)
-        let amountWithFee = amountWithoutFee.fraction(feeScaleDelimiter - commission, feeScaleDelimiter)
-        let governanceReward = amountWithoutFee.fraction(commissionGovernance, feeScaleDelimiter)
+        let amountWithFee = amountWithoutFee.fraction(feeScaleDelimiter - fee, feeScaleDelimiter)
+        let governanceReward = amountWithoutFee.fraction(feeGovernance, feeScaleDelimiter)
 
         let (newBalanceA, newBalanceB) = 
             if pmtAssetId == assetIdA then
@@ -450,13 +453,12 @@ func activate() =
         DeleteEntry(kCause)
     ]
 
-
 @Callable(i)
 func takeIntoAccountExtraFunds(amountLeave: Int) = {
-    let uncountableAmountEnrollA = accountBalanceWithStakedA - balanceA
-    let uncountableAmountEnrollB = accountBalanceWithStakedB - balanceB
-    let amountEnrollA = uncountableAmountEnrollA - if assetIdA == USDN then amountLeave else 0
-    let amountEnrollB = uncountableAmountEnrollB - if assetIdB == USDN then amountLeave else 0
+    let uncountableA = accountBalanceWithStakedA - balanceA
+    let uncountableB = accountBalanceWithStakedB - balanceB
+    let amountEnrollA = uncountableA - if assetIdA == USDN then amountLeave else 0
+    let amountEnrollB = uncountableB - if assetIdB == USDN then amountLeave else 0
 
     if !isActive then
             throwIsInactive()
@@ -464,7 +466,7 @@ func takeIntoAccountExtraFunds(amountLeave: Int) = {
         throwOnlyAdmin()
     else if amountLeave < 0 then
         throw("Argument 'amountLeave' cannot be negative. Actual: " + amountLeave.toString())
-    else if uncountableAmountEnrollA < 0 || uncountableAmountEnrollB < 0 then
+    else if uncountableA < 0 || uncountableB < 0 then
         suspend("Enroll amount negative")
     else if amountEnrollA < 0 || amountEnrollB < 0 then
         throw("Too large amountLeave")
