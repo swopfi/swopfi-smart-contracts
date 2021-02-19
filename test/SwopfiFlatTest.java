@@ -158,15 +158,10 @@ public class SwopfiFlatTest {
 
     Stream<Arguments> aExchangeProvider() {
         return Stream.of(
-                Arguments.of(exchanger2, ThreadLocalRandom.current().nextLong(100L, 1000L)),
-                Arguments.of(exchanger2, ThreadLocalRandom.current().nextLong(1000L, 400000L)),
-                Arguments.of(exchanger5, ThreadLocalRandom.current().nextLong(100L, 1_000000L)),
                 Arguments.of(exchanger5, ThreadLocalRandom.current().nextLong(10_000000L, 100_000000L)),
                 Arguments.of(exchanger5, ThreadLocalRandom.current().nextLong(100_000000L, 10000_000000L)),
-                Arguments.of(exchanger6, ThreadLocalRandom.current().nextLong(100L, 1_000000L)),
                 Arguments.of(exchanger6, ThreadLocalRandom.current().nextLong(10_000000L, 100_000000L)),
                 Arguments.of(exchanger6, ThreadLocalRandom.current().nextLong(100_000000L, 10000_000000L)),
-                Arguments.of(exchanger7, ThreadLocalRandom.current().nextLong(1_000000L, 10_000000L)),
                 Arguments.of(exchanger7, ThreadLocalRandom.current().nextLong(10_000000L, 100_000000L)),
                 Arguments.of(exchanger7, ThreadLocalRandom.current().nextLong(100_000000L, 10000_000000L))
         );
@@ -212,23 +207,17 @@ public class SwopfiFlatTest {
 
     Stream<Arguments> bExchangeProvider() {
         return Stream.of(
-                Arguments.of(exchanger2, ThreadLocalRandom.current().nextLong(1L, 100L)),
-                Arguments.of(exchanger2, ThreadLocalRandom.current().nextLong(100L, 1000L)),
-                Arguments.of(exchanger2, ThreadLocalRandom.current().nextLong(1000L, 400000L)),
-                Arguments.of(exchanger5, ThreadLocalRandom.current().nextLong(100L, 1_000000L)),
                 Arguments.of(exchanger5, ThreadLocalRandom.current().nextLong(10_000000L, 100_000000L)),
                 Arguments.of(exchanger5, ThreadLocalRandom.current().nextLong(100_000000L, 10000_000000L)),
-                Arguments.of(exchanger6, ThreadLocalRandom.current().nextLong(100L, 1_000000L)),
                 Arguments.of(exchanger6, ThreadLocalRandom.current().nextLong(10_000000L, 100_000000L)),
                 Arguments.of(exchanger6, ThreadLocalRandom.current().nextLong(100_000000L, 10000_000000L)),
-                Arguments.of(exchanger7, ThreadLocalRandom.current().nextLong(1_000000L, 10_000000L)),
                 Arguments.of(exchanger7, ThreadLocalRandom.current().nextLong(10_000000L, 100_000000L)),
                 Arguments.of(exchanger7, ThreadLocalRandom.current().nextLong(100_000000L, 10000_000000L))
         );
     }
     @ParameterizedTest(name = "firstCaller exchanges {1} tokenB")
     @MethodSource("bExchangeProvider")
-    void b_canExchangeB(Account exchanger, long tokenReceiveAmount) {
+    void c_canExchangeB(Account exchanger, long tokenReceiveAmount) {
         shareTokenId = exchanger.dataStr("share_asset_id");
         long amountTokenA = exchanger.dataInt("A_asset_balance");
         long amountTokenB = exchanger.dataInt("B_asset_balance");
@@ -260,7 +249,20 @@ public class SwopfiFlatTest {
                 () -> assertThat(exchanger.dataInt("share_asset_supply")).isEqualTo(shareTokenSuplyBefore)
 
         );
+    }
 
+    @Test
+    void d_cantExchangeBelowLimit() {
+        shareTokenId = exchanger7.dataStr("share_asset_id");
+        long amountBelowLimit = 9999999L;
+        long amountTokenA = exchanger7.dataInt("A_asset_balance");
+        long amountTokenB = exchanger7.dataInt("B_asset_balance");
+        long amountSendEstimated = amountToSendEstimated(amountTokenB, amountTokenA, amountTokenB + amountBelowLimit);
+        long minTokenReceiveAmount = amountSendEstimated;
+
+        NodeError error = assertThrows(NodeError.class, () ->
+                firstCaller.invokes(i -> i.dApp(exchanger7).function("exchange", arg(amountSendEstimated), arg(minTokenReceiveAmount)).payment(amountBelowLimit, tokenB).fee(1_00500000L)));
+        assertTrue(error.getMessage().contains("Only swap of 10.000000 or more tokens is allowed"));
     }
 
     Stream<Arguments> replenishOneTokenAProvider() {
@@ -278,7 +280,7 @@ public class SwopfiFlatTest {
     }
     @ParameterizedTest(name = "firstCaller replenish {1} tokenA")
     @MethodSource("replenishOneTokenAProvider")
-    void d_firstCallerReplenishOneTokenA(Account exchanger, long pmtAmount) {
+    void e_firstCallerReplenishOneTokenA(Account exchanger, long pmtAmount) {
         long dAppTokensAmountA = exchanger.dataInt("A_asset_balance");
         long dAppTokensAmountB = exchanger.dataInt("B_asset_balance");
 
@@ -337,7 +339,7 @@ public class SwopfiFlatTest {
     }
     @ParameterizedTest(name = "firstCaller replenish {1} tokenB")
     @MethodSource("replenishOneTokenBProvider")
-    void e_firstCallerReplenishOneTokenB(Account exchanger, long pmtAmount) {
+    void f_firstCallerReplenishOneTokenB(Account exchanger, long pmtAmount) {
         long dAppTokensAmountA = exchanger.dataInt("A_asset_balance");
         long dAppTokensAmountB = exchanger.dataInt("B_asset_balance");
         long virtualSwapTokenPay = calculateVirtualPayGet(dAppTokensAmountB, dAppTokensAmountA, pmtAmount)[0];
@@ -398,7 +400,7 @@ public class SwopfiFlatTest {
 
     @ParameterizedTest(name = "secondCaller replenish A/B by twice")
     @MethodSource("replenishByTwiceProvider")
-    void e_secondCallerReplenishABByTwice(Account exchanger) {
+    void g_secondCallerReplenishABByTwice(Account exchanger) {
         long amountTokenABefore = exchanger.dataInt("A_asset_balance");
         long amountTokenBBefore = exchanger.dataInt("B_asset_balance");
         long shareTokenSupplyBefore = exchanger.dataInt("share_asset_supply");
@@ -407,7 +409,7 @@ public class SwopfiFlatTest {
         shareTokenId = exchanger.dataStr("share_asset_id");
 
 
-        String invokeId = secondCaller.invokes(i -> i.dApp(exchanger).function("replenishWithTwoTokens", arg(1)).payment(tokenReceiveAmountA - stakingFee, tokenA).payment(tokenReceiveAmountB, tokenB).fee(1_00500000L)).getId().getBase58String();
+        String invokeId = secondCaller.invokes(i -> i.dApp(exchanger).function("replenishWithTwoTokens", arg(10)).payment(tokenReceiveAmountA - stakingFee, tokenA).payment(tokenReceiveAmountB, tokenB).fee(1_00500000L)).getId().getBase58String();
         node().waitForTransaction(invokeId);
         double ratioShareTokensInA = BigDecimal.valueOf(amountTokenABefore - stakingFee).multiply(BigDecimal.valueOf(scaleValue8)).divide(BigDecimal.valueOf(amountTokenABefore), 8, RoundingMode.HALF_DOWN).longValue();
         double ratioShareTokensInB = BigDecimal.valueOf(amountTokenBBefore - stakingFee).multiply(BigDecimal.valueOf(scaleValue8)).divide(BigDecimal.valueOf(amountTokenBBefore), 8, RoundingMode.HALF_DOWN).longValue();
@@ -438,9 +440,17 @@ public class SwopfiFlatTest {
         );
     }
 
+    @Test
+    void h_slippToleranceAboveLimit() {
+        int slippageToleranceAboveLimit = 11;
+        NodeError error = assertThrows(NodeError.class, () ->
+                secondCaller.invokes(i -> i.dApp(exchanger7).function("replenishWithTwoTokens", arg(slippageToleranceAboveLimit)).payment(100, tokenA).payment(100, tokenB).fee(1_00500000L)).getId().getBase58String());
+        assertTrue(error.getMessage().contains("slippage tolerance must be <= 1%"));
+    }
+
     @ParameterizedTest(name = "secondCaller withdraw A/B by twice")
     @MethodSource("replenishByTwiceProvider")
-    void f_secondCallerWithdrawABByTwice(Account exchanger) {
+    void i_secondCallerWithdrawABByTwice(Account exchanger) {
         long amountTokenABefore = exchanger.balance(tokenA);
         long amountTokenBBefore = exchanger.balance(tokenB);
         long secondCallerAmountA = secondCaller.balance(tokenA);
@@ -483,7 +493,7 @@ public class SwopfiFlatTest {
     }
 
     @Test
-    void g_staking() {
+    void j_staking() {
         long balanceA = exchanger7.dataInt("A_asset_balance");
         long balanceB = exchanger7.dataInt("B_asset_balance");
         long tokenReceiveAmount = 1000000000L;
@@ -506,7 +516,7 @@ public class SwopfiFlatTest {
     }
 
     @Test
-    void h_canShutdown() {
+    void k_canShutdown() {
         NodeError error = assertThrows(NodeError.class, () ->
                 firstCaller.invokes(i -> i.dApp(exchanger1).function("shutdown").fee(900000L)));
         assertTrue(error.getMessage().contains("Only admin can call this function"));
@@ -522,7 +532,7 @@ public class SwopfiFlatTest {
     }
 
     @Test
-    void i_canActivate() {
+    void l_canActivate() {
         NodeError error = assertThrows(NodeError.class, () ->
                 firstCaller.invokes(i -> i.dApp(exchanger1).function("activate").fee(900000L)));
         assertTrue(error.getMessage().contains("Only admin can call this function"));

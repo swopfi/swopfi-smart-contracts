@@ -12,9 +12,9 @@ let kBalanceA = "A_asset_balance"
 let kBalanceB = "B_asset_balance"
 let kShareAssetId = "share_asset_id"
 let kShareAssetSupply = "share_asset_supply"
-let kCommission = "commission"
+let kFee = "commission"
 let kFeeScaleDelimiter = "commission_scale_delimiter"
-let kCommissionGovernance = "commission_governance"
+let kFeeGovernance = "commission_governance"
 let kInvariant = "invariant"
 let kCause = "shutdown_cause"
 
@@ -50,8 +50,8 @@ let shareAssetId = this.getStringValue(kShareAssetId).fromBase58String()
 let shareAssetSupply = this.getIntegerValue(kShareAssetSupply)
 let invariant = this.getIntegerValue(kInvariant)
 
-let commission = 500 # commission/feeScaleDelimiter = 0.0005
-let commissionGovernance = 200 # commissionGovernance/feeScaleDelimiter = 0.0002. 3/5 fee back to the dApp, 2/5 sends to the governance address
+let fee = 500 # fee/feeScaleDelimiter = 0.0005
+let feeGovernance = 200 # feeGovernance/feeScaleDelimiter = 0.0002. 3/5 fee back to the dApp, 2/5 sends to the governance address
 let feeScaleDelimiter = 1000000
 
 let scaleValue3 = 1000
@@ -132,15 +132,15 @@ func calculateHowManySendA(amountToSendEstimated: Int, minTokenReceiveAmount: In
     else if invariantEstimatedRatio > slippageValue && invariantNew - invariant > 0 then
         amountToSendEstimated
     else if invariantCalc(amountA - amountToSendStep1, y) - invariant > 0 then
-        amountToSendStep1 * (feeScaleDelimiter - commission) / feeScaleDelimiter
+        amountToSendStep1 * (feeScaleDelimiter - fee) / feeScaleDelimiter
     else if invariantCalc(amountA - amountToSendStep2, y) - invariant > 0 then
-        amountToSendStep2 * (feeScaleDelimiter - commission) / feeScaleDelimiter
+        amountToSendStep2 * (feeScaleDelimiter - fee) / feeScaleDelimiter
     else if invariantCalc(amountA - amountToSendStep3, y) - invariant > 0 then
-        amountToSendStep3 * (feeScaleDelimiter - commission) / feeScaleDelimiter
+        amountToSendStep3 * (feeScaleDelimiter - fee) / feeScaleDelimiter
     else if invariantCalc(amountA - amountToSendStep4, y) - invariant > 0 then
-        amountToSendStep4 * (feeScaleDelimiter - commission) / feeScaleDelimiter
+        amountToSendStep4 * (feeScaleDelimiter - fee) / feeScaleDelimiter
     else if invariantCalc(amountA - amountToSendStep5, y) - invariant > 0 then
-        amountToSendStep5 * (feeScaleDelimiter - commission) / feeScaleDelimiter
+        amountToSendStep5 * (feeScaleDelimiter - fee) / feeScaleDelimiter
     else
         throw("err2")
 }
@@ -165,15 +165,15 @@ func calculateHowManySendB(amountToSendEstimated: Int, minTokenReceiveAmount: In
     else if invariantEstimatedRatio > slippageValue && invariantNew - invariant > 0 then
         amountToSendEstimated
     else if invariantCalc(x, amountB - amountToSendStep1) - invariant > 0 then
-        amountToSendStep1 * (feeScaleDelimiter - commission) / feeScaleDelimiter
+        amountToSendStep1 * (feeScaleDelimiter - fee) / feeScaleDelimiter
     else if invariantCalc(x, amountB - amountToSendStep2) - invariant > 0 then
-        amountToSendStep2 * (feeScaleDelimiter - commission) / feeScaleDelimiter
+        amountToSendStep2 * (feeScaleDelimiter - fee) / feeScaleDelimiter
     else if invariantCalc(x, amountB - amountToSendStep3) - invariant > 0 then
-        amountToSendStep3 * (feeScaleDelimiter - commission) / feeScaleDelimiter
+        amountToSendStep3 * (feeScaleDelimiter - fee) / feeScaleDelimiter
     else if invariantCalc(x, amountB - amountToSendStep4) - invariant > 0 then
-        amountToSendStep4 * (feeScaleDelimiter - commission) / feeScaleDelimiter
+        amountToSendStep4 * (feeScaleDelimiter - fee) / feeScaleDelimiter
     else if invariantCalc(x, amountB - amountToSendStep5) - invariant > 0 then
-        amountToSendStep5 * (feeScaleDelimiter - commission) / feeScaleDelimiter
+        amountToSendStep5 * (feeScaleDelimiter - fee) / feeScaleDelimiter
     else
         throw("err2")
 }
@@ -252,7 +252,7 @@ func init() = {
             IntegerEntry(kBalanceA, pmtAmountA),
             IntegerEntry(kBalanceB, pmtAmountB),
             IntegerEntry(kInvariant, invariantCalculated),
-            IntegerEntry(kCommission, commission),
+            IntegerEntry(kFee, fee),
             IntegerEntry(kFeeScaleDelimiter, feeScaleDelimiter),
             shareIssue,
             StringEntry(kShareAssetId, shareIssueId.toBase58String()),
@@ -265,9 +265,10 @@ func init() = {
 # if someone ready to replenish in both tokens. It's necessary to bring tokens amount in proportion according to dApp state
 @Callable(i)
 func replenishWithTwoTokens(slippageTolerance: Int) = {
+    if slippageTolerance > 10 then throw("slippage tolerance must be <= 1%") else
     let pmtAssetIdA = i.payments[0].assetId
     let pmtAssetIdB = i.payments[1].assetId
-    # block for accounting the cost of commissions for staking operations
+    # block for accounting the cost of fees for staking operations
     let pmtAmountA = deductStakingFee(i.payments[0].amount, pmtAssetIdA)
     let pmtAmountB = deductStakingFee(i.payments[1].amount, pmtAssetIdB)
 
@@ -414,7 +415,7 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
 func withdraw() = {
     let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
 
-    # block for accounting the cost of commissions for staking operations
+    # block for accounting the cost of fees for staking operations
     let amountToPayA = pmtAmount.fraction(balanceA, shareAssetSupply).deductStakingFee(assetIdA)
     let amountToPayB = pmtAmount.fraction(balanceB, shareAssetSupply).deductStakingFee(assetIdB)
 
@@ -457,11 +458,13 @@ func exchange(estimatedAmountToReceive: Int, minAmountToReceive: Int) = {
         throw("One attached payment expected")
     else if !hasEnoughBalance then
         suspendSuspicious()
+    else if pmtAmount < 10000000 then
+            throw("Only swap of 10.000000 or more tokens is allowed")
     else if pmtAssetId == assetIdA then {
         let assetIdSend = assetIdB
         let amountWithoutFee = calculateHowManySendB(estimatedAmountToReceive, minAmountToReceive, balanceA, balanceB, pmtAmount)
-        let amountWithFee = fraction(amountWithoutFee, feeScaleDelimiter - commission, feeScaleDelimiter)
-        let governanceReward = fraction(amountWithoutFee, commissionGovernance, feeScaleDelimiter)
+        let amountWithFee = fraction(amountWithoutFee, feeScaleDelimiter - fee, feeScaleDelimiter)
+        let governanceReward = fraction(amountWithoutFee, feeGovernance, feeScaleDelimiter)
 
         let newBalanceA = balanceA + pmtAmount
         let newBalanceB = balanceB - amountWithFee - governanceReward
@@ -483,8 +486,8 @@ func exchange(estimatedAmountToReceive: Int, minAmountToReceive: Int) = {
     } else if pmtAssetId == assetIdB then {
         let assetIdSend = assetIdA
         let amountWithoutFee = calculateHowManySendA(estimatedAmountToReceive, minAmountToReceive, balanceA, balanceB, pmtAmount)
-        let amountWithFee = fraction(amountWithoutFee, feeScaleDelimiter - commission, feeScaleDelimiter)
-        let governanceReward = fraction(amountWithoutFee, commissionGovernance, feeScaleDelimiter)
+        let amountWithFee = fraction(amountWithoutFee, feeScaleDelimiter - fee, feeScaleDelimiter)
+        let governanceReward = fraction(amountWithoutFee, feeGovernance, feeScaleDelimiter)
 
         let newBalanceA = balanceA - amountWithFee - governanceReward
         let newBalanceB = balanceB + pmtAmount
@@ -530,10 +533,10 @@ func activate() =
 
 @Callable(i)
 func takeIntoAccountExtraFunds(amountLeave: Int) = {
-    let uncountableAmountEnrollA = accountBalanceWithStakedA - balanceA
-    let uncountableAmountEnrollB = accountBalanceWithStakedB - balanceB
-    let amountEnrollA = uncountableAmountEnrollA - if assetIdA == USDN then amountLeave else 0
-    let amountEnrollB = uncountableAmountEnrollB - if assetIdB == USDN then amountLeave else 0
+    let uncountableA = accountBalanceWithStakedA - balanceA
+    let uncountableB = accountBalanceWithStakedB - balanceB
+    let amountEnrollA = uncountableA - if assetIdA == USDN then amountLeave else 0
+    let amountEnrollB = uncountableB - if assetIdB == USDN then amountLeave else 0
 
     if !isActive then
             throwIsInactive()
@@ -541,7 +544,7 @@ func takeIntoAccountExtraFunds(amountLeave: Int) = {
         throwOnlyAdmin()
     else if amountLeave < 0 then
         throw("Argument 'amountLeave' cannot be negative. Actual: " + amountLeave.toString())
-    else if uncountableAmountEnrollA < 0 || uncountableAmountEnrollB < 0 then
+    else if uncountableA < 0 || uncountableB < 0 then
         suspend("Enroll amount negative")
     else if amountEnrollA < 0 || amountEnrollB < 0 then
         throw("Too large amountLeave")
