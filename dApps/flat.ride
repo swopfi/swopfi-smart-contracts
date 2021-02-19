@@ -12,9 +12,8 @@ let kBalanceA = "A_asset_balance"
 let kBalanceB = "B_asset_balance"
 let kShareAssetId = "share_asset_id"
 let kShareAssetSupply = "share_asset_supply"
-let kCommission = "commission"
+let kFee = "commission"
 let kFeeScaleDelimiter = "commission_scale_delimiter"
-let kCommissionGovernance = "commission_governance"
 let kInvariant = "invariant"
 let kCause = "shutdown_cause"
 
@@ -63,16 +62,12 @@ let digits8 = 8
 let dAppThreshold = 50 # dAppThresholdAmount/dAppThresholdAmountDelimiter = 0.5
 let dAppThresholdDelimiter = 100
 
-let ratioThresholdMax = 100000000
-let ratioThresholdMin = 99999000
-
 let exchangeRatioLimitMin = 90000000 # 0.9*scale8. This parameter helps to avoid losses when an incorrect argument is passed
 let exchangeRatioLimitMax = 110000000 #1.1*scale8. This parameter helps to avoid losses when an incorrect argument is passed
 
 let alpha = 50 # model coefficient alpha = 0.15 with 2 digits
 let alphaDigits = 2
 let beta = 46000000 # model coefficient beta = 0.46 with 8 digits
-let betaDigits = 8
 
 func accountBalance(assetId: ByteVector|Unit) = match assetId {
     case id: ByteVector => this.assetBalance(id)
@@ -223,7 +218,7 @@ func init() = {
             IntegerEntry(kBalanceA, pmtAmountA),
             IntegerEntry(kBalanceB, pmtAmountB),
             IntegerEntry(kInvariant, invariantCalculated),
-            IntegerEntry(kCommission, commission),
+            IntegerEntry(kFee, commission),
             IntegerEntry(kFeeScaleDelimiter, feeScaleDelimiter),
             shareIssue,
             StringEntry(kShareAssetId, shareIssueId.toBase58String()),
