@@ -262,7 +262,9 @@ public class SwopfiFlatTest {
 
         ApiError error = assertThrows(ApiError.class, () ->
                 firstCaller.invoke(i -> i.dApp(exchanger7).function("exchange", IntegerArg.as(amountSendEstimated), IntegerArg.as(minTokenReceiveAmount)).payment(amountBelowLimit, tokenB).fee(1_00500000L)));
-        assertTrue(error.getMessage().contains("Only swap of 10.000000 or more tokens is allowed"));
+
+        String expected = "Only swap of 10.000000 or more tokens is allowed";
+        assertTrue(error.getMessage().contains(expected), String.format("Actual error message: %s does not contain \"%s\"", error.getMessage(), expected));
     }
 
     Stream<Arguments> replenishOneTokenAProvider() {
@@ -445,7 +447,9 @@ public class SwopfiFlatTest {
         int slippageToleranceAboveLimit = 11;
         ApiError error = assertThrows(ApiError.class, () ->
                 secondCaller.invoke(i -> i.dApp(exchanger7).function("replenishWithTwoTokens", IntegerArg.as(slippageToleranceAboveLimit)).payment(100, tokenA).payment(100, tokenB).fee(1_00500000L)).tx().id());
-        assertTrue(error.getMessage().contains("slippage tolerance must be <= 1%"));
+
+        String expected = "Slippage tolerance must be <= 1%";
+        assertTrue(error.getMessage().contains(expected), String.format("Actual error message: %s does not contain \"%s\"", error.getMessage(), expected));
     }
 
     @ParameterizedTest(name = "secondCaller withdraw A/B by twice")
@@ -507,9 +511,10 @@ public class SwopfiFlatTest {
 
         ApiError error = assertThrows(ApiError.class, () ->
                 firstCaller.invoke(i -> i.dApp(exchanger7).function("exchange", IntegerArg.as(amountSendEstimated), IntegerArg.as(tokenSendAmountWithFee)).payment(tokenReceiveAmount, tokenA).fee(1_00500000L)));
-        assertTrue(error.getMessage().contains(String.format("Error while executing account-script:" +
+        String expected = String.format("Error while executing account-script:" +
                 " Insufficient DApp balance to pay %s tokenB due to staking. Available: 0 tokenB." +
-                " Please contact support in Telegram: https://t.me/swopfisupport", tokenSendAmountWithFee)));
+                " Please contact support in Telegram: https://t.me/swopfisupport", tokenSendAmountWithFee);
+        assertTrue(error.getMessage().contains(expected), String.format("Actual error message: %s does not contain \"%s\"", error.getMessage(), expected));
 
         node().waitForTransaction(stakingAcc.writeData(d -> d.integer(String.format("rpd_balance_%s_%s", tokenB, exchanger7.address()), balanceB - tokenSendAmountWithFee - tokenSendGovernance - 1)).tx().id());
         node().waitForTransaction(firstCaller.invoke(i -> i.dApp(exchanger7).function("exchange", IntegerArg.as(amountSendEstimated), IntegerArg.as(tokenSendAmountWithFee)).payment(tokenReceiveAmount, tokenA).fee(1_00500000L)).tx().id());
@@ -519,7 +524,8 @@ public class SwopfiFlatTest {
     void k_canShutdown() {
         ApiError error = assertThrows(ApiError.class, () ->
                 firstCaller.invoke(i -> i.dApp(exchanger1).function("shutdown").fee(900000L)));
-        assertTrue(error.getMessage().contains("Only admin can call this function"));
+        String expected = "Only admin can call this function";
+        assertTrue(error.getMessage().contains(expected), String.format("Actual error message: %s does not contain \"%s\"", error.getMessage(), expected));
 
         secondCaller.invoke(i -> i.dApp(exchanger1).function("shutdown").fee(900000L));
         assertThat(exchanger1.getBooleanData("active")).isFalse();
@@ -535,7 +541,8 @@ public class SwopfiFlatTest {
     void l_canActivate() {
         ApiError error = assertThrows(ApiError.class, () ->
                 firstCaller.invoke(i -> i.dApp(exchanger1).function("activate").fee(900000L)));
-        assertTrue(error.getMessage().contains("Only admin can call this function"));
+        String expected = "Only admin can call this function";
+        assertTrue(error.getMessage().contains(expected), String.format("Actual error message: %s does not contain \"%s\"", error.getMessage(), expected));
 
         secondCaller.invoke(i -> i.dApp(exchanger1).function("activate").fee(900000L));
         assertThat(exchanger1.getBooleanData("active")).isTrue();
