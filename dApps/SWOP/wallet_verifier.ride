@@ -28,10 +28,10 @@ func getPoolNameIfValid(poolName: String) = {
 @Callable(i)
 func addPool(poolAddress: String, poolName: String) = isSelfInvoke(i).valueOrElse({
   let key = keyPrefixPoolName + poolAddress.parsePoolAddress()
-  let possiblyExistingEntry = this.getString(key)
+  let possiblyAlreadyAddedPool = this.getString(key)
 
-  if possiblyExistingEntry.isDefined() then
-    throw("Pool with address " + poolAddress + " is already defined with name \"" + possiblyExistingEntry.value() + "\"")
+  if possiblyAlreadyAddedPool.isDefined() then
+    throw("Pool with address " + poolAddress + " is already defined with name \"" + possiblyAlreadyAddedPool.value() + "\"")
   else [
     StringEntry(key, poolName.getPoolNameIfValid())
   ]
@@ -40,9 +40,9 @@ func addPool(poolAddress: String, poolName: String) = isSelfInvoke(i).valueOrEls
 @Callable(i)
 func renamePool(poolAddress: String, newPoolName: String) = isSelfInvoke(i).valueOrElse({
   let key = keyPrefixPoolName + poolAddress.parsePoolAddress()
-  let possiblyExistingEntry = this.getString(key)
+  let possiblyAlreadyAddedPool = this.getString(key)
 
-  if possiblyExistingEntry.isDefined() then [
+  if possiblyAlreadyAddedPool.isDefined() then [
     StringEntry(key, newPoolName.getPoolNameIfValid())
   ] else
     throw("Pool with address " + poolAddress + " has not yet been added")
