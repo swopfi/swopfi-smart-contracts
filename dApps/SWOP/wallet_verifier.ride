@@ -17,7 +17,7 @@ func parsePoolAddress(address: String) = address.addressFromString().valueOrErro
 func getPoolNameIfValid(poolName: String) = {
   let underscoreIndex = poolName.indexOf("_").valueOrElse(-1)
   let underscoreLastIndex = poolName.lastIndexOf("_").valueOrElse(-1)
-  let hasSingleUnderscore = underscoreIndex == underscoreLastIndex && underscoreIndex > 0 && underscoreIndex != (poolName.size() + 1)
+  let hasSingleUnderscore = underscoreIndex == underscoreLastIndex && underscoreIndex > 0 && underscoreIndex != (poolName.size() - 1)
 
   if hasSingleUnderscore then
     poolName
