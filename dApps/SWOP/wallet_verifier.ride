@@ -56,7 +56,7 @@ func verify() = match tx {
     let isSelfCall = invoke.dApp == this && ["addPool", "renamePool"].containsElement(invoke.function)
     let signedByAdmin = sigVerify(tx.bodyBytes, tx.proofs[0], adminInvoke)
 
-    (((isExchangeCall || isAirdropCall) && invoke.payments.size() == 1) || isSelfCall) && signedByAdmin
+    (((isExchangeCall || isAirdropCall) && invoke.payments.size() == 1) || (isSelfCall && invoke.payments.size() == 0)) && signedByAdmin
   }
   case _ => {
     let adminPubKey1Signed = if sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1) then 1 else 0
