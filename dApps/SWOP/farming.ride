@@ -7,9 +7,11 @@ let adminPubKey2 = base58'E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7'
 let adminPubKey3 = base58'AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ'
 
 let keyShareTokensLocked = "_total_share_tokens_locked" # with prefix(pool identity) get info about total share locked in this pool
-let keyCurrentReward = "_current_reward"
+let keyRewardPoolFractionCurrent = "_current_pool_fraction_reward"
+let keyRewardPoolFractionPrevious = "_previous_pool_fraction_reward"
+let keyTotalRewardPerBlockCurrent = "total_reward_per_block_current"
+let keyTotalRewardPerBlockPrevious = "total_reward_per_block_previous"
 let keyRewardUpdateHeight = "_reward_update_height"
-let keyPreviousReward = "_previous_reward"
 let keyLastInterest = "_last_interest"
 let keyLastInterestHeight = "_last_interest_height"
 let keyUserShareTokensLocked = "_share_tokens_locked"
@@ -21,6 +23,7 @@ let keyAvailableSWOP = "_available_SWOP"
 let keyFarmingStartHeight = "farming_start_height"
 let votingAddress = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
 let oneWeekInBlock = 10106 # 1440*7*60/59.84 where 59.84 - real block duration in seconds
+let totalVoteShare = 10000000000
 
 let SWOP = this.getStringValue(keySWOPid).fromBase58String()
 
@@ -45,13 +48,24 @@ func calcScaleValue(assetId1:ByteVector,assetId2:ByteVector) = {
 func userAvailableSWOP(pool:String, user:Address) = this.getInteger(pool+"_"+user.toString() + keyAvailableSWOP).valueOrElse(0)
 
 func rewardInfo(pool:String) = {
-    let currentReward = votingAddress.getInteger(pool + keyCurrentReward)
-                                    .valueOrErrorMessage("No data on the key: " + pool + keyCurrentReward + " at address " + votingAddress.toString())
+    let totalRewardPerBlockCurrent = votingAddress.getInteger(keyTotalRewardPerBlockCurrent)
+                                    .valueOrErrorMessage("No data on the key: " + keyTotalRewardPerBlockCurrent + " at address " + votingAddress.toString())
+    let totalRewardPerBlockPrevious = votingAddress.getInteger(keyTotalRewardPerBlockPrevious)
+                                    .valueOrErrorMessage("No data on the key: " + keyTotalRewardPerBlockPrevious + " at address " + votingAddress.toString())
+    let rewardPoolFractionCurrent = votingAddress.getInteger(pool + keyRewardPoolFractionCurrent)
+                                    .valueOrErrorMessage("No data on the key: " + pool + keyRewardPoolFractionCurrent + " at address " + votingAddress.toString())
     let rewardUpdateHeight = votingAddress.getInteger(pool + keyRewardUpdateHeight)
                                     .valueOrErrorMessage("No data on the key: " + pool + keyRewardUpdateHeight + " at address " + votingAddress.toString())
-    let rewardPreviousAmount = votingAddress.getInteger(pool + keyPreviousReward)
-                                    .valueOrErrorMessage("No data on the key: " + pool + keyPreviousReward + " at address " + votingAddress.toString())
-    (currentReward,rewardUpdateHeight,rewardPreviousAmount)
+    let rewardPoolFractionPrevious = votingAddress.getInteger(pool + keyRewardPoolFractionPrevious)
+                                    .valueOrErrorMessage("No data on the key: " + pool + keyRewardPoolFractionPrevious + " at address " + votingAddress.toString())
+    
+    let rewardPoolCurrent = totalRewardPerBlockCurrent.fraction(rewardPoolFractionCurrent,totalVoteShare)
+    let rewardPoolPrevious =  totalRewardPerBlockPrevious.fraction(rewardPoolFractionPrevious,totalVoteShare)
+
+    if rewardPoolCurrent > totalRewardPerBlockCurrent || rewardPoolPrevious > totalRewardPerBlockPrevious then
+        throw("rewardPoolCurrent > totalRewardPerBlockCurrent or rewardPoolPrevious > totalRewardPerBlockPrevious")
+    else 
+    (rewardPoolCurrent,rewardUpdateHeight,rewardPoolPrevious)
 }
 
 func getLastInterestInfo(pool:String) = {
@@ -80,14 +94,18 @@ func getUserInterestInfo(pool:String, userAddress:Address) = {
 
 func calcInterest(lastInterestHeight:Int,rewardUpdateHeight:Int,lastInterest:Int,currentRewardPerBlock:Int,shareTokenLocked:Int,previousRewardPerBlock:Int,shareAssetId:ByteVector,scaleValue:Int,pmtAmount:Int) = {
     if shareTokenLocked == 0 then 0 else # this condition true only for the first call
-    if (lastInterestHeight > rewardUpdateHeight) then
-        let reward = currentRewardPerBlock*(height-lastInterestHeight)
+    if height < rewardUpdateHeight then # in case of updating reward info at gov dApp
+        let reward = previousRewardPerBlock*(height-lastInterestHeight)
         lastInterest + fraction(reward,scaleValue,shareTokenLocked) # interests[n] = interests[n-1] + reward[n] / totalSupplyLP(n)
-    else # in case if reward updated we need update interest
-        let rewardAfterLastInterestBeforeReawardUpdate = previousRewardPerBlock*(rewardUpdateHeight-lastInterestHeight)
-        let interestAfterUpdate = lastInterest + fraction(rewardAfterLastInterestBeforeReawardUpdate,scaleValue,shareTokenLocked)
-        let reward = currentRewardPerBlock*(height-rewardUpdateHeight)
-        interestAfterUpdate + fraction(reward,scaleValue,shareTokenLocked) # interests[n] = interests[n-1] + reward[n] / totalSupplyLP(n)
+    else
+        if (lastInterestHeight > rewardUpdateHeight) then
+            let reward = currentRewardPerBlock*(height-lastInterestHeight)
+            lastInterest + fraction(reward,scaleValue,shareTokenLocked) # interests[n] = interests[n-1] + reward[n] / totalSupplyLP(n)
+        else # in case if reward updated we need update interest
+            let rewardAfterLastInterestBeforeReawardUpdate = previousRewardPerBlock*(rewardUpdateHeight-lastInterestHeight)
+            let interestAfterUpdate = lastInterest + fraction(rewardAfterLastInterestBeforeReawardUpdate,scaleValue,shareTokenLocked)
+            let reward = currentRewardPerBlock*(height-rewardUpdateHeight)
+            interestAfterUpdate + fraction(reward,scaleValue,shareTokenLocked) # interests[n] = interests[n-1] + reward[n] / totalSupplyLP(n)
 }
 
 func claimCalc(pool:String,caller:Address,pmtAmount:Int) = {
@@ -118,9 +136,9 @@ func init(earlyLP:String) = {
     let SWOPissue = Issue("SWOP", "SWOP protocol token", initAmount, 8, true)
     let SWOPid = SWOPissue.calculateAssetId()
     [
-        Issue("SWOP", "SWOP protocol token", initAmount, 8, true),
-        StringEntry(keySWOPid, SWOPid.toBase58String()),
-        ScriptTransfer(earlyLP.addressFromStringValue(),initAmount,SWOPid)
+        # Issue("SWOP", "SWOP protocol token", initAmount, 8, true),
+        # StringEntry(keySWOPid, SWOPid.toBase58String()),
+        # ScriptTransfer(earlyLP.addressFromStringValue(),initAmount,SWOPid)
     ]
 }
 
@@ -132,9 +150,9 @@ func initPoolShareFarming(pool:String) = {
     [
         IntegerEntry(pool + keyShareTokensLocked, 0),
         IntegerEntry(pool + keyLastInterest, 0),
-        IntegerEntry(pool + keyCurrentReward, currentReward),
+        IntegerEntry(pool + keyRewardPoolFractionCurrent, currentReward),
         IntegerEntry(pool + keyRewardUpdateHeight, rewardUpdateHeight),
-        IntegerEntry(pool + keyPreviousReward, previousRewardPerBlock)
+        IntegerEntry(pool + keyRewardPoolFractionPrevious, previousRewardPerBlock)
     ]
 }
 
