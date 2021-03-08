@@ -1,0 +1,43 @@
+{-# STDLIB_VERSION 4 #-}
+{-# CONTENT_TYPE DAPP #-}
+{-# SCRIPT_TYPE ACCOUNT #-}
+
+let kUserPoolVoteWeight = "_vote"
+let kUserTotalVoteWeight = "_user_total_vote"
+ 
+let govAddr = Address(base58'3MqhxbxHEMtp2Rwy1gUb6cPSJHQepdap1Yp')
+let userTotalVoteWieghtMax = 1000000
+
+func isCallerInGovernance(user: Address) = {
+    if govAddr.getInteger(user.toString() + "_SWOP_amount").valueOrElse(0) > 0 || this.getInteger(user.toString() + kUserTotalVoteWeight).valueOrElse(0) > 0
+    then true
+    else false
+}
+
+func isPoolInGovernance(poolAddress: String) = {
+    if govAddr.getInteger(poolAddress + "_startHeight").valueOrElse(0) > 0
+    then true
+    else false
+}
+
+@Callable(i)
+func votePoolWeight(poolAddress:String, poolVoteWeightNew:Int) = {
+    if !isCallerInGovernance(i.caller) then
+        throw("This address has 0 SWOP in Governance dApp")
+    else
+    if !isPoolInGovernance(poolAddress) then
+        throw("This pool has no _startHeight in Governance dApp")
+    else
+    let userTotalVoteWeight = this.getInteger(toString(i.caller) + kUserTotalVoteWeight).valueOrElse(0)
+    let userPoolVoteWeight = this.getInteger(i.caller.toString() + kUserPoolVoteWeight + "_" + poolAddress).valueOrElse(0)
+
+    let poolVoteWeightDiff = poolVoteWeightNew - userPoolVoteWeight
+    let userTotalVoteWeightNew = userTotalVoteWeight + poolVoteWeightDiff
+
+    if userTotalVoteWeightNew > userTotalVoteWieghtMax then  
+        throw("New total vote " + userTotalVoteWeightNew.toString() +  " should be less then " + userTotalVoteWieghtMax.toString())
+    else
+    [IntegerEntry(i.caller.toString() + kUserPoolVoteWeight + "_" + poolAddress, poolVoteWeightNew),
+    IntegerEntry(toString(i.caller) + kUserTotalVoteWeight, userTotalVoteWeightNew)]
+    }
+
