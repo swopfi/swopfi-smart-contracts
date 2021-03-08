@@ -25,6 +25,10 @@ let keyVoteName = "vote_name"
 let keyOptionName = "_option_name"
 let keyVotingStartHeight = "_startHeight"
 let keyVoteDuration = "_vote_duration"
+let keyRewardPoolFractionCurrent = "pool_fraction_reward_current"
+let keyRewardPoolFractionPrevious = "pool_fraction_reward_previous"
+let keyTotalRewardPerBlockCurrent = "total_reward_per_block_current"
+let keyTotalRewardPerBlockPrevious = "total_reward_per_block_previous"
 
 let isActive = this.getBoolean(keyActive).valueOrElse(true)
 
@@ -32,6 +36,8 @@ let farmingSWOPAddress = Address(base58'3P73HDkPqG15nLXevjCbmXtazHYTZbpPoPw')
 let keySWOPid = "SWOP_id"
 let SWOP = farmingSWOPAddress.getStringValue(keySWOPid).fromBase58String()
 let scaleValue = 100000000 # 10^8
+let totalVoteShare = 10000000000
+
 
 func suspend(cause: String) = [
     BooleanEntry(keyActive, false),
@@ -197,6 +203,47 @@ func claimAndStakeSWOP() = if !isActive then throw("DApp is inactive at this mom
         IntegerEntry(i.caller.toString() + keyUserSWOPClaimedAmount, userClaimedAmountNew),
         IntegerEntry(i.caller.toString() + keyUserSWOPLastClaimedAmount, claimAmount)
     ]
+}
+
+@Callable(i)
+func updateWieghts(previousPools: List[String],previousRewards: List[Int],currentPools: List[String],currentRewards: List[Int]) = if !isActive then throw("DApp is inactive at this moment") else {
+     if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStartStop].containsElement(i.callerPublicKey) then
+        throw("Only admin can call this function")
+    else
+    
+    func sum(a:Int, b:Int) = a + b
+
+    func PreviousRewardEntry(accumulated: List[IntegerEntry], pool: String) = {
+        let poolIndex = previousPools.indexOf(pool).value()
+        let poolReward = previousRewards[poolIndex]
+        IntegerEntry(pool+keyRewardPoolFractionPrevious,poolReward) :: accumulated
+    }
+    func CurrentRewardEntry(accumulated: List[IntegerEntry], pool: String) = {
+        let poolIndex = previousPools.indexOf(pool).value()
+        let poolReward = previousRewards[poolIndex]
+        IntegerEntry(pool+keyRewardPoolFractionCurrent,poolReward) :: accumulated
+    }
+    let sumRewardPrevious = FOLD<20>(previousRewards, 0, sum)
+    let sumRewardCurrent =  FOLD<20>(currentRewards, 0, sum)
+
+    if sumRewardPrevious != totalVoteShare || sumRewardCurrent != totalVoteShare then 
+        throw("sumRewardPrevious != totalVoteShare or sumRewardCurrent != totalVoteShare")
+    else
+    
+    let previousRewardEntryNew = FOLD<20>(previousPools, [], PreviousRewardEntry)
+    let currentRewardEntryNew = FOLD<20>(currentPools, [], CurrentRewardEntry)
+    previousRewardEntryNew ++ currentRewardEntryNew
+}
+
+@Callable(i)
+func setTotalRewardPerBlock(totalRewardPerBlockNew: Int) = if !isActive then throw("DApp is inactive at this moment") else {
+     if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStartStop].containsElement(i.callerPublicKey) then
+        throw("Only admin can call this function")
+    else
+       let totalRewardPerBlockPrevious = this.getIntegerValue(keyTotalRewardPerBlockCurrent)
+       [IntegerEntry(keyTotalRewardPerBlockCurrent,totalRewardPerBlockNew),
+       IntegerEntry(keyTotalRewardPerBlockPrevious,totalRewardPerBlockPrevious)
+       ]
 }
 
 @Callable(i)
