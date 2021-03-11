@@ -2,14 +2,13 @@
 {-# CONTENT_TYPE DAPP #-}
 {-# SCRIPT_TYPE ACCOUNT #-}
 
-let kUserPoolVoteWeight = "_vote"
-let kUserTotalVoteWeight = "_user_total_vote"
- 
+let kUserPoolVoteSWOP = "_vote"
+let kUserTotalVoteSWPOP = "_user_total_SWOP_vote"
+
 let govAddr = Address(base58'3MqhxbxHEMtp2Rwy1gUb6cPSJHQepdap1Yp')
-let userTotalVoteWieghtMax = 1000000
 
 func isCallerInGovernance(user: Address) = {
-    if govAddr.getInteger(user.toString() + "_SWOP_amount").valueOrElse(0) > 0 || this.getInteger(user.toString() + kUserTotalVoteWeight).valueOrElse(0) > 0
+    if govAddr.getInteger(user.toString() + "_SWOP_amount").valueOrElse(0) > 0 || this.getInteger(user.toString() + kUserTotalVoteSWPOP).valueOrElse(0) > 0
     then true
     else false
 }
@@ -21,23 +20,22 @@ func isPoolInGovernance(poolAddress: String) = {
 }
 
 @Callable(i)
-func votePoolWeight(poolAddress:String, poolVoteWeightNew:Int) = {
+func votePoolWeight(poolAddress:String, poolVoteSWOPNew:Int) = {
     if !isCallerInGovernance(i.caller) then
         throw("This address has 0 SWOP in Governance dApp")
     else
     if !isPoolInGovernance(poolAddress) then
         throw("This pool has no _startHeight in Governance dApp")
     else
-    let userTotalVoteWeight = this.getInteger(toString(i.caller) + kUserTotalVoteWeight).valueOrElse(0)
-    let userPoolVoteWeight = this.getInteger(i.caller.toString() + kUserPoolVoteWeight + "_" + poolAddress).valueOrElse(0)
+    let userTotalVoteWeight = this.getInteger(toString(i.caller) + kUserTotalVoteSWPOP).valueOrElse(0)
+    let userPoolVoteWeight = this.getInteger(i.caller.toString() + kUserPoolVoteSWOP + "_" + poolAddress).valueOrElse(0)
+    let userSWOPinGovernance = govAddr.getIntegerValue(i.caller.toString() + "_SWOP_amount")
+    let poolVoteWeightDiff = poolVoteSWOPNew - userPoolVoteWeight
+    let userTotalVoteSWOPNew = userTotalVoteWeight + poolVoteWeightDiff
 
-    let poolVoteWeightDiff = poolVoteWeightNew - userPoolVoteWeight
-    let userTotalVoteWeightNew = userTotalVoteWeight + poolVoteWeightDiff
-
-    if userTotalVoteWeightNew > userTotalVoteWieghtMax then  
-        throw("New total vote " + userTotalVoteWeightNew.toString() +  " should be less then " + userTotalVoteWieghtMax.toString())
+    if userTotalVoteSWOPNew < userSWOPinGovernance then  
+        throw(this.toString() + " has " + userSWOPinGovernance.toString() +  "SWOP in governance. New SWOP in voting " + userTotalVoteSWOPNew.toString())
     else
-    [IntegerEntry(i.caller.toString() + kUserPoolVoteWeight + "_" + poolAddress, poolVoteWeightNew),
-    IntegerEntry(toString(i.caller) + kUserTotalVoteWeight, userTotalVoteWeightNew)]
+    [IntegerEntry(i.caller.toString() + kUserPoolVoteSWOP + "_" + poolAddress, poolVoteSWOPNew),
+    IntegerEntry(toString(i.caller) + kUserTotalVoteSWPOP, userTotalVoteSWOPNew)]
     }
-
