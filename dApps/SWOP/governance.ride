@@ -208,7 +208,7 @@ func claimAndStakeSWOP() = if !isActive then throw("DApp is inactive at this mom
 }
 
 @Callable(i)
-func updateWieghts(previousPools: List[String],previousRewards: List[Int],currentPools: List[String],currentRewards: List[Int]) = if !isActive then throw("DApp is inactive at this moment") else {
+func updateWeights(previousPools: List[String],previousRewards: List[Int],currentPools: List[String],currentRewards: List[Int]) = if !isActive then throw("DApp is inactive at this moment") else {
      if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStartStop].containsElement(i.callerPublicKey) then
         throw("Only admin can call this function")
     else
