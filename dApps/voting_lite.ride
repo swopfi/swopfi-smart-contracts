@@ -4,6 +4,8 @@
 
 let kUserPoolVoteSWOP = "_vote"
 let kUserTotalVoteSWPOP = "_user_total_SWOP_vote"
+let kPoolVoteSWOP = "_vote_SWOP"
+let kTotalVoteSWOP = "total_SWOP"
 
 let govAddr = Address(base58'3MqhxbxHEMtp2Rwy1gUb6cPSJHQepdap1Yp')
 
@@ -29,13 +31,18 @@ func votePoolWeight(poolAddress:String, poolVoteSWOPNew:Int) = {
     else
     let userTotalVoteWeight = this.getInteger(toString(i.caller) + kUserTotalVoteSWPOP).valueOrElse(0)
     let userPoolVoteWeight = this.getInteger(i.caller.toString() + kUserPoolVoteSWOP + "_" + poolAddress).valueOrElse(0)
+    let poolVoteSWOP = this.getInteger(poolAddress + kPoolVoteSWOP).valueOrElse(0)
+    let totalVoteSWOP = this.getInteger(kTotalVoteSWOP).valueOrElse(0)
     let userSWOPinGovernance = govAddr.getIntegerValue(i.caller.toString() + "_SWOP_amount")
     let poolVoteWeightDiff = poolVoteSWOPNew - userPoolVoteWeight
     let userTotalVoteSWOPNew = userTotalVoteWeight + poolVoteWeightDiff
-
+    let poolVoteSWOPnew = poolVoteSWOP + poolVoteWeightDiff
+    let totalVoteSWOPnew = poolVoteSWOP + poolVoteWeightDiff
     if userTotalVoteSWOPNew < userSWOPinGovernance then  
         throw(this.toString() + " has " + userSWOPinGovernance.toString() +  "SWOP in governance. New SWOP in voting " + userTotalVoteSWOPNew.toString())
     else
     [IntegerEntry(i.caller.toString() + kUserPoolVoteSWOP + "_" + poolAddress, poolVoteSWOPNew),
-    IntegerEntry(toString(i.caller) + kUserTotalVoteSWPOP, userTotalVoteSWOPNew)]
+    IntegerEntry(toString(i.caller) + kUserTotalVoteSWPOP, userTotalVoteSWOPNew),
+    IntegerEntry(poolAddress + kPoolVoteSWOP, poolVoteSWOPnew),
+    IntegerEntry(kTotalVoteSWOP, totalVoteSWOPnew)]
     }
