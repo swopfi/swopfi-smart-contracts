@@ -5,7 +5,7 @@
 let kUserPoolVoteSWOP = "_vote"
 let kUserTotalVoteSWPOP = "_user_total_SWOP_vote"
 let kPoolVoteSWOP = "_vote_SWOP"
-let kTotalVoteSWOP = "total_SWOP"
+let kTotalVoteSWOP = "total_vote_SWOP"
 
 let govAddr = Address(base58'3MqhxbxHEMtp2Rwy1gUb6cPSJHQepdap1Yp')
 
