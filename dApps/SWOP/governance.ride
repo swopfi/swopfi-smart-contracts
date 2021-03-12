@@ -29,6 +29,7 @@ let keyRewardPoolFractionCurrent = "pool_fraction_reward_current"
 let keyRewardPoolFractionPrevious = "pool_fraction_reward_previous"
 let keyTotalRewardPerBlockCurrent = "total_reward_per_block_current"
 let keyTotalRewardPerBlockPrevious = "total_reward_per_block_previous"
+let keyRewardUpdateHeight = "reward_update_height"
 
 let isActive = this.getBoolean(keyActive).valueOrElse(true)
 
@@ -208,7 +209,7 @@ func claimAndStakeSWOP() = if !isActive then throw("DApp is inactive at this mom
 }
 
 @Callable(i)
-func updateWeights(previousPools: List[String],previousRewards: List[Int],currentPools: List[String],currentRewards: List[Int]) = if !isActive then throw("DApp is inactive at this moment") else {
+func updateWeights(previousPools: List[String],previousRewards: List[Int],currentPools: List[String],currentRewards: List[Int],rewardUpdateHeight: Int) = if !isActive then throw("DApp is inactive at this moment") else {
      if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStartStop].containsElement(i.callerPublicKey) then
         throw("Only admin can call this function")
     else
@@ -228,13 +229,15 @@ func updateWeights(previousPools: List[String],previousRewards: List[Int],curren
     let sumRewardPrevious = FOLD<20>(previousRewards, 0, sum)
     let sumRewardCurrent =  FOLD<20>(currentRewards, 0, sum)
 
+    if rewardUpdateHeight < height then 
+        throw("rewardUpdateHeight < heightthen") else 
     if sumRewardPrevious != totalVoteShare || sumRewardCurrent != totalVoteShare then 
-        throw("sumRewardPrevious != totalVoteShare or sumRewardCurrent != totalVoteShare")
-    else
+        throw("sumRewardPrevious != totalVoteShare or sumRewardCurrent != totalVoteShare")  else
+
     
     let previousRewardEntryNew = FOLD<20>(previousPools, [], PreviousRewardEntry)
     let currentRewardEntryNew = FOLD<20>(currentPools, [], CurrentRewardEntry)
-    previousRewardEntryNew ++ currentRewardEntryNew
+    previousRewardEntryNew ++ currentRewardEntryNew ++ [IntegerEntry(keyRewardUpdateHeight,rewardUpdateHeight)]
 }
 
 @Callable(i)
