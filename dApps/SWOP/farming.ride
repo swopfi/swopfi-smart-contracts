@@ -11,7 +11,7 @@ let keyRewardPoolFractionCurrent = "_current_pool_fraction_reward"
 let keyRewardPoolFractionPrevious = "_previous_pool_fraction_reward"
 let keyTotalRewardPerBlockCurrent = "total_reward_per_block_current"
 let keyTotalRewardPerBlockPrevious = "total_reward_per_block_previous"
-let keyRewardUpdateHeight = "_reward_update_height"
+let keyRewardUpdateHeight = "reward_update_height"
 let keyLastInterest = "_last_interest"
 let keyLastInterestHeight = "_last_interest_height"
 let keyUserShareTokensLocked = "_share_tokens_locked"
@@ -54,8 +54,8 @@ func rewardInfo(pool:String) = {
                                     .valueOrErrorMessage("No data on the key: " + keyTotalRewardPerBlockPrevious + " at address " + votingAddress.toString())
     let rewardPoolFractionCurrent = votingAddress.getInteger(pool + keyRewardPoolFractionCurrent)
                                     .valueOrErrorMessage("No data on the key: " + pool + keyRewardPoolFractionCurrent + " at address " + votingAddress.toString())
-    let rewardUpdateHeight = votingAddress.getInteger(pool + keyRewardUpdateHeight)
-                                    .valueOrErrorMessage("No data on the key: " + pool + keyRewardUpdateHeight + " at address " + votingAddress.toString())
+    let rewardUpdateHeight = votingAddress.getInteger(keyRewardUpdateHeight)
+                                    .valueOrErrorMessage("No data on the key: " + keyRewardUpdateHeight + " at address " + votingAddress.toString())
     let rewardPoolFractionPrevious = votingAddress.getInteger(pool + keyRewardPoolFractionPrevious)
                                     .valueOrErrorMessage("No data on the key: " + pool + keyRewardPoolFractionPrevious + " at address " + votingAddress.toString())
     
@@ -151,7 +151,6 @@ func initPoolShareFarming(pool:String) = {
         IntegerEntry(pool + keyShareTokensLocked, 0),
         IntegerEntry(pool + keyLastInterest, 0),
         IntegerEntry(pool + keyRewardPoolFractionCurrent, currentReward),
-        IntegerEntry(pool + keyRewardUpdateHeight, rewardUpdateHeight),
         IntegerEntry(pool + keyRewardPoolFractionPrevious, previousRewardPerBlock)
     ]
 }
