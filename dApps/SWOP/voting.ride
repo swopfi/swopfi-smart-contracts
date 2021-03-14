@@ -1,0 +1,79 @@
+{-# STDLIB_VERSION 4 #-}
+{-# CONTENT_TYPE DAPP #-}
+{-# SCRIPT_TYPE ACCOUNT #-}
+
+let kUserPoolVoteSWOP = "_vote"
+let kUserTotalVoteSWOP = "_user_total_SWOP_vote"
+let kPoolVoteSWOP = "_vote_SWOP"
+let kTotalVoteSWOP = "total_vote_SWOP"
+
+let govAddr = Address(base58'3MqhxbxHEMtp2Rwy1gUb6cPSJHQepdap1Yp')
+
+func isCallerInGovernance(user: Address) = {
+    if govAddr.getInteger(user.toString() + "_SWOP_amount").valueOrElse(0) > 0 || this.getInteger(user.toString() + kUserTotalVoteSWOP).valueOrElse(0) > 0
+    then true
+    else false
+}
+
+func isPoolInGovernance(poolAddress: String) = {
+    if govAddr.getInteger(poolAddress + "_current_pool_fraction_reward").valueOrElse(0) > 0
+    then true
+    else false
+}
+
+@Callable(i)
+func votePoolWeight(poolAddresses:List[String], poolsVoteSWOPNew:List[Int]) = {
+
+    func calcVoteDiffSWOP(accumulated: Int, poolAddress: String) = {
+        if !isPoolInGovernance(poolAddress) then
+            throw("This pool has no _current_pool_fraction_reward in Governance dApp")
+        else
+        let poolIndex = poolAddresses.indexOf(poolAddress).value()
+        let userPoolVoteSWOPNew = poolsVoteSWOPNew[poolIndex]
+        if userPoolVoteSWOPNew < 0 then throw("userPoolVoteSWOPNew < 0") else
+        let userPoolVoteSWOP = this.getInteger(i.caller.toString() + "_" + poolAddress + kUserPoolVoteSWOP).valueOrElse(0)
+        let poolVoteDiffSWOP = userPoolVoteSWOPNew - userPoolVoteSWOP
+        accumulated + poolVoteDiffSWOP
+    }
+    func userVoteEntry(accumulated: List[IntegerEntry], poolAddress: String) = {
+        let poolIndex = poolAddresses.indexOf(poolAddress).value()
+        let userPoolVoteSWOPNew = poolsVoteSWOPNew[poolIndex]
+        IntegerEntry(i.caller.toString() + "_"  + poolAddress  + kUserPoolVoteSWOP, userPoolVoteSWOPNew) :: accumulated   
+    }
+    func poolVoteEntry(accumulated:  List[IntegerEntry], poolAddress: String) = {
+        let poolIndex = poolAddresses.indexOf(poolAddress).value()
+        let userPoolVoteSWOP = this.getInteger(i.caller.toString() + "_" + poolAddress + kUserPoolVoteSWOP ).valueOrElse(0)
+        let userPoolVoteSWOPNew = poolsVoteSWOPNew[poolIndex]
+        let poolVoteDiffSWOP = userPoolVoteSWOPNew - userPoolVoteSWOP
+        let poolVoteSWOP = this.getInteger(poolAddress + kPoolVoteSWOP).valueOrElse(0)
+        let poolVoteSWOPnew = poolVoteSWOP + poolVoteDiffSWOP
+        IntegerEntry(poolAddress + kPoolVoteSWOP, poolVoteSWOPnew) :: accumulated   
+    }
+
+    if !isCallerInGovernance(i.caller) then
+        throw("This address has 0 SWOP in Governance dApp")
+    else
+
+    let totalVoteSWOP = this.getInteger(kTotalVoteSWOP).valueOrElse(0)    
+    let userTotalVoteSWOP = this.getInteger(toString(i.caller) + kUserTotalVoteSWOP).valueOrElse(0)
+    let userSWOPinGovernance = govAddr.getIntegerValue(i.caller.toString() + "_SWOP_amount")
+
+    let userVoteDiffSWOP =  FOLD<8>(poolAddresses, 0, calcVoteDiffSWOP)  
+    let userTotalVoteSWOPNew = userTotalVoteSWOP + userVoteDiffSWOP
+    let totalVoteSWOPnew = totalVoteSWOP + userVoteDiffSWOP
+
+    let userDataEntry = FOLD<8>(poolAddresses, [], userVoteEntry)
+    let poolDataEntry = FOLD<8>(poolAddresses, [], poolVoteEntry)
+    if userTotalVoteSWOPNew > userSWOPinGovernance then
+        throw(this.toString() + " has " + userSWOPinGovernance.toString() +  " SWOP in governance. New SWOP in voting " + userTotalVoteSWOPNew.toString())
+    else
+    userDataEntry ++ poolDataEntry ++ [ IntegerEntry(toString(i.caller) + kUserTotalVoteSWOP, userTotalVoteSWOPNew),IntegerEntry(kTotalVoteSWOP, totalVoteSWOPnew)]
+}
+
+@Verifier(tx)
+func verify() = {
+    let adminPubKey1Signed = if sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1) then 1 else 0
+    let adminPubKey2Signed = if sigVerify(tx.bodyBytes, tx.proofs[1], adminPubKey2) then 1 else 0
+    let adminPubKey3Signed = if sigVerify(tx.bodyBytes, tx.proofs[2], adminPubKey3) then 1 else 0
+    adminPubKey1Signed + adminPubKey2Signed + adminPubKey3Signed >= 2
+}
