@@ -142,8 +142,8 @@ func init(earlyLP:String) = {
 
 @Callable(i)
 func initPoolShareFarming(pool:String) = {
-    # if i.caller != this then
-    #    throw("Only the DApp itself can call this function") else
+    if i.caller != this then
+        throw("Only the DApp itself can call this function") else
     let (currentReward,rewardUpdateHeight,previousRewardPerBlock) = rewardInfo(pool)
     [
         IntegerEntry(pool + keyShareTokensLocked, 0),
