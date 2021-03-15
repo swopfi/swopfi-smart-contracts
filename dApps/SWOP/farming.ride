@@ -21,7 +21,7 @@ let keyUserSWOPClaimedAmount = "_SWOP_claimed_amount"
 let keyUserSWOPLastClaimedAmount = "_SWOP_last_claimed_amount"
 let keyAvailableSWOP = "_available_SWOP"
 let keyFarmingStartHeight = "farming_start_height"
-let governanveAddress = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
+let governanсeAddress = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
 let oneWeekInBlock = 10106 # 1440*7*60/59.84 where 59.84 - real block duration in seconds
 let totalVoteShare = 10000000000
 
