@@ -123,6 +123,7 @@ func calculateSendAmount(amountToSendEstimated: Int, minTokenReceiveAmount: Int,
     let invariantEstimatedRatio = scale8.fraction(invariant, invariantNew)
 
     func getStepAmount(acc: Int, step: Int) = {
+      if acc == -1 then
         let amountToSend = amountToSendEstimated - step * deltaBetweenMaxAndMinSendValue / 5
         let stepInvariant =
             if tokenId == assetIdA then
@@ -131,7 +132,10 @@ func calculateSendAmount(amountToSendEstimated: Int, minTokenReceiveAmount: Int,
 
         if stepInvariant > invariant then
             amountToSend
-        else acc
+        else
+          -1
+      else
+        acc
     }
 
     let stepAmount = FOLD<5>([1, 2, 3, 4, 5], -1, getStepAmount)
@@ -141,7 +145,7 @@ func calculateSendAmount(amountToSendEstimated: Int, minTokenReceiveAmount: Int,
     else if invariantEstimatedRatio > slippageValue && invariantNew > invariant then
         amountToSendEstimated
     else
-        stepAmount * (feeScale6 - fee) / feeScale6
+        stepAmount
 }
 
 func getAssetInfo(assetId: ByteVector|Unit) = match assetId {
@@ -404,30 +408,30 @@ func exchange(estimatedAmountToReceive: Int, minAmountToReceive: Int) = {
     else {
         let sendAssetId = if pmtAssetId == assetIdA then assetIdB else assetIdA
 
-        let amountWithoutFee = calculateSendAmount(estimatedAmountToReceive, minAmountToReceive, pmtAmount, pmtAssetId)
-        let amountWithFee = amountWithoutFee.fraction(feeScale6 - fee, feeScale6)
-        let governanceReward = amountWithoutFee.fraction(feeGovernance, feeScale6)
+        let amount = calculateSendAmount(estimatedAmountToReceive, minAmountToReceive, pmtAmount, pmtAssetId)
+        let governanceReward = amount.fraction(feeGovernance, feeScale6)
+        let amountMinusFee = amount.fraction(feeScale6 - fee, feeScale6)
 
         let (newBalanceA, newBalanceB) = 
             if pmtAssetId == assetIdA then
-                (balanceA + pmtAmount, balanceB - amountWithFee - governanceReward)
+                (balanceA + pmtAmount, balanceB - amountMinusFee - governanceReward)
             else
-                (balanceA - amountWithFee - governanceReward, balanceB + pmtAmount)
+                (balanceA - amountMinusFee - governanceReward, balanceB + pmtAmount)
         let dAppThresholdAmount = fraction(newBalanceA + newBalanceB, dAppThreshold, 2 * dAppThresholdScale2)
 
         if newBalanceA < dAppThresholdAmount || newBalanceB < dAppThresholdAmount then
             throwThreshold(dAppThresholdAmount, newBalanceA, newBalanceB)
         else if assetIdA == USDN && sendAssetId == assetIdA && newBalanceA <= stakedAmountUSDN then
-            throwInsufficientAvailableBalance(amountWithFee, availableBalanceA, assetNameA)
+            throwInsufficientAvailableBalance(amountMinusFee, availableBalanceA, assetNameA)
         else if assetIdB == USDN && sendAssetId == assetIdB && newBalanceB <= stakedAmountUSDN then
-            throwInsufficientAvailableBalance(amountWithFee, availableBalanceB, assetNameB)
+            throwInsufficientAvailableBalance(amountMinusFee, availableBalanceB, assetNameB)
         else
             # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
             [
                 IntegerEntry(kBalanceA, newBalanceA),
                 IntegerEntry(kBalanceB, newBalanceB),
                 IntegerEntry(kInvariant, invariantCalc(newBalanceA, newBalanceB)),
-                ScriptTransfer(i.caller, amountWithFee, sendAssetId),
+                ScriptTransfer(i.caller, amountMinusFee, sendAssetId),
                 ScriptTransfer(govAddr, governanceReward, sendAssetId)
             ]
     }
