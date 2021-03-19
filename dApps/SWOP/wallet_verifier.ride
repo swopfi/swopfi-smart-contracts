@@ -2,42 +2,29 @@
 {-# CONTENT_TYPE DAPP #-}
 {-# SCRIPT_TYPE ACCOUNT #-}
 
-let oracle = Address(base58'3PEbqViERCoKnmcSULh6n2aiMvUdSQdCsom')
-let governanceContract = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
+let governanceAddress = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
+let oracleAddress = Address(base58'3PEbqViERCoKnmcSULh6n2aiMvUdSQdCsom')
 let adminInvoke = base58'Czn4yoAuUZCVCLJDRfskn8URfkwpknwBTZDbs1wFrY7h'
 let adminPubKey1 = base58'DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA'
 let adminPubKey2 = base58'E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7'
 let adminPubKey3 = base58'AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ'
 
-let exchangers = [
-                    oracle.getStringValue("waves_usdn"),
-                    oracle.getStringValue("btc_usdn"),
-                    oracle.getStringValue("waves_btc"),
-                    oracle.getStringValue("nsbt_usdn"),
-                    oracle.getStringValue("wct_usdn"),
-                    oracle.getStringValue("usdt_usdn"),
-                    oracle.getStringValue("west_usdn"),
-                    oracle.getStringValue("waves_eurn"),
-                    oracle.getStringValue("usdtlp_usdn"),
-                    oracle.getStringValue("swop_usdn"),
-                    oracle.getStringValue("eth_usdn")
-                    ]
+let keyPrefixPoolName = "pool_"
 
 @Verifier(tx)
 func verify() = match tx {
-    case invoke: InvokeScriptTransaction =>
-        let dAppIsExchanger = exchangers.containsElement(toBase58String(addressFromRecipient(invoke.dApp).bytes))
-        let dAppIsGovernance = invoke.dApp == governanceContract
-        let callExchange = invoke.function == "exchange"
-        let callAirdrop = invoke.function == "airDrop"
-        let signedByAdmin = sigVerify(tx.bodyBytes, tx.proofs[0], adminInvoke)
+  case invoke: InvokeScriptTransaction => {
+    let isExchangeCall = oracleAddress.getString(keyPrefixPoolName + invoke.dApp.addressFromRecipient().toString()).isDefined() && invoke.function == "exchange"
+    let isAirdropCall = invoke.dApp == governanceAddress && invoke.function == "airDrop"
+    let isUpdateWeightsCall = invoke.dApp == governanceAddress && invoke.function == "updateWeights"
+    let signedByAdmin = sigVerify(tx.bodyBytes, tx.proofs[0], adminInvoke)
 
-        ((dAppIsExchanger && callExchange) || (dAppIsGovernance && callAirdrop)) && invoke.payments.size() == 1 && signedByAdmin
-
-    case _ => {
-        let adminPubKey1Signed = if sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1) then 1 else 0
-        let adminPubKey2Signed = if sigVerify(tx.bodyBytes, tx.proofs[1], adminPubKey2) then 1 else 0
-        let adminPubKey3Signed = if sigVerify(tx.bodyBytes, tx.proofs[2], adminPubKey3) then 1 else 0
-        adminPubKey1Signed + adminPubKey2Signed + adminPubKey3Signed >= 2
-    }
+    (((isExchangeCall || isAirdropCall) && invoke.payments.size() == 1) || (isUpdateWeightsCall && invoke.payments.size() == 0)) && signedByAdmin
+  }
+  case _ => {
+    let adminPubKey1Signed = if sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1) then 1 else 0
+    let adminPubKey2Signed = if sigVerify(tx.bodyBytes, tx.proofs[1], adminPubKey2) then 1 else 0
+    let adminPubKey3Signed = if sigVerify(tx.bodyBytes, tx.proofs[2], adminPubKey3) then 1 else 0
+    adminPubKey1Signed + adminPubKey2Signed + adminPubKey3Signed >= 2
+  }
 }
