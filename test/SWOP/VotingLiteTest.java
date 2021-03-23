@@ -101,10 +101,11 @@ public class VotingLiteTest {
     @ParameterizedTest(name = "first caller vote")
     @MethodSource("voteProvider")
     void a_firstVote(List<StringArg> poolAddresses, List<IntegerArg> poolsVoteSWOPNew, long expectedTotal) {
-        Id invokeId = firstCaller.invoke(i -> i.dApp(voting).function("votePoolWeight",
-                ListArg.as(poolAddresses.toArray(new StringArg[0])),
-                ListArg.as(poolsVoteSWOPNew.toArray(new IntegerArg[0]))).fee(1_00500000L)).tx().id();
-        node().waitForTransaction(invokeId);
+        firstCaller.invoke(i -> i.dApp(voting)
+                .function("votePoolWeight",
+                        ListArg.as(poolAddresses.toArray(new StringArg[0])),
+                        ListArg.as(poolsVoteSWOPNew.toArray(new IntegerArg[0])))
+                .fee(1_00500000L));
 
         List<Long> resultUserVotes = new ArrayList<>();
         for (StringArg pool : poolAddresses) {
@@ -131,10 +132,11 @@ public class VotingLiteTest {
     @MethodSource("voteProvider")
     void b_secondVote(List<StringArg> poolAddresses, List<IntegerArg> poolsVoteSWOPNew, long expectedTotal) {
         long totalVoteBefore = voting.getIntegerData(kTotalVoteSWOP);
-        Id invokeId = secondCaller.invoke(i -> i.dApp(voting).function("votePoolWeight",
-                ListArg.as(poolAddresses.toArray(new StringArg[0])),
-                ListArg.as(poolsVoteSWOPNew.toArray(new IntegerArg[0]))).fee(1_00500000L)).tx().id();
-        node().waitForTransaction(invokeId);
+        secondCaller.invoke(i -> i.dApp(voting)
+                .function("votePoolWeight",
+                        ListArg.as(poolAddresses.toArray(new StringArg[0])),
+                        ListArg.as(poolsVoteSWOPNew.toArray(new IntegerArg[0])))
+                .fee(1_00500000L));
 
         List<Long> resultUserVotes = new ArrayList<>();
         for (StringArg pool : poolAddresses) {
@@ -236,14 +238,12 @@ public class VotingLiteTest {
                 firstCaller.invoke(i -> i.dApp(governance)
                         .function("withdrawSWOP", IntegerArg.as(2))
                         .fee(500000L)));
-        assertTrue(error.getMessage().contains("withdrawAmount > availableFund"));
+        assertThat(error).hasMessageContaining("withdrawAmount > availableFund");
 
         long userSWOPBalanceBefore = firstCaller.getAssetBalance(swopId);
-        node().waitForTransaction(
-                firstCaller.invoke(i -> i.dApp(governance)
-                        .function("withdrawSWOP", IntegerArg.as(1))
-                        .fee(500000L)).tx().id()
-        );
+        firstCaller.invoke(i -> i.dApp(governance)
+                .function("withdrawSWOP", IntegerArg.as(1))
+                .fee(500000L));
 
         assertAll("state after first user lock check",
                 () -> assertThat(governance.getIntegerData(firstCaller.address() + "_SWOP_amount")).isEqualTo(firstCallerInitAmount),
@@ -260,13 +260,14 @@ public class VotingLiteTest {
         List<IntegerArg> currentRewards = poolsVoteSWOPNew(10 * scaleValue8, 20 * scaleValue8, 30 * scaleValue8, 15 * scaleValue8, 25 * scaleValue8);
 
         long rewardUpdateHeight = node().getHeight() + 3;
-        Id invokeId = firstCaller.invoke(i -> i.dApp(governance).function("updateWeights",
-                ListArg.as(previousPools.toArray(new StringArg[0])),
-                ListArg.as(previousRewards.toArray(new IntegerArg[0])),
-                ListArg.as(currentPools.toArray(new StringArg[0])),
-                ListArg.as(currentRewards.toArray(new IntegerArg[0])),
-                IntegerArg.as(rewardUpdateHeight)).fee(1_00500000L)).tx().id();
-        node().waitForTransaction(invokeId);
+        firstCaller.invoke(i -> i.dApp(governance)
+                .function("updateWeights",
+                        ListArg.as(previousPools.toArray(new StringArg[0])),
+                        ListArg.as(previousRewards.toArray(new IntegerArg[0])),
+                        ListArg.as(currentPools.toArray(new StringArg[0])),
+                        ListArg.as(currentRewards.toArray(new IntegerArg[0])),
+                        IntegerArg.as(rewardUpdateHeight))
+                .fee(1_00500000L));
 
         List<Long> resultPreviousRewards = new ArrayList<>();
         for (StringArg pool : previousPools) {
