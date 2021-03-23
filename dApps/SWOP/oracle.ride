@@ -17,8 +17,6 @@ let pools = match this.getString(keyPoolsListName) {
 
 func isSelfInvoke(i: Invocation) = if i.caller == this then unit else throw("Only the Oracle itself can invoke this function")
 
-func parsePoolAddress(address: String) = address.addressFromString().valueOrErrorMessage("Invalid pool address").toString()
-
 func getPoolNameIfValid(poolName: String) = {
     let underscoreIndex = poolName.indexOf("_").valueOrElse(-1)
     let underscoreLastIndex = poolName.lastIndexOf("_").valueOrElse(-1)
@@ -35,29 +33,31 @@ func getAddressIfValid(address: String) = address.addressFromString().valueOrErr
 
 @Callable(i)
 func addPool(poolAddress: String, poolName: String) = isSelfInvoke(i).valueOrElse({
-    let keyName = keyPrefixPoolName + poolAddress.parsePoolAddress()
-    let keyIndex = keyPrefixPoolIndex + poolAddress.parsePoolAddress()
+    let validatedAddress = poolAddress.getAddressIfValid()
+    let keyName = keyPrefixPoolName + validatedAddress
+    let keyIndex = keyPrefixPoolIndex + validatedAddress
 
     let possiblyAlreadyAddedPool = this.getString(keyName)
 
     if possiblyAlreadyAddedPool.isDefined() then
-        throw("Pool with address " + poolAddress + " is already defined with name \"" + possiblyAlreadyAddedPool.value() + "\"")
+        throw("Pool with address \"" + validatedAddress + "\" is already defined with name \"" + possiblyAlreadyAddedPool.value() + "\"")
     else [
         IntegerEntry(keyIndex, pools.size()),
         StringEntry(keyName, poolName.getPoolNameIfValid()),
-        StringEntry(keyPoolsListName, (pools :+ poolAddress.getAddressIfValid()).makeString(","))
+        StringEntry(keyPoolsListName, (pools :+ validatedAddress).makeString(","))
     ]
 })
 
 @Callable(i)
 func renamePool(poolAddress: String, newPoolName: String) = isSelfInvoke(i).valueOrElse({
-    let keyName = keyPrefixPoolName + poolAddress.parsePoolAddress()
+    let validatedAddress = poolAddress.getAddressIfValid()
+    let keyName = keyPrefixPoolName + validatedAddress
     let possiblyAlreadyAddedPool = this.getString(keyName)
 
     if possiblyAlreadyAddedPool.isDefined() then [
         StringEntry(keyName, newPoolName.getPoolNameIfValid())
     ] else
-        throw("Pool with address " + poolAddress + " has not yet been added")
+        throw("Pool with address \"" + validatedAddress + "\" has not yet been added")
 })
 
 @Verifier(tx)
