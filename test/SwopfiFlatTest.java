@@ -1,7 +1,9 @@
-import com.wavesplatform.wavesj.Base58;
-import com.wavesplatform.wavesj.transactions.InvokeScriptTransaction;
 import im.mak.paddle.Account;
+import im.mak.paddle.exceptions.ApiError;
 import im.mak.paddle.exceptions.NodeError;
+import im.mak.waves.transactions.common.AssetId;
+import im.mak.waves.transactions.common.Id;
+import im.mak.waves.transactions.invocation.IntegerArg;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -19,8 +21,8 @@ import ch.obermuhlner.math.big.BigDecimalMath;
 
 import static im.mak.paddle.Async.async;
 import static im.mak.paddle.Node.node;
-import static im.mak.paddle.actions.invoke.Arg.arg;
 import static im.mak.paddle.util.Script.fromFile;
+import im.mak.waves.crypto.base.Base58;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 import static org.junit.jupiter.api.Assertions.*;
@@ -38,24 +40,24 @@ public class SwopfiFlatTest {
     private double alpha = 0.5;
     private double betta = 0.46;
     private String version = "2.0.0";
-    private String shareTokenId;
+    private AssetId shareTokenId;
     private String governanceAddress = "3MP9d7iovdAZtsPeRcq97skdsQH5MPEsfgm";
     private int minSponsoredAssetFee = 30000;
     private long stakingFee = 9 * minSponsoredAssetFee;
     private Account firstCaller = new Account(1000_00000000L);
     private Account secondCaller = new Account(1000_00000000L);
     private Account stakingAcc = new Account(1000_00000000L);
-    private String tokenA = firstCaller.issues(a -> a.quantity(Long.MAX_VALUE).name("tokenA").decimals(aDecimal)).getId().getBase58String();
-    private String tokenB = firstCaller.issues(a -> a.quantity(Long.MAX_VALUE).name("tokenB").decimals(bDecimal)).getId().getBase58String();
+    private AssetId tokenA = firstCaller.issue(a -> a.quantity(Long.MAX_VALUE).name("tokenA").decimals(aDecimal)).tx().assetId();
+    private AssetId tokenB = firstCaller.issue(a -> a.quantity(Long.MAX_VALUE).name("tokenB").decimals(bDecimal)).tx().assetId();
     private String dAppScript = fromFile("dApps/flat.ride")
             .replace("3P6J84oH51DzY6xk2mT5TheXRbrCwBMxonp", governanceAddress)
-            .replace("3PNikM6yp4NqcSU8guxQtmR5onr2D4e8yTJ", stakingAcc.address())
-            .replace("DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p", tokenB)
-            .replace("DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA", Base58.encode(secondCaller.publicKey()))
-            .replace("E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7", Base58.encode(secondCaller.publicKey()))
-            .replace("AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ", Base58.encode(secondCaller.publicKey()))
-            .replace("EtVkT6ed8GtbUiVVEqdmEqsp2J4qbb3rre2HFgxeVYdg", Base58.encode(secondCaller.publicKey()))
-            .replace("Czn4yoAuUZCVCLJDRfskn8URfkwpknwBTZDbs1wFrY7h", Base58.encode(secondCaller.publicKey()));
+            .replace("3PNikM6yp4NqcSU8guxQtmR5onr2D4e8yTJ", stakingAcc.address().toString())
+            .replace("DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p", tokenB.toString())
+            .replace("DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA", Base58.encode(secondCaller.publicKey().bytes()))
+            .replace("E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7", Base58.encode(secondCaller.publicKey().bytes()))
+            .replace("AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ", Base58.encode(secondCaller.publicKey().bytes()))
+            .replace("EtVkT6ed8GtbUiVVEqdmEqsp2J4qbb3rre2HFgxeVYdg", Base58.encode(secondCaller.publicKey().bytes()))
+            .replace("Czn4yoAuUZCVCLJDRfskn8URfkwpknwBTZDbs1wFrY7h", Base58.encode(secondCaller.publicKey().bytes()));
 
 
     @BeforeAll
@@ -63,45 +65,43 @@ public class SwopfiFlatTest {
         async(
                 () -> {
                     exchanger1 = new Account(100_00000000L);
-                    exchanger1.setsScript(s -> s.script(dAppScript));
+                    exchanger1.setScript(s -> s.script(dAppScript));
                 },
                 () -> {
                     exchanger2 = new Account(100_00000000L);
-                    exchanger2.setsScript(s -> s.script(dAppScript));
+                    exchanger2.setScript(s -> s.script(dAppScript));
                 },
                 () -> {
                     exchanger3 = new Account(100_00000000L);
-                    exchanger3.setsScript(s -> s.script(dAppScript));
+                    exchanger3.setScript(s -> s.script(dAppScript));
                 },
                 () -> {
                     exchanger4 = new Account(100_00000000L);
-                    exchanger4.setsScript(s -> s.script(dAppScript));
+                    exchanger4.setScript(s -> s.script(dAppScript));
                 },
                 () -> {
                     exchanger5 = new Account(100_00000000L);
-                    exchanger5.setsScript(s -> s.script(dAppScript));
+                    exchanger5.setScript(s -> s.script(dAppScript));
                 },
                 () -> {
                     exchanger6 = new Account(100_00000000L);
-                    exchanger6.setsScript(s -> s.script(dAppScript));
+                    exchanger6.setScript(s -> s.script(dAppScript));
                 },
                 () -> {
                     exchanger7 = new Account(100_00000000L);
-                    exchanger7.setsScript(s -> s.script(dAppScript));
+                    exchanger7.setScript(s -> s.script(dAppScript));
                 },
                 () -> {
-                    String sponsorTxId = firstCaller.sponsors(s -> s.amountForMinFee(minSponsoredAssetFee).asset(tokenB)).getId().getBase58String();
+                    Id sponsorTxId = firstCaller.sponsorFee(s -> s.amountForMinFee(minSponsoredAssetFee).assetId(tokenB)).tx().id();
                     node().waitForTransaction(sponsorTxId);
                 },
                 () -> {
-                    String transfer1 = firstCaller.transfers(t -> t
+                    Id transfer1 = firstCaller.transfer(t -> t
                             .to(secondCaller)
-                            .amount(10000000_00000000L)
-                            .asset(tokenA)).getId().getBase58String();
-                    String transfer2 = firstCaller.transfers(t -> t
+                            .amount(10000000_00000000L, tokenA)).tx().id();
+                    Id transfer2 = firstCaller.transfer(t -> t
                             .to(secondCaller)
-                            .amount(10000000_00000000L)
-                            .asset(tokenB)).getId().getBase58String();
+                            .amount(10000000_00000000L, tokenB)).tx().id();
                     node().waitForTransaction(transfer1);
                     node().waitForTransaction(transfer2);
                 }
@@ -130,28 +130,28 @@ public class SwopfiFlatTest {
         long fundAmountB = y * (long) Math.pow(10, bDecimal);
 
         int digitsInShareToken = (aDecimal + bDecimal) / 2;
-        String invokeId = firstCaller.invokes(i -> i.dApp(exchanger).function("init").payment(fundAmountA, tokenA).payment(fundAmountB, tokenB).fee(1_00500000L)).getId().getBase58String();
+        Id invokeId = firstCaller.invoke(i -> i.dApp(exchanger).function("init").payment(fundAmountA, tokenA).payment(fundAmountB, tokenB).fee(1_00500000L)).tx().id();
         node().waitForTransaction(invokeId);
         node().waitNBlocks(1);
         long shareTokenSupply = (long) (((new BigDecimal(Math.pow(fundAmountA / Math.pow(10, aDecimal), 0.5)).setScale(aDecimal, RoundingMode.HALF_DOWN).movePointRight(aDecimal).doubleValue() *
                 new BigDecimal(Math.pow(fundAmountB / Math.pow(10, bDecimal), 0.5)).setScale(bDecimal, RoundingMode.HALF_DOWN).movePointRight(bDecimal).doubleValue()) / Math.pow(10, digitsInShareToken)));
-        shareTokenId = exchanger.dataStr("share_asset_id");
+        shareTokenId = AssetId.as(exchanger.getStringData("share_asset_id"));
 
         assertAll("data and balances",
-                () -> assertThat(exchanger.dataInt("A_asset_balance")).isEqualTo(fundAmountA),
-                () -> assertThat(exchanger.dataInt("B_asset_balance")).isEqualTo(fundAmountB),
-                () -> assertThat(exchanger.balance(tokenA)).isEqualTo(fundAmountA),
-                () -> assertThat(exchanger.balance(tokenB)).isEqualTo(fundAmountB),
-                () -> assertThat(exchanger.dataStr("A_asset_id")).isEqualTo(tokenA),
-                () -> assertThat(exchanger.dataStr("B_asset_id")).isEqualTo(tokenB),
-                () -> assertThat(exchanger.dataInt("invariant")).isEqualTo(invariantCalc(fundAmountA, fundAmountB).longValue()),
-                () -> assertThat(exchanger.dataBool("active")).isTrue(),
-                () -> assertThat(exchanger.dataInt("commission")).isEqualTo(commission),
-                () -> assertThat(exchanger.dataInt("commission_scale_delimiter")).isEqualTo(commissionScaleDelimiter),
-                () -> assertThat(exchanger.dataStr("version")).isEqualTo("2.0.0"),
-                () -> assertThat(exchanger.dataStr("share_asset_id")).isNotNull(),
-                () -> assertThat(exchanger.dataInt("share_asset_supply")).isEqualTo(shareTokenSupply),
-                () -> assertThat(firstCaller.balance(shareTokenId)).isEqualTo(shareTokenSupply)
+                () -> assertThat(exchanger.getIntegerData("A_asset_balance")).isEqualTo(fundAmountA),
+                () -> assertThat(exchanger.getIntegerData("B_asset_balance")).isEqualTo(fundAmountB),
+                () -> assertThat(exchanger.getAssetBalance(tokenA)).isEqualTo(fundAmountA),
+                () -> assertThat(exchanger.getAssetBalance(tokenB)).isEqualTo(fundAmountB),
+                () -> assertThat(exchanger.getStringData("A_asset_id")).isEqualTo(tokenA.toString()),
+                () -> assertThat(exchanger.getStringData("B_asset_id")).isEqualTo(tokenB.toString()),
+                () -> assertThat(exchanger.getIntegerData("invariant")).isEqualTo(invariantCalc(fundAmountA, fundAmountB).longValue()),
+                () -> assertThat(exchanger.getBooleanData("active")).isTrue(),
+                () -> assertThat(exchanger.getIntegerData("commission")).isEqualTo(commission),
+                () -> assertThat(exchanger.getIntegerData("commission_scale_delimiter")).isEqualTo(commissionScaleDelimiter),
+                () -> assertThat(exchanger.getStringData("version")).isEqualTo("2.0.0"),
+                () -> assertThat(exchanger.getStringData("share_asset_id")).isNotNull(),
+                () -> assertThat(exchanger.getIntegerData("share_asset_supply")).isEqualTo(shareTokenSupply),
+                () -> assertThat(firstCaller.getAssetBalance(shareTokenId)).isEqualTo(shareTokenSupply)
 
         );
     }
@@ -170,11 +170,11 @@ public class SwopfiFlatTest {
     @ParameterizedTest(name = "firstCaller exchanges {1} tokenA")
     @MethodSource("aExchangeProvider")
     void b_canExchangeA(Account exchanger, long tokenReceiveAmount) {
-        shareTokenId = exchanger.dataStr("share_asset_id");
-        long amountTokenA = exchanger.dataInt("A_asset_balance");
-        long amountTokenB = exchanger.dataInt("B_asset_balance");
-        long invariant = exchanger.dataInt("invariant");
-        long shareTokenSuplyBefore = exchanger.dataInt("share_asset_supply");
+        shareTokenId = AssetId.as(exchanger.getStringData("share_asset_id"));
+        long amountTokenA = exchanger.getIntegerData("A_asset_balance");
+        long amountTokenB = exchanger.getIntegerData("B_asset_balance");
+        long invariant = exchanger.getIntegerData("invariant");
+        long shareTokenSuplyBefore = exchanger.getIntegerData("share_asset_supply");
         long amountSendEstimated = amountToSendEstimated(amountTokenA, amountTokenB, amountTokenA + tokenReceiveAmount);
         long minTokenReceiveAmount = amountSendEstimated;
         long tokenSendAmountWithoutFee = calculateHowManySendTokenB(amountSendEstimated, minTokenReceiveAmount, amountTokenA, amountTokenB, tokenReceiveAmount, invariant);
@@ -184,22 +184,22 @@ public class SwopfiFlatTest {
         invariantAfter = invariantCalc(amountTokenA + tokenReceiveAmount, amountTokenB - tokenSendAmountWithFee - tokenSendGovernance).longValue();
 
 
-        InvokeScriptTransaction invoke = firstCaller.invokes(i -> i.dApp(exchanger).function("exchange", arg(amountSendEstimated), arg(minTokenReceiveAmount)).payment(tokenReceiveAmount, tokenA).fee(1_00500000L));//.getId().getBase58String();
-        node().waitForTransaction(invoke.getId().getBase58String());
+        Id invokeId = firstCaller.invoke(i -> i.dApp(exchanger).function("exchange", IntegerArg.as(amountSendEstimated), IntegerArg.as(minTokenReceiveAmount)).payment(tokenReceiveAmount, tokenA).fee(1_00500000L)).tx().id();//.tx().id();
+        node().waitForTransaction(invokeId);
 
         assertAll("data and balances",
-                () -> assertThat(exchanger.dataInt("A_asset_balance")).isEqualTo(amountTokenA + tokenReceiveAmount),
-                () -> assertThat(exchanger.dataInt("B_asset_balance")).isEqualTo(amountTokenB - tokenSendAmountWithFee - tokenSendGovernance),
-                () -> assertThat(exchanger.balance(tokenA)).isEqualTo(amountTokenA + tokenReceiveAmount),
-                () -> assertThat(exchanger.balance(tokenB)).isEqualTo(amountTokenB - tokenSendAmountWithFee - tokenSendGovernance),
-                () -> assertThat(exchanger.dataStr("A_asset_id")).isEqualTo(tokenA),
-                () -> assertThat(exchanger.dataStr("B_asset_id")).isEqualTo(tokenB),
-                () -> assertThat(exchanger.dataBool("active")).isTrue(),
-                () -> assertThat(exchanger.dataInt("commission")).isEqualTo(commission),
-                () -> assertThat(exchanger.dataInt("commission_scale_delimiter")).isEqualTo(commissionScaleDelimiter),
-                () -> assertThat(exchanger.dataInt("invariant")).isCloseTo(invariantAfter, within(2L)),
-                () -> assertThat(exchanger.dataStr("version")).isEqualTo(version),
-                () -> assertThat(exchanger.dataInt("share_asset_supply")).isEqualTo(shareTokenSuplyBefore)
+                () -> assertThat(exchanger.getIntegerData("A_asset_balance")).isEqualTo(amountTokenA + tokenReceiveAmount),
+                () -> assertThat(exchanger.getIntegerData("B_asset_balance")).isEqualTo(amountTokenB - tokenSendAmountWithFee - tokenSendGovernance),
+                () -> assertThat(exchanger.getAssetBalance(tokenA)).isEqualTo(amountTokenA + tokenReceiveAmount),
+                () -> assertThat(exchanger.getAssetBalance(tokenB)).isEqualTo(amountTokenB - tokenSendAmountWithFee - tokenSendGovernance),
+                () -> assertThat(exchanger.getStringData("A_asset_id")).isEqualTo(tokenA.toString()),
+                () -> assertThat(exchanger.getStringData("B_asset_id")).isEqualTo(tokenB.toString()),
+                () -> assertThat(exchanger.getBooleanData("active")).isTrue(),
+                () -> assertThat(exchanger.getIntegerData("commission")).isEqualTo(commission),
+                () -> assertThat(exchanger.getIntegerData("commission_scale_delimiter")).isEqualTo(commissionScaleDelimiter),
+                () -> assertThat(exchanger.getIntegerData("invariant")).isCloseTo(invariantAfter, within(2L)),
+                () -> assertThat(exchanger.getStringData("version")).isEqualTo(version),
+                () -> assertThat(exchanger.getIntegerData("share_asset_supply")).isEqualTo(shareTokenSuplyBefore)
 
         );
 
@@ -218,11 +218,11 @@ public class SwopfiFlatTest {
     @ParameterizedTest(name = "firstCaller exchanges {1} tokenB")
     @MethodSource("bExchangeProvider")
     void c_canExchangeB(Account exchanger, long tokenReceiveAmount) {
-        shareTokenId = exchanger.dataStr("share_asset_id");
-        long amountTokenA = exchanger.dataInt("A_asset_balance");
-        long amountTokenB = exchanger.dataInt("B_asset_balance");
-        long invariant = exchanger.dataInt("invariant");
-        long shareTokenSuplyBefore = exchanger.dataInt("share_asset_supply");
+        shareTokenId = AssetId.as(exchanger.getStringData("share_asset_id"));
+        long amountTokenA = exchanger.getIntegerData("A_asset_balance");
+        long amountTokenB = exchanger.getIntegerData("B_asset_balance");
+        long invariant = exchanger.getIntegerData("invariant");
+        long shareTokenSuplyBefore = exchanger.getIntegerData("share_asset_supply");
         long amountSendEstimated = amountToSendEstimated(amountTokenB, amountTokenA, amountTokenB + tokenReceiveAmount);
         long minTokenReceiveAmount = amountSendEstimated;
         long tokenSendAmountWithoutFee = calculateHowManySendTokenA(amountSendEstimated, minTokenReceiveAmount, amountTokenA, amountTokenB, tokenReceiveAmount, invariant);
@@ -230,38 +230,38 @@ public class SwopfiFlatTest {
         long tokenSendGovernance = tokenSendAmountWithoutFee * commissionGovernance / commissionScaleDelimiter;
 
 
-        InvokeScriptTransaction invoke = firstCaller.invokes(i -> i.dApp(exchanger).function("exchange", arg(amountSendEstimated), arg(minTokenReceiveAmount)).payment(tokenReceiveAmount, tokenB).fee(1_00500000L));//.getId().getBase58String();
-        node().waitForTransaction(invoke.getId().getBase58String());
+        Id invokeId = firstCaller.invoke(i -> i.dApp(exchanger).function("exchange", IntegerArg.as(amountSendEstimated), IntegerArg.as(minTokenReceiveAmount)).payment(tokenReceiveAmount, tokenB).fee(1_00500000L)).tx().id();
+        node().waitForTransaction(invokeId);
         long invariantAfter = invariantCalc(amountTokenA - tokenSendAmountWithFee - tokenSendGovernance, amountTokenB + tokenReceiveAmount).longValue();
 
         assertAll("data and balances",
-                () -> assertThat(exchanger.dataInt("A_asset_balance")).isEqualTo(amountTokenA - tokenSendAmountWithFee - tokenSendGovernance),
-                () -> assertThat(exchanger.dataInt("B_asset_balance")).isEqualTo(amountTokenB + tokenReceiveAmount),
-                () -> assertThat(exchanger.balance(tokenA)).isEqualTo(amountTokenA - tokenSendAmountWithFee - tokenSendGovernance),
-                () -> assertThat(exchanger.balance(tokenB)).isEqualTo(amountTokenB + tokenReceiveAmount),
-                () -> assertThat(exchanger.dataStr("A_asset_id")).isEqualTo(tokenA),
-                () -> assertThat(exchanger.dataStr("B_asset_id")).isEqualTo(tokenB),
-                () -> assertThat(exchanger.dataBool("active")).isTrue(),
-                () -> assertThat(exchanger.dataInt("commission")).isEqualTo(commission),
-                () -> assertThat(exchanger.dataInt("commission_scale_delimiter")).isEqualTo(commissionScaleDelimiter),
-                () -> assertThat(exchanger.dataInt("invariant")).isCloseTo(invariantAfter, within(2L)),
-                () -> assertThat(exchanger.dataStr("version")).isEqualTo(version),
-                () -> assertThat(exchanger.dataInt("share_asset_supply")).isEqualTo(shareTokenSuplyBefore)
+                () -> assertThat(exchanger.getIntegerData("A_asset_balance")).isEqualTo(amountTokenA - tokenSendAmountWithFee - tokenSendGovernance),
+                () -> assertThat(exchanger.getIntegerData("B_asset_balance")).isEqualTo(amountTokenB + tokenReceiveAmount),
+                () -> assertThat(exchanger.getAssetBalance(tokenA)).isEqualTo(amountTokenA - tokenSendAmountWithFee - tokenSendGovernance),
+                () -> assertThat(exchanger.getAssetBalance(tokenB)).isEqualTo(amountTokenB + tokenReceiveAmount),
+                () -> assertThat(exchanger.getStringData("A_asset_id")).isEqualTo(tokenA.toString()),
+                () -> assertThat(exchanger.getStringData("B_asset_id")).isEqualTo(tokenB.toString()),
+                () -> assertThat(exchanger.getBooleanData("active")).isTrue(),
+                () -> assertThat(exchanger.getIntegerData("commission")).isEqualTo(commission),
+                () -> assertThat(exchanger.getIntegerData("commission_scale_delimiter")).isEqualTo(commissionScaleDelimiter),
+                () -> assertThat(exchanger.getIntegerData("invariant")).isCloseTo(invariantAfter, within(2L)),
+                () -> assertThat(exchanger.getStringData("version")).isEqualTo(version),
+                () -> assertThat(exchanger.getIntegerData("share_asset_supply")).isEqualTo(shareTokenSuplyBefore)
 
         );
     }
 
     @Test
     void d_cantExchangeBelowLimit() {
-        shareTokenId = exchanger7.dataStr("share_asset_id");
+        shareTokenId = AssetId.as(exchanger7.getStringData("share_asset_id"));
         long amountBelowLimit = 9999999L;
-        long amountTokenA = exchanger7.dataInt("A_asset_balance");
-        long amountTokenB = exchanger7.dataInt("B_asset_balance");
+        long amountTokenA = exchanger7.getIntegerData("A_asset_balance");
+        long amountTokenB = exchanger7.getIntegerData("B_asset_balance");
         long amountSendEstimated = amountToSendEstimated(amountTokenB, amountTokenA, amountTokenB + amountBelowLimit);
         long minTokenReceiveAmount = amountSendEstimated;
 
-        NodeError error = assertThrows(NodeError.class, () ->
-                firstCaller.invokes(i -> i.dApp(exchanger7).function("exchange", arg(amountSendEstimated), arg(minTokenReceiveAmount)).payment(amountBelowLimit, tokenB).fee(1_00500000L)));
+        ApiError error = assertThrows(ApiError.class, () ->
+                firstCaller.invoke(i -> i.dApp(exchanger7).function("exchange", IntegerArg.as(amountSendEstimated), IntegerArg.as(minTokenReceiveAmount)).payment(amountBelowLimit, tokenB).fee(1_00500000L)));
         assertTrue(error.getMessage().contains("Only swap of 10.000000 or more tokens is allowed"));
     }
 
@@ -281,14 +281,14 @@ public class SwopfiFlatTest {
     @ParameterizedTest(name = "firstCaller replenish {1} tokenA")
     @MethodSource("replenishOneTokenAProvider")
     void e_firstCallerReplenishOneTokenA(Account exchanger, long pmtAmount) {
-        long dAppTokensAmountA = exchanger.dataInt("A_asset_balance");
-        long dAppTokensAmountB = exchanger.dataInt("B_asset_balance");
+        long dAppTokensAmountA = exchanger.getIntegerData("A_asset_balance");
+        long dAppTokensAmountB = exchanger.getIntegerData("B_asset_balance");
 
         long virtualSwapTokenPay = calculateVirtualPayGet(dAppTokensAmountA, dAppTokensAmountB, pmtAmount)[0];
         long virtualSwapTokenGet = calculateVirtualPayGet(dAppTokensAmountA, dAppTokensAmountB, pmtAmount)[1];
-        long tokenShareSupply = exchanger.dataInt("share_asset_supply");
-        shareTokenId = exchanger.dataStr("share_asset_id");
-        long callerTokenShareBalance = firstCaller.balance(shareTokenId);
+        long tokenShareSupply = exchanger.getIntegerData("share_asset_supply");
+        shareTokenId = AssetId.as(exchanger.getStringData("share_asset_id"));
+        long callerTokenShareBalance = firstCaller.getAssetBalance(shareTokenId);
         long amountVirtualReplanishTokenA = pmtAmount - virtualSwapTokenPay;
         long amountVirtualReplanishTokenB = virtualSwapTokenGet;
         long contractBalanceAfterVirtualSwapTokenA = dAppTokensAmountA + virtualSwapTokenPay;
@@ -305,20 +305,20 @@ public class SwopfiFlatTest {
         }
         long invariantCalculated = invariantCalc(dAppTokensAmountA + pmtAmount, dAppTokensAmountB).longValue();
 
-        node().waitForTransaction(firstCaller.invokes(i -> i.dApp(exchanger).function("replenishWithOneToken", arg(virtualSwapTokenPay), arg(virtualSwapTokenGet)).payment(pmtAmount, tokenA).fee(1_00500000L)).getId().getBase58String());
+        node().waitForTransaction(firstCaller.invoke(i -> i.dApp(exchanger).function("replenishWithOneToken", IntegerArg.as(virtualSwapTokenPay), IntegerArg.as(virtualSwapTokenGet)).payment(pmtAmount, tokenA).fee(1_00500000L)).tx().id());
         assertAll("data and balances",
-                () -> assertThat(exchanger.dataInt("A_asset_balance")).isEqualTo(dAppTokensAmountA + pmtAmount),
-                () -> assertThat(exchanger.dataInt("B_asset_balance")).isEqualTo(dAppTokensAmountB),
-                () -> assertThat(exchanger.dataStr("A_asset_id")).isEqualTo(tokenA),
-                () -> assertThat(exchanger.dataStr("B_asset_id")).isEqualTo(tokenB),
-                () -> assertThat(exchanger.dataBool("active")).isTrue(),
-                () -> assertThat(exchanger.dataInt("invariant")).isEqualTo(invariantCalculated),
-                () -> assertThat(exchanger.dataInt("commission")).isEqualTo(commission),
-                () -> assertThat(exchanger.dataInt("commission_scale_delimiter")).isEqualTo(commissionScaleDelimiter),
-                () -> assertThat(exchanger.dataStr("version")).isEqualTo(version),
-                () -> assertThat(exchanger.dataStr("share_asset_id")).isEqualTo(shareTokenId),
-                () -> assertThat(exchanger.dataInt("share_asset_supply")).isEqualTo(tokenShareSupply + shareTokenToPayAmount),
-                () -> assertThat(firstCaller.balance(shareTokenId)).isEqualTo(callerTokenShareBalance + shareTokenToPayAmount)
+                () -> assertThat(exchanger.getIntegerData("A_asset_balance")).isEqualTo(dAppTokensAmountA + pmtAmount),
+                () -> assertThat(exchanger.getIntegerData("B_asset_balance")).isEqualTo(dAppTokensAmountB),
+                () -> assertThat(exchanger.getStringData("A_asset_id")).isEqualTo(tokenA.toString()),
+                () -> assertThat(exchanger.getStringData("B_asset_id")).isEqualTo(tokenB.toString()),
+                () -> assertThat(exchanger.getBooleanData("active")).isTrue(),
+                () -> assertThat(exchanger.getIntegerData("invariant")).isEqualTo(invariantCalculated),
+                () -> assertThat(exchanger.getIntegerData("commission")).isEqualTo(commission),
+                () -> assertThat(exchanger.getIntegerData("commission_scale_delimiter")).isEqualTo(commissionScaleDelimiter),
+                () -> assertThat(exchanger.getStringData("version")).isEqualTo(version),
+                () -> assertThat(exchanger.getStringData("share_asset_id")).isEqualTo(shareTokenId.toString()),
+                () -> assertThat(exchanger.getIntegerData("share_asset_supply")).isEqualTo(tokenShareSupply + shareTokenToPayAmount),
+                () -> assertThat(firstCaller.getAssetBalance(shareTokenId)).isEqualTo(callerTokenShareBalance + shareTokenToPayAmount)
 
         );
 
@@ -340,13 +340,13 @@ public class SwopfiFlatTest {
     @ParameterizedTest(name = "firstCaller replenish {1} tokenB")
     @MethodSource("replenishOneTokenBProvider")
     void f_firstCallerReplenishOneTokenB(Account exchanger, long pmtAmount) {
-        long dAppTokensAmountA = exchanger.dataInt("A_asset_balance");
-        long dAppTokensAmountB = exchanger.dataInt("B_asset_balance");
+        long dAppTokensAmountA = exchanger.getIntegerData("A_asset_balance");
+        long dAppTokensAmountB = exchanger.getIntegerData("B_asset_balance");
         long virtualSwapTokenPay = calculateVirtualPayGet(dAppTokensAmountB, dAppTokensAmountA, pmtAmount)[0];
         long virtualSwapTokenGet = calculateVirtualPayGet(dAppTokensAmountB, dAppTokensAmountA, pmtAmount)[1];
-        long tokenShareSupply = exchanger.dataInt("share_asset_supply");
-        shareTokenId = exchanger.dataStr("share_asset_id");
-        long callerTokenShareBalance = firstCaller.balance(shareTokenId);
+        long tokenShareSupply = exchanger.getIntegerData("share_asset_supply");
+        shareTokenId = AssetId.as(exchanger.getStringData("share_asset_id"));
+        long callerTokenShareBalance = firstCaller.getAssetBalance(shareTokenId);
         long amountVirtualReplanishTokenB = pmtAmount - virtualSwapTokenPay;
         long amountVirtualReplanishTokenA = virtualSwapTokenGet;
         long contractBalanceAfterVirtualSwapTokenA = dAppTokensAmountA - virtualSwapTokenGet;
@@ -370,21 +370,21 @@ public class SwopfiFlatTest {
         System.out.println("shareTokenToPayAmount: " + shareTokenToPayAmount);
         long invariantCalculated = invariantCalc(dAppTokensAmountA, dAppTokensAmountB + pmtAmount).longValue();
 
-        node().waitForTransaction(firstCaller.invokes(i -> i.dApp(exchanger).function("replenishWithOneToken", arg(virtualSwapTokenPay), arg(virtualSwapTokenGet)).payment(pmtAmount, tokenB).fee(1_00500000L)).getId().getBase58String());
+        node().waitForTransaction(firstCaller.invoke(i -> i.dApp(exchanger).function("replenishWithOneToken", IntegerArg.as(virtualSwapTokenPay), IntegerArg.as(virtualSwapTokenGet)).payment(pmtAmount, tokenB).fee(1_00500000L)).tx().id());
         assertAll("data and balances",
-                () -> assertThat(exchanger.dataInt("A_asset_balance")).isEqualTo(dAppTokensAmountA),
-                () -> assertThat(exchanger.dataInt("B_asset_balance")).isEqualTo(dAppTokensAmountB + pmtAmount),
-                () -> assertThat(exchanger.dataStr("A_asset_id")).isEqualTo(tokenA),
-                () -> assertThat(exchanger.dataStr("B_asset_id")).isEqualTo(tokenB),
-                () -> assertThat(exchanger.dataBool("active")).isTrue(),
-                () -> assertThat(exchanger.dataInt("invariant")).isEqualTo(invariantCalculated),
-                () -> assertThat(exchanger.dataInt("commission")).isEqualTo(commission),
-                () -> assertThat(exchanger.dataInt("commission_scale_delimiter")).isEqualTo(commissionScaleDelimiter),
-                () -> assertThat(exchanger.dataStr("version")).isEqualTo(version),
+                () -> assertThat(exchanger.getIntegerData("A_asset_balance")).isEqualTo(dAppTokensAmountA),
+                () -> assertThat(exchanger.getIntegerData("B_asset_balance")).isEqualTo(dAppTokensAmountB + pmtAmount),
+                () -> assertThat(exchanger.getStringData("A_asset_id")).isEqualTo(tokenA.toString()),
+                () -> assertThat(exchanger.getStringData("B_asset_id")).isEqualTo(tokenB.toString()),
+                () -> assertThat(exchanger.getBooleanData("active")).isTrue(),
+                () -> assertThat(exchanger.getIntegerData("invariant")).isEqualTo(invariantCalculated),
+                () -> assertThat(exchanger.getIntegerData("commission")).isEqualTo(commission),
+                () -> assertThat(exchanger.getIntegerData("commission_scale_delimiter")).isEqualTo(commissionScaleDelimiter),
+                () -> assertThat(exchanger.getStringData("version")).isEqualTo(version),
 
-                () -> assertThat(exchanger.dataStr("share_asset_id")).isEqualTo(shareTokenId),
-                () -> assertThat(exchanger.dataInt("share_asset_supply")).isEqualTo(tokenShareSupply + shareTokenToPayAmount),
-                () -> assertThat(firstCaller.balance(shareTokenId)).isEqualTo(callerTokenShareBalance + shareTokenToPayAmount)
+                () -> assertThat(exchanger.getStringData("share_asset_id")).isEqualTo(shareTokenId.toString()),
+                () -> assertThat(exchanger.getIntegerData("share_asset_supply")).isEqualTo(tokenShareSupply + shareTokenToPayAmount),
+                () -> assertThat(firstCaller.getAssetBalance(shareTokenId)).isEqualTo(callerTokenShareBalance + shareTokenToPayAmount)
 
         );
     }
@@ -401,15 +401,15 @@ public class SwopfiFlatTest {
     @ParameterizedTest(name = "secondCaller replenish A/B by twice")
     @MethodSource("replenishByTwiceProvider")
     void g_secondCallerReplenishABByTwice(Account exchanger) {
-        long amountTokenABefore = exchanger.dataInt("A_asset_balance");
-        long amountTokenBBefore = exchanger.dataInt("B_asset_balance");
-        long shareTokenSupplyBefore = exchanger.dataInt("share_asset_supply");
+        long amountTokenABefore = exchanger.getIntegerData("A_asset_balance");
+        long amountTokenBBefore = exchanger.getIntegerData("B_asset_balance");
+        long shareTokenSupplyBefore = exchanger.getIntegerData("share_asset_supply");
         long tokenReceiveAmountA = amountTokenABefore;
         long tokenReceiveAmountB = amountTokenBBefore;
-        shareTokenId = exchanger.dataStr("share_asset_id");
+        shareTokenId = AssetId.as(exchanger.getStringData("share_asset_id"));
 
 
-        String invokeId = secondCaller.invokes(i -> i.dApp(exchanger).function("replenishWithTwoTokens", arg(10)).payment(tokenReceiveAmountA - stakingFee, tokenA).payment(tokenReceiveAmountB, tokenB).fee(1_00500000L)).getId().getBase58String();
+        Id invokeId = secondCaller.invoke(i -> i.dApp(exchanger).function("replenishWithTwoTokens", IntegerArg.as(10)).payment(tokenReceiveAmountA - stakingFee, tokenA).payment(tokenReceiveAmountB, tokenB).fee(1_00500000L)).tx().id();
         node().waitForTransaction(invokeId);
         double ratioShareTokensInA = BigDecimal.valueOf(amountTokenABefore - stakingFee).multiply(BigDecimal.valueOf(scaleValue8)).divide(BigDecimal.valueOf(amountTokenABefore), 8, RoundingMode.HALF_DOWN).longValue();
         double ratioShareTokensInB = BigDecimal.valueOf(amountTokenBBefore - stakingFee).multiply(BigDecimal.valueOf(scaleValue8)).divide(BigDecimal.valueOf(amountTokenBBefore), 8, RoundingMode.HALF_DOWN).longValue();
@@ -422,20 +422,20 @@ public class SwopfiFlatTest {
         }
 
         assertAll("data and balances",
-                () -> assertThat(exchanger.dataInt("A_asset_balance")).isEqualTo(amountTokenABefore + tokenReceiveAmountA - stakingFee),
-                () -> assertThat(exchanger.dataInt("B_asset_balance")).isEqualTo(amountTokenBBefore + tokenReceiveAmountB - stakingFee),
-                () -> assertThat(exchanger.balance(tokenA)).isEqualTo(amountTokenABefore + tokenReceiveAmountA - stakingFee),
-                () -> assertThat(exchanger.balance(tokenB)).isEqualTo(amountTokenBBefore + tokenReceiveAmountB),
-                () -> assertThat(exchanger.dataStr("A_asset_id")).isEqualTo(tokenA),
-                () -> assertThat(exchanger.dataStr("B_asset_id")).isEqualTo(tokenB),
-                () -> assertThat(exchanger.dataBool("active")).isTrue(),
-                () -> assertThat(exchanger.dataInt("invariant")).isEqualTo(invariantCalc(amountTokenABefore + tokenReceiveAmountA - stakingFee, amountTokenBBefore + tokenReceiveAmountB - stakingFee).longValue()),
-                () -> assertThat(exchanger.dataInt("commission")).isEqualTo(commission),
-                () -> assertThat(exchanger.dataInt("commission_scale_delimiter")).isEqualTo(commissionScaleDelimiter),
-                () -> assertThat(exchanger.dataStr("version")).isEqualTo(version),
-                () -> assertThat(exchanger.dataStr("share_asset_id")).isEqualTo(shareTokenId),
-                () -> assertThat(exchanger.dataInt("share_asset_supply")).isEqualTo(shareTokenSupplyBefore + shareTokenToPay),
-                () -> assertThat(secondCaller.balance(shareTokenId)).isEqualTo(shareTokenToPay)
+                () -> assertThat(exchanger.getIntegerData("A_asset_balance")).isEqualTo(amountTokenABefore + tokenReceiveAmountA - stakingFee),
+                () -> assertThat(exchanger.getIntegerData("B_asset_balance")).isEqualTo(amountTokenBBefore + tokenReceiveAmountB - stakingFee),
+                () -> assertThat(exchanger.getAssetBalance(tokenA)).isEqualTo(amountTokenABefore + tokenReceiveAmountA - stakingFee),
+                () -> assertThat(exchanger.getAssetBalance(tokenB)).isEqualTo(amountTokenBBefore + tokenReceiveAmountB),
+                () -> assertThat(exchanger.getStringData("A_asset_id")).isEqualTo(tokenA.toString()),
+                () -> assertThat(exchanger.getStringData("B_asset_id")).isEqualTo(tokenB.toString()),
+                () -> assertThat(exchanger.getBooleanData("active")).isTrue(),
+                () -> assertThat(exchanger.getIntegerData("invariant")).isEqualTo(invariantCalc(amountTokenABefore + tokenReceiveAmountA - stakingFee, amountTokenBBefore + tokenReceiveAmountB - stakingFee).longValue()),
+                () -> assertThat(exchanger.getIntegerData("commission")).isEqualTo(commission),
+                () -> assertThat(exchanger.getIntegerData("commission_scale_delimiter")).isEqualTo(commissionScaleDelimiter),
+                () -> assertThat(exchanger.getStringData("version")).isEqualTo(version),
+                () -> assertThat(exchanger.getStringData("share_asset_id")).isEqualTo(shareTokenId.toString()),
+                () -> assertThat(exchanger.getIntegerData("share_asset_supply")).isEqualTo(shareTokenSupplyBefore + shareTokenToPay),
+                () -> assertThat(secondCaller.getAssetBalance(shareTokenId)).isEqualTo(shareTokenToPay)
 
         );
     }
@@ -443,21 +443,21 @@ public class SwopfiFlatTest {
     @Test
     void h_slippToleranceAboveLimit() {
         int slippageToleranceAboveLimit = 11;
-        NodeError error = assertThrows(NodeError.class, () ->
-                secondCaller.invokes(i -> i.dApp(exchanger7).function("replenishWithTwoTokens", arg(slippageToleranceAboveLimit)).payment(100, tokenA).payment(100, tokenB).fee(1_00500000L)).getId().getBase58String());
+        ApiError error = assertThrows(ApiError.class, () ->
+                secondCaller.invoke(i -> i.dApp(exchanger7).function("replenishWithTwoTokens", IntegerArg.as(slippageToleranceAboveLimit)).payment(100, tokenA).payment(100, tokenB).fee(1_00500000L)).tx().id());
         assertTrue(error.getMessage().contains("slippage tolerance must be <= 1%"));
     }
 
     @ParameterizedTest(name = "secondCaller withdraw A/B by twice")
     @MethodSource("replenishByTwiceProvider")
     void i_secondCallerWithdrawABByTwice(Account exchanger) {
-        long amountTokenABefore = exchanger.balance(tokenA);
-        long amountTokenBBefore = exchanger.balance(tokenB);
-        long secondCallerAmountA = secondCaller.balance(tokenA);
-        long secondCallerAmountB = secondCaller.balance(tokenB);
-        long shareTokenSupply = exchanger.dataInt("share_asset_supply");
-        shareTokenId = exchanger.dataStr("share_asset_id");
-        long secondCallerShareBalance = secondCaller.balance(shareTokenId);
+        long amountTokenABefore = exchanger.getAssetBalance(tokenA);
+        long amountTokenBBefore = exchanger.getAssetBalance(tokenB);
+        long secondCallerAmountA = secondCaller.getAssetBalance(tokenA);
+        long secondCallerAmountB = secondCaller.getAssetBalance(tokenB);
+        long shareTokenSupply = exchanger.getIntegerData("share_asset_supply");
+        shareTokenId = AssetId.as(exchanger.getStringData("share_asset_id"));
+        long secondCallerShareBalance = secondCaller.getAssetBalance(shareTokenId);
         long tokensToPayA =
                 BigDecimal.valueOf(secondCallerShareBalance)
                         .multiply(BigDecimal.valueOf(amountTokenABefore))
@@ -468,82 +468,82 @@ public class SwopfiFlatTest {
                         .multiply(BigDecimal.valueOf(amountTokenBBefore - stakingFee))
                         .divide(BigDecimal.valueOf(shareTokenSupply), 8, RoundingMode.HALF_DOWN).longValue();
 
-        String invokeId = secondCaller.invokes(i -> i.dApp(exchanger).function("withdraw").payment(secondCallerShareBalance, shareTokenId).fee(1_00500000L)).getId().getBase58String();
+        Id invokeId = secondCaller.invoke(i -> i.dApp(exchanger).function("withdraw").payment(secondCallerShareBalance, shareTokenId).fee(1_00500000L)).tx().id();
         node().waitForTransaction(invokeId);
         node().waitNBlocks(1);
 
         assertAll("data and balances",
-                () -> assertThat(exchanger.dataInt("A_asset_balance")).isEqualTo(amountTokenABefore - tokensToPayA),
-                () -> assertThat(exchanger.dataInt("B_asset_balance")).isEqualTo(amountTokenBBefore - tokensToPayB),
-                () -> assertThat(exchanger.balance(tokenA)).isEqualTo(amountTokenABefore - tokensToPayA),
-                () -> assertThat(exchanger.balance(tokenB)).isEqualTo(amountTokenBBefore - tokensToPayB + stakingFee),
-                () -> assertThat(exchanger.dataStr("A_asset_id")).isEqualTo(tokenA),
-                () -> assertThat(exchanger.dataStr("B_asset_id")).isEqualTo(tokenB),
-                () -> assertThat(exchanger.dataBool("active")).isTrue(),
-                () -> assertThat(exchanger.dataInt("invariant")).isEqualTo(invariantCalc(amountTokenABefore - tokensToPayA, amountTokenBBefore - tokensToPayB).longValue()),
-                () -> assertThat(exchanger.dataInt("commission")).isEqualTo(commission),
-                () -> assertThat(exchanger.dataInt("commission_scale_delimiter")).isEqualTo(commissionScaleDelimiter),
-                () -> assertThat(exchanger.dataStr("version")).isEqualTo(version),
-                () -> assertThat(exchanger.dataStr("share_asset_id")).isEqualTo(shareTokenId),
-                () -> assertThat(exchanger.dataInt("share_asset_supply")).isEqualTo(shareTokenSupply - secondCallerShareBalance),
-                () -> assertThat(secondCaller.balance(tokenA)).isEqualTo(secondCallerAmountA + tokensToPayA),
-                () -> assertThat(secondCaller.balance(tokenB)).isEqualTo(secondCallerAmountB + tokensToPayB - stakingFee)
+                () -> assertThat(exchanger.getIntegerData("A_asset_balance")).isEqualTo(amountTokenABefore - tokensToPayA),
+                () -> assertThat(exchanger.getIntegerData("B_asset_balance")).isEqualTo(amountTokenBBefore - tokensToPayB),
+                () -> assertThat(exchanger.getAssetBalance(tokenA)).isEqualTo(amountTokenABefore - tokensToPayA),
+                () -> assertThat(exchanger.getAssetBalance(tokenB)).isEqualTo(amountTokenBBefore - tokensToPayB + stakingFee),
+                () -> assertThat(exchanger.getStringData("A_asset_id")).isEqualTo(tokenA.toString()),
+                () -> assertThat(exchanger.getStringData("B_asset_id")).isEqualTo(tokenB.toString()),
+                () -> assertThat(exchanger.getBooleanData("active")).isTrue(),
+                () -> assertThat(exchanger.getIntegerData("invariant")).isEqualTo(invariantCalc(amountTokenABefore - tokensToPayA, amountTokenBBefore - tokensToPayB).longValue()),
+                () -> assertThat(exchanger.getIntegerData("commission")).isEqualTo(commission),
+                () -> assertThat(exchanger.getIntegerData("commission_scale_delimiter")).isEqualTo(commissionScaleDelimiter),
+                () -> assertThat(exchanger.getStringData("version")).isEqualTo(version),
+                () -> assertThat(exchanger.getStringData("share_asset_id")).isEqualTo(shareTokenId.toString()),
+                () -> assertThat(exchanger.getIntegerData("share_asset_supply")).isEqualTo(shareTokenSupply - secondCallerShareBalance),
+                () -> assertThat(secondCaller.getAssetBalance(tokenA)).isEqualTo(secondCallerAmountA + tokensToPayA),
+                () -> assertThat(secondCaller.getAssetBalance(tokenB)).isEqualTo(secondCallerAmountB + tokensToPayB - stakingFee)
 
         );
     }
 
     @Test
     void j_staking() {
-        long balanceA = exchanger7.dataInt("A_asset_balance");
-        long balanceB = exchanger7.dataInt("B_asset_balance");
+        long balanceA = exchanger7.getIntegerData("A_asset_balance");
+        long balanceB = exchanger7.getIntegerData("B_asset_balance");
         long tokenReceiveAmount = 1000000000L;
-        long invariant = exchanger7.dataInt("invariant");
-        node().waitForTransaction(stakingAcc.writes(d -> d.integer(String.format("rpd_balance_%s_%s", tokenB, exchanger7.address()), balanceB)).getId().getBase58String());
+        long invariant = exchanger7.getIntegerData("invariant");
+        node().waitForTransaction(stakingAcc.writeData(d -> d.integer(String.format("rpd_balance_%s_%s", tokenB, exchanger7.address()), balanceB)).tx().id());
         long amountSendEstimated = amountToSendEstimated(balanceA, balanceB, balanceA + tokenReceiveAmount);
         long minTokenReceiveAmount = amountSendEstimated;
         long tokenSendAmountWithoutFee = calculateHowManySendTokenB(amountSendEstimated, minTokenReceiveAmount, balanceA, balanceB, tokenReceiveAmount, invariant);
         long tokenSendAmountWithFee = BigInteger.valueOf(tokenSendAmountWithoutFee).multiply(BigInteger.valueOf(commissionScaleDelimiter - commission)).divide(BigInteger.valueOf(commissionScaleDelimiter)).longValue();
         long tokenSendGovernance = tokenSendAmountWithoutFee * commissionGovernance / commissionScaleDelimiter;
 
-        NodeError error = assertThrows(NodeError.class, () ->
-                firstCaller.invokes(i -> i.dApp(exchanger7).function("exchange", arg(amountSendEstimated), arg(tokenSendAmountWithFee)).payment(tokenReceiveAmount, tokenA).fee(1_00500000L)));
+        ApiError error = assertThrows(ApiError.class, () ->
+                firstCaller.invoke(i -> i.dApp(exchanger7).function("exchange", IntegerArg.as(amountSendEstimated), IntegerArg.as(tokenSendAmountWithFee)).payment(tokenReceiveAmount, tokenA).fee(1_00500000L)));
         assertTrue(error.getMessage().contains(String.format("Error while executing account-script:" +
                 " Insufficient DApp balance to pay %s tokenB due to staking. Available: 0 tokenB." +
                 " Please contact support in Telegram: https://t.me/swopfisupport", tokenSendAmountWithFee)));
 
-        node().waitForTransaction(stakingAcc.writes(d -> d.integer(String.format("rpd_balance_%s_%s", tokenB, exchanger7.address()), balanceB - tokenSendAmountWithFee - tokenSendGovernance - 1)).getId().getBase58String());
-        node().waitForTransaction(firstCaller.invokes(i -> i.dApp(exchanger7).function("exchange", arg(amountSendEstimated), arg(tokenSendAmountWithFee)).payment(tokenReceiveAmount, tokenA).fee(1_00500000L)).getId().getBase58String());
+        node().waitForTransaction(stakingAcc.writeData(d -> d.integer(String.format("rpd_balance_%s_%s", tokenB, exchanger7.address()), balanceB - tokenSendAmountWithFee - tokenSendGovernance - 1)).tx().id());
+        node().waitForTransaction(firstCaller.invoke(i -> i.dApp(exchanger7).function("exchange", IntegerArg.as(amountSendEstimated), IntegerArg.as(tokenSendAmountWithFee)).payment(tokenReceiveAmount, tokenA).fee(1_00500000L)).tx().id());
     }
 
     @Test
     void k_canShutdown() {
-        NodeError error = assertThrows(NodeError.class, () ->
-                firstCaller.invokes(i -> i.dApp(exchanger1).function("shutdown").fee(900000L)));
+        ApiError error = assertThrows(ApiError.class, () ->
+                firstCaller.invoke(i -> i.dApp(exchanger1).function("shutdown").fee(900000L)));
         assertTrue(error.getMessage().contains("Only admin can call this function"));
 
-        secondCaller.invokes(i -> i.dApp(exchanger1).function("shutdown").fee(900000L));
-        assertThat(exchanger1.dataBool("active")).isFalse();
-        assertThat(exchanger1.dataStr("shutdown_cause")).isEqualTo("Paused by admin");
+        secondCaller.invoke(i -> i.dApp(exchanger1).function("shutdown").fee(900000L));
+        assertThat(exchanger1.getBooleanData("active")).isFalse();
+        assertThat(exchanger1.getStringData("shutdown_cause")).isEqualTo("Paused by admin");
 
 
-        NodeError error1 = assertThrows(NodeError.class, () ->
-                firstCaller.invokes(i -> i.dApp(exchanger1).function("shutdown").fee(900000L)));
+        ApiError error1 = assertThrows(ApiError.class, () ->
+                firstCaller.invoke(i -> i.dApp(exchanger1).function("shutdown").fee(900000L)));
         assertTrue(error1.getMessage().contains("DApp is already suspended. Cause: Paused by admin"));
     }
 
     @Test
     void l_canActivate() {
-        NodeError error = assertThrows(NodeError.class, () ->
-                firstCaller.invokes(i -> i.dApp(exchanger1).function("activate").fee(900000L)));
+        ApiError error = assertThrows(ApiError.class, () ->
+                firstCaller.invoke(i -> i.dApp(exchanger1).function("activate").fee(900000L)));
         assertTrue(error.getMessage().contains("Only admin can call this function"));
 
-        secondCaller.invokes(i -> i.dApp(exchanger1).function("activate").fee(900000L));
-        assertThat(exchanger1.dataBool("active")).isTrue();
-        NodeError error1 = assertThrows(NodeError.class, () -> exchanger1.dataStr("shutdown_cause"));
+        secondCaller.invoke(i -> i.dApp(exchanger1).function("activate").fee(900000L));
+        assertThat(exchanger1.getBooleanData("active")).isTrue();
+        ApiError error1 = assertThrows(ApiError.class, () -> exchanger1.getStringData("shutdown_cause"));
         assertTrue(error1.getMessage().contains("no data for this key"));
 
-        NodeError error2 = assertThrows(NodeError.class, () ->
-                firstCaller.invokes(i -> i.dApp(exchanger1).function("activate").fee(900000L)));
+        ApiError error2 = assertThrows(ApiError.class, () ->
+                firstCaller.invoke(i -> i.dApp(exchanger1).function("activate").fee(900000L)));
         assertTrue(error2.getMessage().contains("DApp is already active"));
     }
 

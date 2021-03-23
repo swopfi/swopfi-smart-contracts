@@ -40,7 +40,7 @@
     <dependency>
         <groupId>im.mak</groupId>
         <artifactId>paddle</artifactId>
-        <version>0.5.2</version>
+        <version>1.0.0-rc2</version>
     </dependency>
     <dependency>
         <groupId>org.junit.jupiter</groupId>
@@ -52,6 +52,11 @@
         <groupId>ch.obermuhlner</groupId>
         <artifactId>big-math</artifactId>
         <version>2.3.0</version>
+    </dependency>
+    <dependency>
+        <groupId>org.apache.commons</groupId>
+        <artifactId>commons-lang3</artifactId>
+        <version>3.12.0</version>
     </dependency>
     <dependency>
         <groupId>org.assertj</groupId>
