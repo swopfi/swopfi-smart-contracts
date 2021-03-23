@@ -43,8 +43,8 @@ func addPool(poolAddress: String, poolName: String) = isSelfInvoke(i).valueOrEls
     if possiblyAlreadyAddedPool.isDefined() then
         throw("Pool with address " + poolAddress + " is already defined with name \"" + possiblyAlreadyAddedPool.value() + "\"")
     else [
-        StringEntry(keyName, poolName.getPoolNameIfValid()),
         IntegerEntry(keyIndex, pools.size()),
+        StringEntry(keyName, poolName.getPoolNameIfValid()),
         StringEntry(keyPoolsListName, (pools :+ poolAddress.getAddressIfValid()).makeString(","))
     ]
 })

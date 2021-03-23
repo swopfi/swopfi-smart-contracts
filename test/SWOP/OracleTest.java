@@ -43,13 +43,13 @@ public class OracleTest {
                 StringArg.as(pool3.address().toString()), StringArg.as("A_C")));
 
         assertThat(oracle.getData()).containsExactlyInAnyOrder(
-                StringEntry.as("pools", pool1.address() + "," + pool2.address() + "," + pool3.address()),
-                StringEntry.as("pool_" + pool1.address(), "A_B"),
                 IntegerEntry.as("index_" + pool1.address(), 0),
-                StringEntry.as("pool_" + pool2.address(), "B_C"),
+                StringEntry.as("pool_" + pool1.address(), "A_B"),
                 IntegerEntry.as("index_" + pool2.address(), 1),
+                StringEntry.as("pool_" + pool2.address(), "B_C"),
+                IntegerEntry.as("index_" + pool3.address(), 2),
                 StringEntry.as("pool_" + pool3.address(), "A_C"),
-                IntegerEntry.as("index_" + pool3.address(), 2)
+                StringEntry.as("pools", pool1.address() + "," + pool2.address() + "," + pool3.address())
         );
     }
 }
