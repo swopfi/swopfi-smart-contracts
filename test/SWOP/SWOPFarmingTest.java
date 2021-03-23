@@ -424,7 +424,8 @@ class SWOPFarmingTest {
                 () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_share_tokens_locked", poolAddress, secondCaller.address()))).isEqualTo(user2ShareTokensLocked),
                 () -> assertThat(farmingDapp.getIntegerData(String.format("%s_total_share_tokens_locked", poolAddress))).isEqualTo(sTokensLockedBefore),
                 () -> assertThat(farmingDapp.getIntegerData(poolAddress + "_" + secondCaller.address() + keyAvailableSWOP)).isEqualTo(0),
-                () -> assertThat(farmingDapp.getIntegerData(poolAddress + keyLastInterestHeight)).isEqualTo(currentHeight2)
+                () -> assertThat(farmingDapp.getIntegerData(poolAddress + keyLastInterestHeight)).isEqualTo(currentHeight2),
+                () -> assertThat(secondCaller.getAssetBalance(swopId)).isEqualTo(secondSWOPBalanceBefore + user2AvailableSWOP + claimAmount2)
         );
     }
 
