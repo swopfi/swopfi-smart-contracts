@@ -1,7 +1,5 @@
-import com.wavesplatform.wavesj.*;
 import im.mak.paddle.Account;
 import im.mak.paddle.exceptions.ApiError;
-import im.mak.paddle.exceptions.NodeError;
 import im.mak.waves.transactions.common.AssetId;
 import im.mak.waves.transactions.common.Id;
 import im.mak.waves.transactions.invocation.IntegerArg;
@@ -15,7 +13,6 @@ import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Stream;
 import im.mak.waves.crypto.base.Base58;
@@ -32,23 +29,23 @@ import static org.junit.jupiter.api.MethodOrderer.Alphanumeric;
 class SwopfiTest {
 
     private Account exchanger1, exchanger2, exchanger3, exchanger4, exchanger5, exchanger6, exchanger7, exchanger8;
-    private int aDecimal = 8;
-    private int bDecimal = 6;
-    private int commission = 3000;
-    private int commisionGovernance = 1200;
-    private int commissionScaleDelimiter = 1000000;
-    private int slippageToleranceDelimiter = 1000;
-    private int scaleValue8 = 100000000;
-    private String version = "1.0.0";
-    private String governanceAddress = "3MP9d7iovdAZtsPeRcq97skdsQH5MPEsfgm";
-    private int minSponsoredAssetFee = 30000;
-    private long stakingFee = 9 * minSponsoredAssetFee;
-    private Account firstCaller = new Account(1000_00000000L);
-    private Account secondCaller = new Account(1000_00000000L);
-    private Account stakingAcc = new Account(1000_00000000L);
-    private AssetId tokenA = firstCaller.issue(a -> a.quantity(Long.MAX_VALUE).name("tokenA").decimals(aDecimal)).tx().assetId();
-    private AssetId tokenB = firstCaller.issue(a -> a.quantity(Long.MAX_VALUE).name("tokenB").decimals(bDecimal)).tx().assetId();
-    private String dAppScript = fromFile("dApps/other_cpmm.ride")
+    private final int aDecimal = 8;
+    private final int bDecimal = 6;
+    private final int commission = 3000;
+    private final int commissionGovernance = 1200;
+    private final int commissionScaleDelimiter = 1000000;
+    private final int slippageToleranceDelimiter = 1000;
+    private final int scaleValue8 = 100000000;
+    private final String version = "1.0.0";
+    private final String governanceAddress = "3MP9d7iovdAZtsPeRcq97skdsQH5MPEsfgm";
+    private final int minSponsoredAssetFee = 30000;
+    private final long stakingFee = 9 * minSponsoredAssetFee;
+    private final Account firstCaller = new Account(1000_00000000L);
+    private final Account secondCaller = new Account(1000_00000000L);
+    private final Account stakingAcc = new Account(1000_00000000L);
+    private final AssetId tokenA = firstCaller.issue(a -> a.quantity(Long.MAX_VALUE).name("tokenA").decimals(aDecimal)).tx().assetId();
+    private final AssetId tokenB = firstCaller.issue(a -> a.quantity(Long.MAX_VALUE).name("tokenB").decimals(bDecimal)).tx().assetId();
+    private final String dAppScript = fromFile("dApps/other_cpmm.ride")
             .replace("3P6J84oH51DzY6xk2mT5TheXRbrCwBMxonp", governanceAddress)
             .replace("3PNikM6yp4NqcSU8guxQtmR5onr2D4e8yTJ", stakingAcc.address().toString())
             .replace("DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p", tokenB.toString())
@@ -131,8 +128,8 @@ class SwopfiTest {
 
         AssetId shareTokenId = AssetId.as(exchanger.getStringData("share_asset_id"));
 
-        long shareTokenSupply = (long) (((new BigDecimal(Math.pow(fundAmountA / Math.pow(10, aDecimal), 0.5)).setScale(aDecimal, RoundingMode.HALF_DOWN).movePointRight(aDecimal).doubleValue() *
-                new BigDecimal(Math.pow(fundAmountB / Math.pow(10, bDecimal), 0.5)).setScale(bDecimal, RoundingMode.HALF_DOWN).movePointRight(bDecimal).doubleValue()) / Math.pow(10, digitsInShareToken)));
+        long shareTokenSupply = (long) (((BigDecimal.valueOf(Math.pow(fundAmountA / Math.pow(10, aDecimal), 0.5)).setScale(aDecimal, RoundingMode.HALF_DOWN).movePointRight(aDecimal).doubleValue() *
+                BigDecimal.valueOf(Math.pow(fundAmountB / Math.pow(10, bDecimal), 0.5)).setScale(bDecimal, RoundingMode.HALF_DOWN).movePointRight(bDecimal).doubleValue()) / Math.pow(10, digitsInShareToken)));
 
         assertAll("data and balances",
                 () -> assertThat(exchanger.getIntegerData("A_asset_balance")).isEqualTo(fundAmountA),
@@ -187,7 +184,7 @@ class SwopfiTest {
 
         AssetId shareTokenId = AssetId.as(exchanger.getStringData("share_asset_id"));
         long tokenSendAmountWithFee = tokenSendAmountWithoutFee.multiply(BigInteger.valueOf(commissionScaleDelimiter - commission)).divide(BigInteger.valueOf(commissionScaleDelimiter)).longValue();
-        long tokenSendGovernance = tokenSendAmountWithoutFee.longValue() * commisionGovernance / commissionScaleDelimiter;
+        long tokenSendGovernance = tokenSendAmountWithoutFee.longValue() * commissionGovernance / commissionScaleDelimiter;
 
         Id invokeId = firstCaller.invoke(i -> i.dApp(exchanger).function("exchange", IntegerArg.as(tokenSendAmountWithFee)).payment(tokenReceiveAmount, tokenA).fee(1_00500000L)).tx().id();
         node().waitForTransaction(invokeId);
@@ -244,7 +241,7 @@ class SwopfiTest {
 
         AssetId shareTokenId = AssetId.as(exchanger.getStringData("share_asset_id"));
         long tokenSendAmountWithFee = tokenSendAmountWithoutFee.multiply(BigInteger.valueOf(commissionScaleDelimiter - commission)).divide(BigInteger.valueOf(commissionScaleDelimiter)).longValue();
-        long tokenSendGovernance = tokenSendAmountWithoutFee.longValue() * commisionGovernance / commissionScaleDelimiter;
+        long tokenSendGovernance = tokenSendAmountWithoutFee.longValue() * commissionGovernance / commissionScaleDelimiter;
 
         Id invokeId = firstCaller.invoke(i -> i.dApp(exchanger).function("exchange", IntegerArg.as(tokenSendAmountWithFee)).payment(tokenReceiveAmount, tokenB).fee(1_00500000L)).tx().id();
         node().waitForTransaction(invokeId);
@@ -462,7 +459,7 @@ class SwopfiTest {
                         .multiply(BigInteger.valueOf(balanceB))
                         .divide(BigInteger.valueOf(tokenReceiveAmount + balanceA));
         long tokenSendAmountWithFee = tokenSendAmountWithoutFee.multiply(BigInteger.valueOf(commissionScaleDelimiter - commission)).divide(BigInteger.valueOf(commissionScaleDelimiter)).longValue();
-        long tokenSendGovernance = tokenSendAmountWithoutFee.longValue() * commisionGovernance / commissionScaleDelimiter;
+        long tokenSendGovernance = tokenSendAmountWithoutFee.longValue() * commissionGovernance / commissionScaleDelimiter;
 
         ApiError error = assertThrows(ApiError.class, () ->
                 firstCaller.invoke(i -> i.dApp(exchanger8).function("exchange", IntegerArg.as(tokenSendAmountWithFee)).payment(tokenReceiveAmount, tokenA).fee(1_00500000L)));

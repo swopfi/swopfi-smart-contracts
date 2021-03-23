@@ -1,6 +1,5 @@
 import im.mak.paddle.Account;
 import im.mak.paddle.exceptions.ApiError;
-import im.mak.paddle.exceptions.NodeError;
 import im.mak.waves.transactions.common.AssetId;
 import im.mak.waves.transactions.common.Id;
 import im.mak.waves.transactions.invocation.IntegerArg;
@@ -14,7 +13,6 @@ import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import ch.obermuhlner.math.big.BigDecimalMath;
@@ -31,25 +29,25 @@ import static org.junit.jupiter.api.Assertions.*;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class SwopfiFlatTest {
     private Account exchanger1, exchanger2, exchanger3, exchanger4, exchanger5, exchanger6, exchanger7;
-    private int aDecimal = 6;
-    private int bDecimal = 6;
-    private int commission = 500;
-    private int commissionGovernance = 200;
-    private int commissionScaleDelimiter = 1000000;
-    private int scaleValue8 = 100000000;
-    private double alpha = 0.5;
-    private double betta = 0.46;
-    private String version = "2.0.0";
+    private final int aDecimal = 6;
+    private final int bDecimal = 6;
+    private final int commission = 500;
+    private final int commissionGovernance = 200;
+    private final int commissionScaleDelimiter = 1000000;
+    private final int scaleValue8 = 100000000;
+    private final double alpha = 0.5;
+    private final double betta = 0.46;
+    private final String version = "2.0.0";
     private AssetId shareTokenId;
-    private String governanceAddress = "3MP9d7iovdAZtsPeRcq97skdsQH5MPEsfgm";
-    private int minSponsoredAssetFee = 30000;
-    private long stakingFee = 9 * minSponsoredAssetFee;
-    private Account firstCaller = new Account(1000_00000000L);
-    private Account secondCaller = new Account(1000_00000000L);
-    private Account stakingAcc = new Account(1000_00000000L);
-    private AssetId tokenA = firstCaller.issue(a -> a.quantity(Long.MAX_VALUE).name("tokenA").decimals(aDecimal)).tx().assetId();
-    private AssetId tokenB = firstCaller.issue(a -> a.quantity(Long.MAX_VALUE).name("tokenB").decimals(bDecimal)).tx().assetId();
-    private String dAppScript = fromFile("dApps/flat.ride")
+    private final String governanceAddress = "3MP9d7iovdAZtsPeRcq97skdsQH5MPEsfgm";
+    private final int minSponsoredAssetFee = 30000;
+    private final long stakingFee = 9 * minSponsoredAssetFee;
+    private final Account firstCaller = new Account(1000_00000000L);
+    private final Account secondCaller = new Account(1000_00000000L);
+    private final Account stakingAcc = new Account(1000_00000000L);
+    private final AssetId tokenA = firstCaller.issue(a -> a.quantity(Long.MAX_VALUE).name("tokenA").decimals(aDecimal)).tx().assetId();
+    private final AssetId tokenB = firstCaller.issue(a -> a.quantity(Long.MAX_VALUE).name("tokenB").decimals(bDecimal)).tx().assetId();
+    private final String dAppScript = fromFile("dApps/flat.ride")
             .replace("3P6J84oH51DzY6xk2mT5TheXRbrCwBMxonp", governanceAddress)
             .replace("3PNikM6yp4NqcSU8guxQtmR5onr2D4e8yTJ", stakingAcc.address().toString())
             .replace("DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p", tokenB.toString())
@@ -133,8 +131,8 @@ public class SwopfiFlatTest {
         Id invokeId = firstCaller.invoke(i -> i.dApp(exchanger).function("init").payment(fundAmountA, tokenA).payment(fundAmountB, tokenB).fee(1_00500000L)).tx().id();
         node().waitForTransaction(invokeId);
         node().waitNBlocks(1);
-        long shareTokenSupply = (long) (((new BigDecimal(Math.pow(fundAmountA / Math.pow(10, aDecimal), 0.5)).setScale(aDecimal, RoundingMode.HALF_DOWN).movePointRight(aDecimal).doubleValue() *
-                new BigDecimal(Math.pow(fundAmountB / Math.pow(10, bDecimal), 0.5)).setScale(bDecimal, RoundingMode.HALF_DOWN).movePointRight(bDecimal).doubleValue()) / Math.pow(10, digitsInShareToken)));
+        long shareTokenSupply = (long) (((BigDecimal.valueOf(Math.pow(fundAmountA / Math.pow(10, aDecimal), 0.5)).setScale(aDecimal, RoundingMode.HALF_DOWN).movePointRight(aDecimal).doubleValue() *
+                BigDecimal.valueOf(Math.pow(fundAmountB / Math.pow(10, bDecimal), 0.5)).setScale(bDecimal, RoundingMode.HALF_DOWN).movePointRight(bDecimal).doubleValue()) / Math.pow(10, digitsInShareToken)));
         shareTokenId = AssetId.as(exchanger.getStringData("share_asset_id"));
 
         assertAll("data and balances",
@@ -176,15 +174,14 @@ public class SwopfiFlatTest {
         long invariant = exchanger.getIntegerData("invariant");
         long shareTokenSuplyBefore = exchanger.getIntegerData("share_asset_supply");
         long amountSendEstimated = amountToSendEstimated(amountTokenA, amountTokenB, amountTokenA + tokenReceiveAmount);
-        long minTokenReceiveAmount = amountSendEstimated;
-        long tokenSendAmountWithoutFee = calculateHowManySendTokenB(amountSendEstimated, minTokenReceiveAmount, amountTokenA, amountTokenB, tokenReceiveAmount, invariant);
+        long tokenSendAmountWithoutFee = calculateHowManySendTokenB(amountSendEstimated, amountSendEstimated, amountTokenA, amountTokenB, tokenReceiveAmount, invariant);
         long tokenSendAmountWithFee = BigInteger.valueOf(tokenSendAmountWithoutFee).multiply(BigInteger.valueOf(commissionScaleDelimiter - commission)).divide(BigInteger.valueOf(commissionScaleDelimiter)).longValue();
         long tokenSendGovernance = tokenSendAmountWithoutFee * commissionGovernance / commissionScaleDelimiter;
         long invariantAfter;
         invariantAfter = invariantCalc(amountTokenA + tokenReceiveAmount, amountTokenB - tokenSendAmountWithFee - tokenSendGovernance).longValue();
 
 
-        Id invokeId = firstCaller.invoke(i -> i.dApp(exchanger).function("exchange", IntegerArg.as(amountSendEstimated), IntegerArg.as(minTokenReceiveAmount)).payment(tokenReceiveAmount, tokenA).fee(1_00500000L)).tx().id();//.tx().id();
+        Id invokeId = firstCaller.invoke(i -> i.dApp(exchanger).function("exchange", IntegerArg.as(amountSendEstimated), IntegerArg.as(amountSendEstimated)).payment(tokenReceiveAmount, tokenA).fee(1_00500000L)).tx().id();//.tx().id();
         node().waitForTransaction(invokeId);
 
         assertAll("data and balances",
@@ -224,13 +221,12 @@ public class SwopfiFlatTest {
         long invariant = exchanger.getIntegerData("invariant");
         long shareTokenSuplyBefore = exchanger.getIntegerData("share_asset_supply");
         long amountSendEstimated = amountToSendEstimated(amountTokenB, amountTokenA, amountTokenB + tokenReceiveAmount);
-        long minTokenReceiveAmount = amountSendEstimated;
-        long tokenSendAmountWithoutFee = calculateHowManySendTokenA(amountSendEstimated, minTokenReceiveAmount, amountTokenA, amountTokenB, tokenReceiveAmount, invariant);
+        long tokenSendAmountWithoutFee = calculateHowManySendTokenA(amountSendEstimated, amountSendEstimated, amountTokenA, amountTokenB, tokenReceiveAmount, invariant);
         long tokenSendAmountWithFee = BigInteger.valueOf(tokenSendAmountWithoutFee).multiply(BigInteger.valueOf(commissionScaleDelimiter - commission)).divide(BigInteger.valueOf(commissionScaleDelimiter)).longValue();
         long tokenSendGovernance = tokenSendAmountWithoutFee * commissionGovernance / commissionScaleDelimiter;
 
 
-        Id invokeId = firstCaller.invoke(i -> i.dApp(exchanger).function("exchange", IntegerArg.as(amountSendEstimated), IntegerArg.as(minTokenReceiveAmount)).payment(tokenReceiveAmount, tokenB).fee(1_00500000L)).tx().id();
+        Id invokeId = firstCaller.invoke(i -> i.dApp(exchanger).function("exchange", IntegerArg.as(amountSendEstimated), IntegerArg.as(amountSendEstimated)).payment(tokenReceiveAmount, tokenB).fee(1_00500000L)).tx().id();
         node().waitForTransaction(invokeId);
         long invariantAfter = invariantCalc(amountTokenA - tokenSendAmountWithFee - tokenSendGovernance, amountTokenB + tokenReceiveAmount).longValue();
 
@@ -258,10 +254,9 @@ public class SwopfiFlatTest {
         long amountTokenA = exchanger7.getIntegerData("A_asset_balance");
         long amountTokenB = exchanger7.getIntegerData("B_asset_balance");
         long amountSendEstimated = amountToSendEstimated(amountTokenB, amountTokenA, amountTokenB + amountBelowLimit);
-        long minTokenReceiveAmount = amountSendEstimated;
 
         ApiError error = assertThrows(ApiError.class, () ->
-                firstCaller.invoke(i -> i.dApp(exchanger7).function("exchange", IntegerArg.as(amountSendEstimated), IntegerArg.as(minTokenReceiveAmount)).payment(amountBelowLimit, tokenB).fee(1_00500000L)));
+                firstCaller.invoke(i -> i.dApp(exchanger7).function("exchange", IntegerArg.as(amountSendEstimated), IntegerArg.as(amountSendEstimated)).payment(amountBelowLimit, tokenB).fee(1_00500000L)));
 
         String expected = "Only swap of 10.000000 or more tokens is allowed";
         assertTrue(error.getMessage().contains(expected), String.format("Actual error message: %s does not contain \"%s\"", error.getMessage(), expected));
@@ -292,11 +287,10 @@ public class SwopfiFlatTest {
         shareTokenId = AssetId.as(exchanger.getStringData("share_asset_id"));
         long callerTokenShareBalance = firstCaller.getAssetBalance(shareTokenId);
         long amountVirtualReplanishTokenA = pmtAmount - virtualSwapTokenPay;
-        long amountVirtualReplanishTokenB = virtualSwapTokenGet;
         long contractBalanceAfterVirtualSwapTokenA = dAppTokensAmountA + virtualSwapTokenPay;
         long contractBalanceAfterVirtualSwapTokenB = dAppTokensAmountB - virtualSwapTokenGet;
         double ratioShareTokensInA = BigDecimal.valueOf(amountVirtualReplanishTokenA).multiply(BigDecimal.valueOf(scaleValue8)).divide(BigDecimal.valueOf(contractBalanceAfterVirtualSwapTokenA), 8, RoundingMode.HALF_DOWN).longValue();
-        double ratioShareTokensInB = BigDecimal.valueOf(amountVirtualReplanishTokenB - stakingFee).multiply(BigDecimal.valueOf(scaleValue8)).divide(BigDecimal.valueOf(contractBalanceAfterVirtualSwapTokenB), 8, RoundingMode.HALF_DOWN).longValue();
+        double ratioShareTokensInB = BigDecimal.valueOf(virtualSwapTokenGet - stakingFee).multiply(BigDecimal.valueOf(scaleValue8)).divide(BigDecimal.valueOf(contractBalanceAfterVirtualSwapTokenB), 8, RoundingMode.HALF_DOWN).longValue();
 
         long shareTokenToPayAmount;
         if (ratioShareTokensInA <= ratioShareTokensInB) {
@@ -349,14 +343,13 @@ public class SwopfiFlatTest {
         long tokenShareSupply = exchanger.getIntegerData("share_asset_supply");
         shareTokenId = AssetId.as(exchanger.getStringData("share_asset_id"));
         long callerTokenShareBalance = firstCaller.getAssetBalance(shareTokenId);
-        long amountVirtualReplanishTokenB = pmtAmount - virtualSwapTokenPay;
-        long amountVirtualReplanishTokenA = virtualSwapTokenGet;
+        long amountVirtualReplenishTokenB = pmtAmount - virtualSwapTokenPay;
         long contractBalanceAfterVirtualSwapTokenA = dAppTokensAmountA - virtualSwapTokenGet;
         long contractBalanceAfterVirtualSwapTokenB = dAppTokensAmountB + virtualSwapTokenPay;
 
-        double ratioShareTokensInA = BigDecimal.valueOf(amountVirtualReplanishTokenA).multiply(BigDecimal.valueOf(scaleValue8)).divide(BigDecimal.valueOf(contractBalanceAfterVirtualSwapTokenA), 8, RoundingMode.HALF_DOWN).longValue();
+        double ratioShareTokensInA = BigDecimal.valueOf(virtualSwapTokenGet).multiply(BigDecimal.valueOf(scaleValue8)).divide(BigDecimal.valueOf(contractBalanceAfterVirtualSwapTokenA), 8, RoundingMode.HALF_DOWN).longValue();
         System.out.println("ratioShareTokensInA" + ratioShareTokensInA);
-        double ratioShareTokensInB = BigDecimal.valueOf(amountVirtualReplanishTokenB - stakingFee).multiply(BigDecimal.valueOf(scaleValue8)).divide(BigDecimal.valueOf(contractBalanceAfterVirtualSwapTokenB), 8, RoundingMode.HALF_DOWN).longValue();
+        double ratioShareTokensInB = BigDecimal.valueOf(amountVirtualReplenishTokenB - stakingFee).multiply(BigDecimal.valueOf(scaleValue8)).divide(BigDecimal.valueOf(contractBalanceAfterVirtualSwapTokenB), 8, RoundingMode.HALF_DOWN).longValue();
         System.out.println("ratioShareTokensInB" + ratioShareTokensInB);
 
         long shareTokenToPayAmount;
@@ -406,12 +399,10 @@ public class SwopfiFlatTest {
         long amountTokenABefore = exchanger.getIntegerData("A_asset_balance");
         long amountTokenBBefore = exchanger.getIntegerData("B_asset_balance");
         long shareTokenSupplyBefore = exchanger.getIntegerData("share_asset_supply");
-        long tokenReceiveAmountA = amountTokenABefore;
-        long tokenReceiveAmountB = amountTokenBBefore;
         shareTokenId = AssetId.as(exchanger.getStringData("share_asset_id"));
 
 
-        Id invokeId = secondCaller.invoke(i -> i.dApp(exchanger).function("replenishWithTwoTokens", IntegerArg.as(10)).payment(tokenReceiveAmountA - stakingFee, tokenA).payment(tokenReceiveAmountB, tokenB).fee(1_00500000L)).tx().id();
+        Id invokeId = secondCaller.invoke(i -> i.dApp(exchanger).function("replenishWithTwoTokens", IntegerArg.as(10)).payment(amountTokenABefore - stakingFee, tokenA).payment(amountTokenBBefore, tokenB).fee(1_00500000L)).tx().id();
         node().waitForTransaction(invokeId);
         double ratioShareTokensInA = BigDecimal.valueOf(amountTokenABefore - stakingFee).multiply(BigDecimal.valueOf(scaleValue8)).divide(BigDecimal.valueOf(amountTokenABefore), 8, RoundingMode.HALF_DOWN).longValue();
         double ratioShareTokensInB = BigDecimal.valueOf(amountTokenBBefore - stakingFee).multiply(BigDecimal.valueOf(scaleValue8)).divide(BigDecimal.valueOf(amountTokenBBefore), 8, RoundingMode.HALF_DOWN).longValue();
@@ -424,14 +415,14 @@ public class SwopfiFlatTest {
         }
 
         assertAll("data and balances",
-                () -> assertThat(exchanger.getIntegerData("A_asset_balance")).isEqualTo(amountTokenABefore + tokenReceiveAmountA - stakingFee),
-                () -> assertThat(exchanger.getIntegerData("B_asset_balance")).isEqualTo(amountTokenBBefore + tokenReceiveAmountB - stakingFee),
-                () -> assertThat(exchanger.getAssetBalance(tokenA)).isEqualTo(amountTokenABefore + tokenReceiveAmountA - stakingFee),
-                () -> assertThat(exchanger.getAssetBalance(tokenB)).isEqualTo(amountTokenBBefore + tokenReceiveAmountB),
+                () -> assertThat(exchanger.getIntegerData("A_asset_balance")).isEqualTo(amountTokenABefore + amountTokenABefore - stakingFee),
+                () -> assertThat(exchanger.getIntegerData("B_asset_balance")).isEqualTo(amountTokenBBefore + amountTokenBBefore - stakingFee),
+                () -> assertThat(exchanger.getAssetBalance(tokenA)).isEqualTo(amountTokenABefore + amountTokenABefore - stakingFee),
+                () -> assertThat(exchanger.getAssetBalance(tokenB)).isEqualTo(amountTokenBBefore + amountTokenBBefore),
                 () -> assertThat(exchanger.getStringData("A_asset_id")).isEqualTo(tokenA.toString()),
                 () -> assertThat(exchanger.getStringData("B_asset_id")).isEqualTo(tokenB.toString()),
                 () -> assertThat(exchanger.getBooleanData("active")).isTrue(),
-                () -> assertThat(exchanger.getIntegerData("invariant")).isEqualTo(invariantCalc(amountTokenABefore + tokenReceiveAmountA - stakingFee, amountTokenBBefore + tokenReceiveAmountB - stakingFee).longValue()),
+                () -> assertThat(exchanger.getIntegerData("invariant")).isEqualTo(invariantCalc(amountTokenABefore + amountTokenABefore - stakingFee, amountTokenBBefore + amountTokenBBefore - stakingFee).longValue()),
                 () -> assertThat(exchanger.getIntegerData("commission")).isEqualTo(commission),
                 () -> assertThat(exchanger.getIntegerData("commission_scale_delimiter")).isEqualTo(commissionScaleDelimiter),
                 () -> assertThat(exchanger.getStringData("version")).isEqualTo(version),
@@ -447,9 +438,7 @@ public class SwopfiFlatTest {
         int slippageToleranceAboveLimit = 11;
         ApiError error = assertThrows(ApiError.class, () ->
                 secondCaller.invoke(i -> i.dApp(exchanger7).function("replenishWithTwoTokens", IntegerArg.as(slippageToleranceAboveLimit)).payment(100, tokenA).payment(100, tokenB).fee(1_00500000L)).tx().id());
-
-        String expected = "Slippage tolerance must be <= 1%";
-        assertTrue(error.getMessage().contains(expected), String.format("Actual error message: %s does not contain \"%s\"", error.getMessage(), expected));
+        assertTrue(error.getMessage().contains("Slippage tolerance must be <= 1%"));
     }
 
     @ParameterizedTest(name = "secondCaller withdraw A/B by twice")
@@ -504,8 +493,7 @@ public class SwopfiFlatTest {
         long invariant = exchanger7.getIntegerData("invariant");
         node().waitForTransaction(stakingAcc.writeData(d -> d.integer(String.format("rpd_balance_%s_%s", tokenB, exchanger7.address()), balanceB)).tx().id());
         long amountSendEstimated = amountToSendEstimated(balanceA, balanceB, balanceA + tokenReceiveAmount);
-        long minTokenReceiveAmount = amountSendEstimated;
-        long tokenSendAmountWithoutFee = calculateHowManySendTokenB(amountSendEstimated, minTokenReceiveAmount, balanceA, balanceB, tokenReceiveAmount, invariant);
+        long tokenSendAmountWithoutFee = calculateHowManySendTokenB(amountSendEstimated, amountSendEstimated, balanceA, balanceB, tokenReceiveAmount, invariant);
         long tokenSendAmountWithFee = BigInteger.valueOf(tokenSendAmountWithoutFee).multiply(BigInteger.valueOf(commissionScaleDelimiter - commission)).divide(BigInteger.valueOf(commissionScaleDelimiter)).longValue();
         long tokenSendGovernance = tokenSendAmountWithoutFee * commissionGovernance / commissionScaleDelimiter;
 
@@ -513,11 +501,10 @@ public class SwopfiFlatTest {
                 firstCaller.invoke(i -> i.dApp(exchanger7).function("exchange", IntegerArg.as(amountSendEstimated), IntegerArg.as(tokenSendAmountWithFee)).payment(tokenReceiveAmount, tokenA).fee(1_00500000L)));
         String expected = String.format("Error while executing account-script:" +
                 " Insufficient DApp balance to pay %s tokenB due to staking. Available: 0 tokenB." +
-                " Please contact support in Telegram: https://t.me/swopfisupport", tokenSendAmountWithFee);
-        assertTrue(error.getMessage().contains(expected), String.format("Actual error message: %s does not contain \"%s\"", error.getMessage(), expected));
+                " Please contact support in Telegram: https://t.me/swopfisupport", tokenSendAmountWithFee)));
 
-        node().waitForTransaction(stakingAcc.writeData(d -> d.integer(String.format("rpd_balance_%s_%s", tokenB, exchanger7.address()), balanceB - tokenSendAmountWithFee - tokenSendGovernance - 1)).tx().id());
-        node().waitForTransaction(firstCaller.invoke(i -> i.dApp(exchanger7).function("exchange", IntegerArg.as(amountSendEstimated), IntegerArg.as(tokenSendAmountWithFee)).payment(tokenReceiveAmount, tokenA).fee(1_00500000L)).tx().id());
+        stakingAcc.writeData(d -> d.integer(String.format("rpd_balance_%s_%s", tokenB, exchanger7.address()), balanceB - tokenSendAmountWithFee - tokenSendGovernance - 1));
+        firstCaller.invoke(i -> i.dApp(exchanger7).function("exchange", IntegerArg.as(amountSendEstimated), IntegerArg.as(tokenSendAmountWithFee)).payment(tokenReceiveAmount, tokenA).fee(1_00500000L));
     }
 
     @Test
@@ -554,7 +541,7 @@ public class SwopfiFlatTest {
         assertTrue(error2.getMessage().contains("DApp is already active"));
     }
 
-    private double skeweness(long x, long y) {
+    private double skewness(long x, long y) {
         return (BigDecimal.valueOf(x)
                 .divide(BigDecimal.valueOf(y), 12, RoundingMode.DOWN))
                 .add(BigDecimal.valueOf(y)
@@ -563,13 +550,13 @@ public class SwopfiFlatTest {
     }
 
     private BigDecimal invariantCalc(long x, long y) {
-        double sk = skeweness(x, y);
-        long sk1 = (long) (skeweness(x, y) * scaleValue8);
+        double sk = skewness(x, y);
+        long sk1 = (long) (skewness(x, y) * scaleValue8);
 
         BigDecimal xySum = BigDecimal.valueOf(x).add(BigDecimal.valueOf(y));
-        BigDecimal xySumMultScaleValue = xySum.multiply(BigDecimal.valueOf(scaleValue8));
+        BigDecimal xySumMultiScaleValue = xySum.multiply(BigDecimal.valueOf(scaleValue8));
         BigDecimal firstPow = BigDecimal.valueOf(Math.pow(sk / scaleValue8, alpha)).movePointRight(12).setScale(0, RoundingMode.UP);
-        BigDecimal firstTerm = xySumMultScaleValue.divide(firstPow, 0, RoundingMode.DOWN);
+        BigDecimal firstTerm = xySumMultiScaleValue.divide(firstPow, 0, RoundingMode.DOWN);
         BigDecimal nestedFraction = (BigDecimal.valueOf(x).multiply(BigDecimal.valueOf(y))).divide(BigDecimal.valueOf(scaleValue8));
         BigDecimal secondPow = BigDecimalMath.sqrt(nestedFraction, new MathContext(20)).setScale(4, RoundingMode.DOWN).movePointRight(4);
         BigDecimal thirdPow = BigDecimal.valueOf(Math.pow(sk - betta, alpha)).setScale(8, RoundingMode.DOWN).movePointRight(8);
@@ -588,11 +575,9 @@ public class SwopfiFlatTest {
             long invariant_delta_in_mean = actual_invariant - invariantCalc(x_balance_new, mean).longValue();
 
             if (BigInteger.valueOf(invariant_delta_in_mean).multiply(BigInteger.valueOf(invariant_delta_in_left)).signum() != 1) {
-                y_left = y_left;
                 y_right = mean;
             } else if (BigInteger.valueOf(invariant_delta_in_mean).multiply(BigInteger.valueOf(invariant_delta_in_right)).signum() != 1) {
                 y_left = mean;
-                y_right = y_right;
             } else {
                 return y_balance - y_right - 2;
             }
@@ -600,10 +585,10 @@ public class SwopfiFlatTest {
         return y_balance - y_right - 2;
     }
 
-    private long calculateHowManySendTokenA(long amountToSendEstimated, long minTokenRecieveAmount, long amountTokenA, long amountTokenB, long tokenReceiveAmount, long invariant) {
-        int slippageValue = scaleValue8 - scaleValue8 * 1 / 10000000;
-        long deltaBetweenMaxAndMinSendValue = amountToSendEstimated - minTokenRecieveAmount;
-        long amountToSendStep1 = amountToSendEstimated - 1 * deltaBetweenMaxAndMinSendValue / 5;
+    private long calculateHowManySendTokenA(long amountToSendEstimated, long minTokenReceiveAmount, long amountTokenA, long amountTokenB, long tokenReceiveAmount, long invariant) {
+        int slippageValue = scaleValue8 - scaleValue8 / 10000000;
+        long deltaBetweenMaxAndMinSendValue = amountToSendEstimated - minTokenReceiveAmount;
+        long amountToSendStep1 = amountToSendEstimated - deltaBetweenMaxAndMinSendValue / 5;
         long amountToSendStep2 = amountToSendEstimated - 2 * deltaBetweenMaxAndMinSendValue / 5;
         long amountToSendStep3 = amountToSendEstimated - 3 * deltaBetweenMaxAndMinSendValue / 5;
         long amountToSendStep4 = amountToSendEstimated - 4 * deltaBetweenMaxAndMinSendValue / 5;
@@ -630,9 +615,9 @@ public class SwopfiFlatTest {
     }
 
     private long calculateHowManySendTokenB(long amountToSendEstimated, long minTokenRecieveAmount, long amountTokenA, long amountTokenB, long tokenReceiveAmount, long invariant) {
-        int slippageValue = scaleValue8 - scaleValue8 * 1 / 10000000; // 0.000001% of slippage
+        int slippageValue = scaleValue8 - scaleValue8 / 10000000; // 0.000001% of slippage
         long deltaBetweenMaxAndMinSendValue = amountToSendEstimated - minTokenRecieveAmount;
-        long amountToSendStep1 = amountToSendEstimated - 1 * deltaBetweenMaxAndMinSendValue / 5;
+        long amountToSendStep1 = amountToSendEstimated - deltaBetweenMaxAndMinSendValue / 5;
         long amountToSendStep2 = amountToSendEstimated - 2 * deltaBetweenMaxAndMinSendValue / 5;
         long amountToSendStep3 = amountToSendEstimated - 3 * deltaBetweenMaxAndMinSendValue / 5;
         long amountToSendStep4 = amountToSendEstimated - 4 * deltaBetweenMaxAndMinSendValue / 5;
@@ -667,17 +652,14 @@ public class SwopfiFlatTest {
             long y_virtual_swap_get = amountToSendEstimated(x_balance, y_balance, x_balance + x_virtual_swap_pay);
             BigDecimal ratio_in_contract_after_virtual_swap = (BigDecimal.valueOf(x_balance).add(BigDecimal.valueOf(x_virtual_swap_pay))).divide(BigDecimal.valueOf(y_balance).subtract(BigDecimal.valueOf(y_virtual_swap_get)), 16, RoundingMode.HALF_DOWN);
             long x_to_deposit = deposit_in_x - x_virtual_swap_pay;
-            long y_to_deposit = y_virtual_swap_get;
-            BigDecimal ratio_virtual_replenish = BigDecimal.valueOf(x_to_deposit).divide(BigDecimal.valueOf(y_to_deposit), 20, RoundingMode.HALF_DOWN);
+            BigDecimal ratio_virtual_replenish = BigDecimal.valueOf(x_to_deposit).divide(BigDecimal.valueOf(y_virtual_swap_get), 20, RoundingMode.HALF_DOWN);
 
             if (ratio_in_contract_after_virtual_swap.subtract(ratio_virtual_replenish).signum() == 1) {
-                x_left = x_left;
                 x_right = x_virtual_swap_pay;
                 virtual_pay_get[0] = x_virtual_swap_pay;
                 virtual_pay_get[1] = y_virtual_swap_get;
             } else if (ratio_in_contract_after_virtual_swap.subtract(ratio_virtual_replenish).signum() == -1) {
                 x_left = x_virtual_swap_pay;
-                x_right = x_right;
                 virtual_pay_get[0] = x_virtual_swap_pay;
                 virtual_pay_get[1] = y_virtual_swap_get;
             } else if (ratio_in_contract_after_virtual_swap.subtract(ratio_virtual_replenish).signum() == 0) {
