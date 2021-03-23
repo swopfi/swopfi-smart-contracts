@@ -10,8 +10,11 @@ let kUserPoolVoteSWOP = "_vote"
 let kUserTotalVoteSWOP = "_user_total_SWOP_vote"
 let kPoolVoteSWOP = "_vote_SWOP"
 let kTotalVoteSWOP = "total_vote_SWOP"
+let kUserPoolVoteLock = "_lock_height"
 
 let govAddr = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
+let lockPeriod = 10080
+
 
 func isCallerInGovernance(user: Address) = {
     if govAddr.getInteger(user.toString() + "_SWOP_amount").valueOrElse(0) > 0 || this.getInteger(user.toString() + kUserTotalVoteSWOP).valueOrElse(0) > 0
@@ -51,7 +54,17 @@ func votePoolWeight(poolAddresses:List[String], poolsVoteSWOPNew:List[Int]) = {
         let poolVoteDiffSWOP = userPoolVoteSWOPNew - userPoolVoteSWOP
         let poolVoteSWOP = this.getInteger(poolAddress + kPoolVoteSWOP).valueOrElse(0)
         let poolVoteSWOPnew = poolVoteSWOP + poolVoteDiffSWOP
-        IntegerEntry(poolAddress + kPoolVoteSWOP, poolVoteSWOPnew) :: accumulated
+        let userOptionLockHeight = this.getInteger(i.caller.toString() + "_" + poolAddress + kUserPoolVoteLock).valueOrElse(0) # extract info about lock in this option 
+        if poolVoteDiffSWOP < 0 && userOptionLockHeight > height then  # if user unvoting and lockHeight more than current height
+            throw("User option lock height " + userOptionLockHeight.toString()+ " more than current height " + height.toString()) else
+        if poolVoteDiffSWOP < 0 then 
+            IntegerEntry(poolAddress + kPoolVoteSWOP, poolVoteSWOPnew) :: accumulated
+        else 
+            [
+                IntegerEntry(poolAddress + kPoolVoteSWOP, poolVoteSWOPnew),
+                IntegerEntry(i.caller.toString() + "_" + poolAddress + kUserPoolVoteLock, height + lockPeriod) # if user vote, his amount in this option locked 
+            ] 
+            ++ accumulated
     }
 
     if !isCallerInGovernance(i.caller) then
@@ -62,12 +75,12 @@ func votePoolWeight(poolAddresses:List[String], poolsVoteSWOPNew:List[Int]) = {
     let userTotalVoteSWOP = this.getInteger(toString(i.caller) + kUserTotalVoteSWOP).valueOrElse(0)
     let userSWOPinGovernance = govAddr.getIntegerValue(i.caller.toString() + "_SWOP_amount")
 
-    let userVoteDiffSWOP =  FOLD<8>(poolAddresses, 0, calcVoteDiffSWOP)
+    let userVoteDiffSWOP =  FOLD<5>(poolAddresses, 0, calcVoteDiffSWOP)
     let userTotalVoteSWOPNew = userTotalVoteSWOP + userVoteDiffSWOP
     let totalVoteSWOPnew = totalVoteSWOP + userVoteDiffSWOP
 
-    let userDataEntry = FOLD<8>(poolAddresses, [], userVoteEntry)
-    let poolDataEntry = FOLD<8>(poolAddresses, [], poolVoteEntry)
+    let userDataEntry = FOLD<5>(poolAddresses, [], userVoteEntry)
+    let poolDataEntry = FOLD<5>(poolAddresses, [], poolVoteEntry)
     if userTotalVoteSWOPNew > userSWOPinGovernance then
         throw(this.toString() + " has " + userSWOPinGovernance.toString() +  " SWOP in governance. New SWOP in voting " + userTotalVoteSWOPNew.toString())
     else
