@@ -190,8 +190,74 @@ public class VotingLiteTest {
         );
     }
 
+    Stream<Arguments> unvoteProvider() {
+        return Stream.of(
+                Arguments.of(poolAddresses(firstPool), poolsVoteSWOPNew(0L), 999_00000000L),
+                Arguments.of(poolAddresses(secondPool), poolsVoteSWOPNew(0L), 989_00000000L),
+                Arguments.of(
+                        poolAddresses(thirdPool, fourthPool, fifthPool),
+                        poolsVoteSWOPNew(0L, 0L, 0L), 0L)
+        );
+    }
+    @ParameterizedTest(name = "second caller unvote")
+    @MethodSource("unvoteProvider")
+    void c_secondUnvote(List<StringArg> poolAddresses, List<IntegerArg> poolsVoteSWOPNew, long expectedTotal) {
+        Id invokeId = secondCaller.invoke(i -> i.dApp(voting).function("votePoolWeight",
+                ListArg.as(poolAddresses.toArray(new StringArg[poolAddresses.size()])),
+                ListArg.as(poolsVoteSWOPNew.toArray(new IntegerArg[poolsVoteSWOPNew.size()]))).fee(1_00500000L)).tx().id();
+        node().waitForTransaction(invokeId);
+
+        List<Long> resultUserVotes = new ArrayList<>();
+        for (StringArg pool : poolAddresses) {
+            resultUserVotes.add(voting.getIntegerData(String.format("%s_%s%s", secondCaller.address().toString(), pool.value(), kUserPoolVoteSWOP)));
+        }
+
+        List<Long> expectedUserVotes = new ArrayList<>();
+        for (IntegerArg vote : poolsVoteSWOPNew) {
+            expectedUserVotes.add(vote.value());
+        }
+
+        assertAll("vote pool weight",
+                () -> assertThat(resultUserVotes).isEqualTo(expectedUserVotes),
+                () -> assertThat(voting.getIntegerData(secondCaller.address().toString() + kUserTotalVoteSWOP)).isEqualTo(expectedTotal)
+        );
+    }
+
+    Stream<Arguments> changeVoteProvider() {
+        return Stream.of(
+                Arguments.of(poolAddresses(firstPool), poolsVoteSWOPNew(400_00000000L), 400_00000000L),
+                Arguments.of(poolAddresses(secondPool), poolsVoteSWOPNew(580_00000000L), 980_00000000L),
+                Arguments.of(
+                        poolAddresses(thirdPool, fourthPool, fifthPool),
+                        poolsVoteSWOPNew(9_00000000L, 10_00000000L, 1_00000000L), 1000_00000000L)
+        );
+    }
+    @ParameterizedTest(name = "second caller change vote")
+    @MethodSource("changeVoteProvider")
+    void d_secondChangeVote(List<StringArg> poolAddresses, List<IntegerArg> poolsVoteSWOPNew, long expectedTotal) {
+        Id invokeId = secondCaller.invoke(i -> i.dApp(voting).function("votePoolWeight",
+                ListArg.as(poolAddresses.toArray(new StringArg[poolAddresses.size()])),
+                ListArg.as(poolsVoteSWOPNew.toArray(new IntegerArg[poolsVoteSWOPNew.size()]))).fee(1_00500000L)).tx().id();
+        node().waitForTransaction(invokeId);
+
+        List<Long> resultUserVotes = new ArrayList<>();
+        for (StringArg pool : poolAddresses) {
+            resultUserVotes.add(voting.getIntegerData(String.format("%s_%s%s", secondCaller.address().toString(), pool.value(), kUserPoolVoteSWOP)));
+        }
+
+        List<Long> expectedUserVotes = new ArrayList<>();
+        for (IntegerArg vote : poolsVoteSWOPNew) {
+            expectedUserVotes.add(vote.value());
+        }
+
+        assertAll("vote pool weight",
+                () -> assertThat(resultUserVotes).isEqualTo(expectedUserVotes),
+                () -> assertThat(voting.getIntegerData(secondCaller.address().toString() + kUserTotalVoteSWOP)).isEqualTo(expectedTotal)
+        );
+    }
+
     @Test
-    void c_withdrawSWOP() {
+    void e_withdrawSWOP() {
         ApiError error = assertThrows(ApiError.class, () ->
                 firstCaller.invoke(i -> i.dApp(governance)
                         .function("withdrawSWOP", IntegerArg.as(2))
@@ -212,7 +278,7 @@ public class VotingLiteTest {
     }
 
     @Test
-    void d_updateWeights() {
+    void f_updateWeights() {
         long scaleValue8 = (long) Math.pow(10,8);
         List<StringArg> previousPools = poolAddresses(firstPool, secondPool, thirdPool, fourthPool);
         List<IntegerArg> previousRewards = poolsVoteSWOPNew(10 * scaleValue8, 20 * scaleValue8, 30 * scaleValue8, 40 * scaleValue8);

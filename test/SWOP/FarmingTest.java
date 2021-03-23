@@ -31,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @TestMethodOrder(MethodOrderer.Alphanumeric.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class SWOPFarmingTest {
+class FarmingTest {
     private AssetId swopId;
     private AssetId shareAssetId1;
     private AssetId shareAssetId2;
@@ -44,7 +44,7 @@ class SWOPFarmingTest {
     long secondReward = 5000000000L;
     int previousReward = 0;
     long scaleValue = (long) Math.pow(10, shareAssetDecimals);
-    private String keyShareTokensLocked = "_total_share_tokens_locked";
+    private String keyShareTokensLocked = "%s_total_share_tokens_locked";
     private String keyRewardPoolFractionCurrent = "%s_current_pool_fraction_reward";
     private String keyRewardPoolFractionPrevious = "%s_previous_pool_fraction_reward";
     private String keyTotalRewardPerBlockCurrent = "total_reward_per_block_current";
@@ -53,13 +53,13 @@ class SWOPFarmingTest {
     private Long totalRewardPerBlockPrevious = 189751395L;
     private Long totalVoteShare = 10000000000L;
     private String keyRewardUpdateHeight = "reward_update_height";
-    private String keyLastInterest = "_last_interest";
-    private String keyLastInterestHeight = "_last_interest_height";
-    private String keyUserShareTokensLocked = "_share_tokens_locked";
-    private String keyUserLastInterest = "_last_interest";
+    private String keyLastInterest = "%s_last_interest";
+    private String keyLastInterestHeight = "%s_last_interest_height";
+    private String keyUserShareTokensLocked = "%s_%s_share_tokens_locked";
+    private String keyUserLastInterest = "%s_%s_last_interest";
     private String keyUserSWOPClaimedAmount = "_SWOP_claimed_amount";
     private String keyUserSWOPLastClaimedAmount = "_SWOP_last_claimed_amount";
-    private String keyAvailableSWOP = "_available_SWOP";
+    private String keyAvailableSWOP = "%s_%s_available_SWOP";
     private String keyFarmingStartHeight = "farming_start_height";
     private Account pool1 = new Account(1000_00000000L);
     private Account pool2 = new Account(1000_00000000L);
@@ -70,15 +70,15 @@ class SWOPFarmingTest {
     private Account earlyLP = new Account(1_00000000L);
     private String dAppScript = StringUtils.substringBefore(
             fromFile("dApps/SWOP/farming.ride")
-            .replace("3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS", votingDapp.address().toString())
-            .replace("oneWeekInBlock = 10106", "oneWeekInBlock = 10")
-            .replace("DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA", Base58.encode(farmingDapp.publicKey().bytes()))
-            .replace("E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7", Base58.encode(farmingDapp.publicKey().bytes()))
-            .replace("AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ", Base58.encode(farmingDapp.publicKey().bytes()))
-            .replace("EtVkT6ed8GtbUiVVEqdmEqsp2J4qbb3rre2HFgxeVYdg", Base58.encode(farmingDapp.publicKey().bytes()))
-            .replace("Czn4yoAuUZCVCLJDRfskn8URfkwpknwBTZDbs1wFrY7h", Base58.encode(farmingDapp.publicKey().bytes()))
-            .replace("if i.caller != this then", "")
-            .replace("throw(\"Only the DApp itself can call this function\") else", ""),
+                    .replace("3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS", votingDapp.address().toString())
+                    .replace("oneWeekInBlock = 10106", "oneWeekInBlock = 10")
+                    .replace("DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA", Base58.encode(farmingDapp.publicKey().bytes()))
+                    .replace("E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7", Base58.encode(farmingDapp.publicKey().bytes()))
+                    .replace("AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ", Base58.encode(farmingDapp.publicKey().bytes()))
+                    .replace("EtVkT6ed8GtbUiVVEqdmEqsp2J4qbb3rre2HFgxeVYdg", Base58.encode(farmingDapp.publicKey().bytes()))
+                    .replace("Czn4yoAuUZCVCLJDRfskn8URfkwpknwBTZDbs1wFrY7h", Base58.encode(farmingDapp.publicKey().bytes()))
+                    .replace("if i.caller != this then", "")
+                    .replace("throw(\"Only the DApp itself can call this function\") else", ""),
             "@Verifier");
 
     @BeforeAll
@@ -136,8 +136,8 @@ class SWOPFarmingTest {
                 firstCaller.invoke(i -> i.dApp(farmingDapp).function("initPoolShareFarming", StringArg.as(poolAddress)).fee(500000L)).tx().id()
         );
         assertAll("state after init check",
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_total_share_tokens_locked", poolAddress))).isEqualTo(0),
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_last_interest", poolAddress))).isEqualTo(0)
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyShareTokensLocked, poolAddress))).isEqualTo(0),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyLastInterest, poolAddress))).isEqualTo(0)
         );
     }
 //    @Test
@@ -154,14 +154,14 @@ class SWOPFarmingTest {
 //        );
 //
 //        assertAll("state after first user lock before farming",
-//                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_last_interest", poolAddress))).isEqualTo(0),
-//                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_last_interest", poolAddress, firstCaller.address()))).isEqualTo(0),
-//                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_last_interest", poolAddress, secondCaller.address()))).isEqualTo(0),
-//                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_share_tokens_locked", poolAddress, firstCaller.address()))).isEqualTo(preLockShareAmount),
-//                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_share_tokens_locked", poolAddress, secondCaller.address()))).isEqualTo(preLockShareAmount),
-//                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_total_share_tokens_locked", poolAddress))).isEqualTo(2 * preLockShareAmount),
-//                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_available_SWOP", poolAddress, firstCaller.address()))).isEqualTo(0),
-//                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_available_SWOP", poolAddress, secondCaller.address()))).isEqualTo(0)
+//                () -> assertThat(farmingDapp.getIntegerData(String.format(keyLastInterest, poolAddress))).isEqualTo(0),
+//                () -> assertThat(farmingDapp.getIntegerData(String.format(keyUserLastInterest, poolAddress, firstCaller.address()))).isEqualTo(0),
+//                () -> assertThat(farmingDapp.getIntegerData(String.format(keyUserLastInterest, poolAddress, secondCaller.address()))).isEqualTo(0),
+//                () -> assertThat(farmingDapp.getIntegerData(String.format(keyUserShareTokensLocked, poolAddress, firstCaller.address()))).isEqualTo(preLockShareAmount),
+//                () -> assertThat(farmingDapp.getIntegerData(String.format(keyUserShareTokensLocked, poolAddress, secondCaller.address()))).isEqualTo(preLockShareAmount),
+//                () -> assertThat(farmingDapp.getIntegerData(String.format(keyShareTokensLocked, poolAddress))).isEqualTo(2 * preLockShareAmount),
+//                () -> assertThat(farmingDapp.getIntegerData(String.format(keyAvailableSWOP, poolAddress, firstCaller.address()))).isEqualTo(0),
+//                () -> assertThat(farmingDapp.getIntegerData(String.format(keyAvailableSWOP, poolAddress, secondCaller.address()))).isEqualTo(0)
 //        );
 //
 //    }
@@ -176,14 +176,14 @@ class SWOPFarmingTest {
 //        );
 //
 //        assertAll("state after first user lock before farming",
-//                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_last_interest", poolAddress))).isEqualTo(0),
-//                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_last_interest", poolAddress, firstCaller.address()))).isEqualTo(0),
-//                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_last_interest", poolAddress, secondCaller.address()))).isEqualTo(0),
-//                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_share_tokens_locked", poolAddress, firstCaller.address()))).isEqualTo(preLockShareAmount - preWithdrawAmount),
-//                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_share_tokens_locked", poolAddress, secondCaller.address()))).isEqualTo(preLockShareAmount - preWithdrawAmount),
-//                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_total_share_tokens_locked", poolAddress))).isEqualTo(2 * preLockShareAmount - 2 * preWithdrawAmount),
-//                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_available_SWOP", poolAddress, firstCaller.address()))).isEqualTo(0),
-//                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_available_SWOP", poolAddress, secondCaller.address()))).isEqualTo(0)
+//                () -> assertThat(farmingDapp.getIntegerData(String.format(keyLastInterest, poolAddress))).isEqualTo(0),
+//                () -> assertThat(farmingDapp.getIntegerData(String.format(keyUserLastInterest, poolAddress, firstCaller.address()))).isEqualTo(0),
+//                () -> assertThat(farmingDapp.getIntegerData(String.format(keyUserLastInterest, poolAddress, secondCaller.address()))).isEqualTo(0),
+//                () -> assertThat(farmingDapp.getIntegerData(String.format(keyUserShareTokensLocked, poolAddress, firstCaller.address()))).isEqualTo(preLockShareAmount - preWithdrawAmount),
+//                () -> assertThat(farmingDapp.getIntegerData(String.format(keyUserShareTokensLocked, poolAddress, secondCaller.address()))).isEqualTo(preLockShareAmount - preWithdrawAmount),
+//                () -> assertThat(farmingDapp.getIntegerData(String.format(keyShareTokensLocked, poolAddress))).isEqualTo(2 * preLockShareAmount - 2 * preWithdrawAmount),
+//                () -> assertThat(farmingDapp.getIntegerData(String.format(keyAvailableSWOP, poolAddress, firstCaller.address()))).isEqualTo(0),
+//                () -> assertThat(farmingDapp.getIntegerData(String.format(keyAvailableSWOP, poolAddress, secondCaller.address()))).isEqualTo(0)
 //        );
 //    }
 
@@ -214,21 +214,21 @@ class SWOPFarmingTest {
         } else {
             shareAssetId = shareAssetId2;
         }
-        node().waitForHeight(startFarmingHeight);
         node().waitForTransaction(
                 firstCaller.invoke(i -> i.dApp(farmingDapp).function("lockShareTokens", StringArg.as(poolAddress)).payment(1, shareAssetId).fee(500000L)).tx().id()
         );
-        long sTokensLockedBeforeFirst = farmingDapp.getIntegerData(String.format("%s_total_share_tokens_locked", poolAddress));
-        long user1ShareTokensLocked = farmingDapp.getIntegerData(String.format("%s_%s_share_tokens_locked", poolAddress, firstCaller.address()));
-        long user1AvailableSWOP = farmingDapp.getIntegerData(String.format("%s_%s_available_SWOP", poolAddress, firstCaller.address()));
-        long lastInterest = farmingDapp.getIntegerData(String.format("%s_last_interest", poolAddress));
+        node().waitNBlocks(1);
+        long sTokensLockedBeforeFirst = farmingDapp.getIntegerData(String.format(keyShareTokensLocked, poolAddress));
+        long user1ShareTokensLocked = farmingDapp.getIntegerData(String.format(keyUserShareTokensLocked, poolAddress, firstCaller.address()));
+        long user1AvailableSWOP = farmingDapp.getIntegerData(String.format(keyAvailableSWOP, poolAddress, firstCaller.address()));
+        long lastInterest = farmingDapp.getIntegerData(String.format(keyLastInterest, poolAddress));
         long user1NewInterest = calcInterest(
-                farmingDapp.getIntegerData(String.format("%s_last_interest_height", poolAddress)),
+                farmingDapp.getIntegerData(String.format(keyLastInterestHeight, poolAddress)),
                 node().getHeight(),
                 votingDapp.getIntegerData(keyRewardUpdateHeight),
                 lastInterest,
                 votingDapp.getIntegerData(String.format(keyRewardPoolFractionCurrent, poolAddress)),
-                farmingDapp.getIntegerData(String.format("%s_total_share_tokens_locked", poolAddress)),
+                farmingDapp.getIntegerData(String.format(keyShareTokensLocked, poolAddress)),
                 votingDapp.getIntegerData(String.format(keyRewardPoolFractionPrevious, poolAddress)),
                 scaleValue
         );
@@ -238,21 +238,21 @@ class SWOPFarmingTest {
         );
 
         assertAll("state after first user lock check",
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_last_interest", poolAddress))).isEqualTo(user1NewInterest),
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_last_interest", poolAddress, firstCaller.address()))).isEqualTo(user1NewInterest),
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_share_tokens_locked", poolAddress, firstCaller.address()))).isEqualTo(user1ShareTokensLocked + lockShareAmount),
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_total_share_tokens_locked", poolAddress))).isEqualTo(sTokensLockedBeforeFirst + lockShareAmount),
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_available_SWOP", poolAddress, firstCaller.address()))).isEqualTo(user1AvailableSWOP + claimAmount1)
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyLastInterest, poolAddress))).isEqualTo(user1NewInterest),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyUserLastInterest, poolAddress, firstCaller.address()))).isEqualTo(user1NewInterest),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyUserShareTokensLocked, poolAddress, firstCaller.address()))).isEqualTo(user1ShareTokensLocked + lockShareAmount),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyShareTokensLocked, poolAddress))).isEqualTo(sTokensLockedBeforeFirst + lockShareAmount),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyAvailableSWOP, poolAddress, firstCaller.address()))).isEqualTo(user1AvailableSWOP + claimAmount1)
         );
 
-        long sTokensLockedBeforeSecond = farmingDapp.getIntegerData(String.format("%s_total_share_tokens_locked", poolAddress));
+        long sTokensLockedBeforeSecond = farmingDapp.getIntegerData(String.format(keyShareTokensLocked, poolAddress));
         long user2NewInterest = calcInterest(
-                farmingDapp.getIntegerData(String.format("%s_last_interest_height", poolAddress)),
+                farmingDapp.getIntegerData(String.format(keyLastInterestHeight, poolAddress)),
                 node().getHeight(),
                 votingDapp.getIntegerData(keyRewardUpdateHeight),
-                farmingDapp.getIntegerData(String.format("%s_last_interest", poolAddress)),
+                farmingDapp.getIntegerData(String.format(keyLastInterest, poolAddress)),
                 votingDapp.getIntegerData(String.format(keyRewardPoolFractionCurrent, poolAddress)),
-                farmingDapp.getIntegerData(String.format("%s_total_share_tokens_locked", poolAddress)),
+                farmingDapp.getIntegerData(String.format(keyShareTokensLocked, poolAddress)),
                 votingDapp.getIntegerData(String.format(keyRewardPoolFractionPrevious, poolAddress)),
                 scaleValue
         );
@@ -260,7 +260,7 @@ class SWOPFarmingTest {
         if (lockShareAmount == 1) {
             user2ShareTokensLocked = 0;
         } else {
-            user2ShareTokensLocked = farmingDapp.getIntegerData(String.format("%s_%s_share_tokens_locked", poolAddress, secondCaller.address()));
+            user2ShareTokensLocked = farmingDapp.getIntegerData(String.format(keyUserShareTokensLocked, poolAddress, secondCaller.address()));
         }
         node().waitForTransaction(
                 secondCaller.invoke(i -> i.dApp(farmingDapp).function("lockShareTokens", StringArg.as(poolAddress)).payment(lockShareAmount, shareAssetId).fee(500000L)).tx().id()
@@ -268,10 +268,10 @@ class SWOPFarmingTest {
         node().waitNBlocks(1);
 
         assertAll("state after second user lock check",
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_last_interest", poolAddress))).isEqualTo(user2NewInterest),
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_last_interest", poolAddress, secondCaller.address()))).isEqualTo(user2NewInterest),
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_share_tokens_locked", poolAddress, secondCaller.address()))).isEqualTo(user2ShareTokensLocked + lockShareAmount),
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_total_share_tokens_locked", poolAddress))).isEqualTo(sTokensLockedBeforeSecond + lockShareAmount)
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyLastInterest, poolAddress))).isEqualTo(user2NewInterest),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyUserLastInterest, poolAddress, secondCaller.address()))).isEqualTo(user2NewInterest),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyUserShareTokensLocked, poolAddress, secondCaller.address()))).isEqualTo(user2ShareTokensLocked + lockShareAmount),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyShareTokensLocked, poolAddress))).isEqualTo(sTokensLockedBeforeSecond + lockShareAmount)
         );
 
     }
@@ -304,15 +304,15 @@ class SWOPFarmingTest {
         } else {
             shareAssetId = shareAssetId2;
         }
-        long sTokensLockedBeforeFirst = farmingDapp.getIntegerData(String.format("%s_total_share_tokens_locked", poolAddress));
-        long user1ShareTokensLocked = farmingDapp.getIntegerData(String.format("%s_%s_share_tokens_locked", poolAddress, firstCaller.address()));
+        long sTokensLockedBeforeFirst = farmingDapp.getIntegerData(String.format(keyShareTokensLocked, poolAddress));
+        long user1ShareTokensLocked = farmingDapp.getIntegerData(String.format(keyUserShareTokensLocked, poolAddress, firstCaller.address()));
         long user1NewInterest = calcInterest(
-                farmingDapp.getIntegerData(String.format("%s_last_interest_height", poolAddress)),
+                farmingDapp.getIntegerData(String.format(keyLastInterestHeight, poolAddress)),
                 node().getHeight(),
                 votingDapp.getIntegerData(keyRewardUpdateHeight),
-                farmingDapp.getIntegerData(String.format("%s_last_interest", poolAddress)),
+                farmingDapp.getIntegerData(String.format(keyLastInterest, poolAddress)),
                 votingDapp.getIntegerData(String.format(keyRewardPoolFractionCurrent, poolAddress)),
-                farmingDapp.getIntegerData(String.format("%s_total_share_tokens_locked", poolAddress)),
+                farmingDapp.getIntegerData(String.format(keyShareTokensLocked, poolAddress)),
                 votingDapp.getIntegerData(String.format(keyRewardPoolFractionPrevious, poolAddress)),
                 scaleValue
         );
@@ -321,51 +321,48 @@ class SWOPFarmingTest {
         );
 
         assertAll("state after first user lock check",
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_last_interest", poolAddress))).isCloseTo(user1NewInterest, within(10L)),
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_last_interest", poolAddress, firstCaller.address()))).isCloseTo(user1NewInterest, within(10L)),
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_share_tokens_locked", poolAddress, firstCaller.address()))).isEqualTo(user1ShareTokensLocked - withdrawShareAmount),
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_total_share_tokens_locked", poolAddress))).isEqualTo(sTokensLockedBeforeFirst - withdrawShareAmount)
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyLastInterest, poolAddress))).isCloseTo(user1NewInterest, within(10L)),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyUserLastInterest, poolAddress, firstCaller.address()))).isCloseTo(user1NewInterest, within(10L)),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyUserShareTokensLocked, poolAddress, firstCaller.address()))).isEqualTo(user1ShareTokensLocked - withdrawShareAmount),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyShareTokensLocked, poolAddress))).isEqualTo(sTokensLockedBeforeFirst - withdrawShareAmount)
         );
 
-        long sTokensLockedBeforeSecond = farmingDapp.getIntegerData(String.format("%s_total_share_tokens_locked", poolAddress));
+        long sTokensLockedBeforeSecond = farmingDapp.getIntegerData(String.format(keyShareTokensLocked, poolAddress));
         long user2NewInterest = calcInterest(
-                farmingDapp.getIntegerData(String.format("%s_last_interest_height", poolAddress)),
+                farmingDapp.getIntegerData(String.format(keyLastInterestHeight, poolAddress)),
                 node().getHeight(),
                 votingDapp.getIntegerData(keyRewardUpdateHeight),
-                farmingDapp.getIntegerData(String.format("%s_last_interest", poolAddress)),
+                farmingDapp.getIntegerData(String.format(keyLastInterest, poolAddress)),
                 votingDapp.getIntegerData(String.format(keyRewardPoolFractionCurrent, poolAddress)),
-                farmingDapp.getIntegerData(String.format("%s_total_share_tokens_locked", poolAddress)),
+                farmingDapp.getIntegerData(String.format(keyShareTokensLocked, poolAddress)),
                 votingDapp.getIntegerData(String.format(keyRewardPoolFractionPrevious, poolAddress)),
                 scaleValue
         );
-        long user2ShareTokensLocked = farmingDapp.getIntegerData(String.format("%s_%s_share_tokens_locked", poolAddress, secondCaller.address()));
+        long user2ShareTokensLocked = farmingDapp.getIntegerData(String.format(keyUserShareTokensLocked, poolAddress, secondCaller.address()));
         node().waitForTransaction(
                 secondCaller.invoke(i -> i.dApp(farmingDapp).function("withdrawShareTokens", StringArg.as(poolAddress), IntegerArg.as(withdrawShareAmount)).payment(withdrawShareAmount, shareAssetId).fee(500000L)).tx().id()
         );
 //        node().waitNBlocks(1);
 
         assertAll("state after second user lock check",
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_last_interest", poolAddress))).isCloseTo(user2NewInterest, within(10L)),
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_last_interest", poolAddress, secondCaller.address()))).isCloseTo(user2NewInterest, within(10L)),
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_share_tokens_locked", poolAddress, secondCaller.address()))).isEqualTo(user2ShareTokensLocked - withdrawShareAmount),
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_total_share_tokens_locked", poolAddress))).isEqualTo(sTokensLockedBeforeSecond - withdrawShareAmount)
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyLastInterest, poolAddress))).isCloseTo(user2NewInterest, within(10L)),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyUserLastInterest, poolAddress, secondCaller.address()))).isCloseTo(user2NewInterest, within(10L)),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyUserShareTokensLocked, poolAddress, secondCaller.address()))).isEqualTo(user2ShareTokensLocked - withdrawShareAmount),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyShareTokensLocked, poolAddress))).isEqualTo(sTokensLockedBeforeSecond - withdrawShareAmount)
         );
     }
 
     @ParameterizedTest(name = "claim SWOP")
     @MethodSource("poolProvider")
     void i_claimSWOP(Account pool) {
-        long firstSWOPBalanceBefore = firstCaller.getAssetBalance(swopId);
-        long secondSWOPBalanceBefore = secondCaller.getAssetBalance(swopId);
         String poolAddress = pool.address().toString();
-        long user1AvailableSWOP = farmingDapp.getIntegerData(poolAddress + "_" + firstCaller.address() + keyAvailableSWOP);
-        long sTokensLockedBefore = farmingDapp.getIntegerData(poolAddress + keyShareTokensLocked);
-        long user1ShareTokensLocked = farmingDapp.getIntegerData(poolAddress + "_" + firstCaller.address() + keyUserShareTokensLocked);
-        long lastInterest1 = farmingDapp.getIntegerData(poolAddress + keyLastInterest);
-        long lastInterestHeight1 = farmingDapp.getIntegerData(String.format("%s_last_interest_height", poolAddress));
+        long sTokensLockedBefore = farmingDapp.getIntegerData(String.format(keyShareTokensLocked, poolAddress));
+        long user1ShareTokensLocked = farmingDapp.getIntegerData(String.format(keyUserShareTokensLocked, poolAddress, firstCaller.address()));
+        long lastInterest1 = farmingDapp.getIntegerData(String.format(keyLastInterest, poolAddress));
+        long lastInterestHeight1 = farmingDapp.getIntegerData(String.format(keyLastInterestHeight, poolAddress));
         long rewardUpdateHeight1 = votingDapp.getIntegerData(keyRewardUpdateHeight);
         long rewardPoolFractionCurrent1  = votingDapp.getIntegerData(String.format(keyRewardPoolFractionCurrent, poolAddress));
-        long totalShareTokensLocked1  = farmingDapp.getIntegerData(String.format("%s_total_share_tokens_locked", poolAddress));
+        long totalShareTokensLocked1  = farmingDapp.getIntegerData(String.format(keyShareTokensLocked, poolAddress));
         long rewardPoolFractionPrevious1  = votingDapp.getIntegerData(String.format(keyRewardPoolFractionPrevious, poolAddress));
         node().waitNBlocks(1);
         int currentHeight1 = node().getHeight();
@@ -385,21 +382,20 @@ class SWOPFarmingTest {
                 firstCaller.invoke(i -> i.dApp(farmingDapp).function("claim", StringArg.as(poolAddress)).fee(500000L)).tx().id()
         );
         assertAll("state after first user claim check",
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_last_interest", poolAddress))).isEqualTo(user1NewInterest),
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_last_interest", poolAddress, firstCaller.address()))).isEqualTo(user1NewInterest),
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_share_tokens_locked", poolAddress, firstCaller.address()))).isEqualTo(user1ShareTokensLocked),
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_total_share_tokens_locked", poolAddress))).isEqualTo(sTokensLockedBefore),
-                () -> assertThat(farmingDapp.getIntegerData(poolAddress + "_" + firstCaller.address() + keyAvailableSWOP)).isEqualTo(0),
-                () -> assertThat(farmingDapp.getIntegerData(poolAddress + keyLastInterestHeight)).isEqualTo(currentHeight1)
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyLastInterest, poolAddress))).isEqualTo(user1NewInterest),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyUserLastInterest, poolAddress, firstCaller.address()))).isEqualTo(user1NewInterest),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyUserShareTokensLocked, poolAddress, firstCaller.address()))).isEqualTo(user1ShareTokensLocked),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyShareTokensLocked, poolAddress))).isEqualTo(sTokensLockedBefore),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyAvailableSWOP, poolAddress, firstCaller.address()))).isEqualTo(0),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyLastInterestHeight, poolAddress))).isEqualTo(currentHeight1)
         );
 
-        long user2AvailableSWOP = farmingDapp.getIntegerData(poolAddress + "_" + secondCaller.address() + keyAvailableSWOP);
-        long user2ShareTokensLocked = farmingDapp.getIntegerData(poolAddress + "_" + secondCaller.address() + keyUserShareTokensLocked);
-        long lastInterest2 = farmingDapp.getIntegerData(poolAddress + keyLastInterest);
-        long lastInterestHeight2 = farmingDapp.getIntegerData(String.format("%s_last_interest_height", poolAddress));
+        long user2ShareTokensLocked = farmingDapp.getIntegerData(String.format(keyUserShareTokensLocked, poolAddress, secondCaller.address()));
+        long lastInterest2 = farmingDapp.getIntegerData(String.format(keyLastInterest, poolAddress));
+        long lastInterestHeight2 = farmingDapp.getIntegerData(String.format(keyLastInterestHeight, poolAddress));
         long rewardUpdateHeight2 = votingDapp.getIntegerData(keyRewardUpdateHeight);
         long rewardPoolFractionCurrent2  = votingDapp.getIntegerData(String.format(keyRewardPoolFractionCurrent, poolAddress));
-        long totalShareTokensLocked2  = farmingDapp.getIntegerData(String.format("%s_total_share_tokens_locked", poolAddress));
+        long totalShareTokensLocked2  = farmingDapp.getIntegerData(String.format(keyShareTokensLocked, poolAddress));
         long rewardPoolFractionPrevious2  = votingDapp.getIntegerData(String.format(keyRewardPoolFractionPrevious, poolAddress));
         int currentHeight2 = node().getHeight();
         long user2NewInterest = calcInterest(
@@ -418,12 +414,12 @@ class SWOPFarmingTest {
                 secondCaller.invoke(i -> i.dApp(farmingDapp).function("claim", StringArg.as(poolAddress)).fee(500000L)).tx().id()
         );
         assertAll("state after second user claim check",
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_last_interest", poolAddress))).isEqualTo(user2NewInterest),
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_last_interest", poolAddress, secondCaller.address()))).isEqualTo(user2NewInterest),
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_share_tokens_locked", poolAddress, secondCaller.address()))).isEqualTo(user2ShareTokensLocked),
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_total_share_tokens_locked", poolAddress))).isEqualTo(sTokensLockedBefore),
-                () -> assertThat(farmingDapp.getIntegerData(poolAddress + "_" + secondCaller.address() + keyAvailableSWOP)).isEqualTo(0),
-                () -> assertThat(farmingDapp.getIntegerData(poolAddress + keyLastInterestHeight)).isEqualTo(currentHeight2)
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyLastInterest, poolAddress))).isEqualTo(user2NewInterest),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyUserLastInterest, poolAddress, secondCaller.address()))).isEqualTo(user2NewInterest),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyUserShareTokensLocked, poolAddress, secondCaller.address()))).isEqualTo(user2ShareTokensLocked),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyShareTokensLocked, poolAddress))).isEqualTo(sTokensLockedBefore),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyAvailableSWOP, poolAddress, secondCaller.address()))).isEqualTo(0),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyLastInterestHeight, poolAddress))).isEqualTo(currentHeight2)
         );
     }
 
@@ -431,18 +427,18 @@ class SWOPFarmingTest {
     void j_claimAfterRewardUpdate() {
         long lockShareAmount = 1000000L;
         long userSWOPBalanceBefore = firstCaller.getAssetBalance(swopId);
-        long sTokensLockedBeforeFirst = farmingDapp.getIntegerData(String.format("%s_total_share_tokens_locked", pool1.address()));
-        long userShareTokensLocked = farmingDapp.getIntegerData(String.format("%s_%s_share_tokens_locked", pool1.address(), firstCaller.address()));
-        long userAvailableSWOP = farmingDapp.getIntegerData(String.format("%s_%s_available_SWOP", pool1.address(), firstCaller.address()));
-        long lastInterest = farmingDapp.getIntegerData(String.format("%s_last_interest", pool1.address()));
+        long sTokensLockedBeforeFirst = farmingDapp.getIntegerData(String.format(keyShareTokensLocked, pool1.address()));
+        long userShareTokensLocked = farmingDapp.getIntegerData(String.format(keyUserShareTokensLocked, pool1.address(), firstCaller.address()));
+        long userAvailableSWOP = farmingDapp.getIntegerData(String.format(keyAvailableSWOP, pool1.address(), firstCaller.address()));
+        long lastInterest = farmingDapp.getIntegerData(String.format(keyLastInterest, pool1.address()));
         long scaleValue = (long) Math.pow(10, shareAssetDecimals);
         long userNewInterest = calcInterest(
-                farmingDapp.getIntegerData(String.format("%s_last_interest_height", pool1.address())),
+                farmingDapp.getIntegerData(String.format(keyLastInterestHeight, pool1.address())),
                 node().getHeight(),
                 votingDapp.getIntegerData(keyRewardUpdateHeight),
                 lastInterest,
                 votingDapp.getIntegerData(String.format(keyRewardPoolFractionCurrent, pool1.address())),
-                farmingDapp.getIntegerData(String.format("%s_total_share_tokens_locked", pool1.address())),
+                farmingDapp.getIntegerData(String.format(keyShareTokensLocked, pool1.address())),
                 votingDapp.getIntegerData(String.format(keyRewardPoolFractionPrevious, pool1.address())),
                 scaleValue
         );
@@ -452,11 +448,11 @@ class SWOPFarmingTest {
         );
 
         assertAll("state after first user lock check",
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_last_interest", pool1.address()))).isEqualTo(userNewInterest),
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_last_interest", pool1.address(), firstCaller.address()))).isEqualTo(userNewInterest),
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_share_tokens_locked", pool1.address(), firstCaller.address()))).isEqualTo(userShareTokensLocked + lockShareAmount),
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_total_share_tokens_locked", pool1.address()))).isEqualTo(sTokensLockedBeforeFirst + lockShareAmount),
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_available_SWOP", pool1.address(), firstCaller.address()))).isEqualTo(userAvailableSWOP + claimAmount1)
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyLastInterest, pool1.address()))).isEqualTo(userNewInterest),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyUserLastInterest, pool1.address(), firstCaller.address()))).isEqualTo(userNewInterest),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyUserShareTokensLocked, pool1.address(), firstCaller.address()))).isEqualTo(userShareTokensLocked + lockShareAmount),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyShareTokensLocked, pool1.address()))).isEqualTo(sTokensLockedBeforeFirst + lockShareAmount),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyAvailableSWOP, pool1.address(), firstCaller.address()))).isEqualTo(userAvailableSWOP + claimAmount1)
         );
         node().waitNBlocks(2);
         node().waitForTransaction(votingDapp.writeData(d -> d.integer(String.format(keyRewardPoolFractionCurrent, pool1.address()), secondReward)).tx().id());
@@ -464,18 +460,18 @@ class SWOPFarmingTest {
         node().waitForTransaction(votingDapp.writeData(d -> d.integer(keyRewardUpdateHeight, node().getHeight() + 3)).tx().id());
         node().waitNBlocks(2);
 
-        long userAvailableSWOP2 = farmingDapp.getIntegerData(pool1.address() + "_" + firstCaller.address() + keyAvailableSWOP);
-        long sTokensLockedBefore = farmingDapp.getIntegerData(pool1.address() + keyShareTokensLocked);
-        long userShareTokensLocked2 = farmingDapp.getIntegerData(pool1.address() + "_" + firstCaller.address() + keyUserShareTokensLocked);
-        long lastInterest2 = farmingDapp.getIntegerData(pool1.address() + keyLastInterest);
+        long userAvailableSWOP2 = farmingDapp.getIntegerData(String.format(keyAvailableSWOP, pool1.address(), firstCaller.address()));
+        long sTokensLockedBefore = farmingDapp.getIntegerData(String.format(keyShareTokensLocked, pool1.address()));
+        long userShareTokensLocked2 = farmingDapp.getIntegerData(String.format(keyUserShareTokensLocked, pool1.address(), firstCaller.address()));
+        long lastInterest2 = farmingDapp.getIntegerData(String.format(keyLastInterest, pool1.address()));
         int currentHeight = node().getHeight();
         long userNewInterest2 = calcInterest(
-                farmingDapp.getIntegerData(String.format("%s_last_interest_height", pool1.address())),
+                farmingDapp.getIntegerData(String.format(keyLastInterestHeight, pool1.address())),
                 currentHeight,
                 votingDapp.getIntegerData(keyRewardUpdateHeight),
-                farmingDapp.getIntegerData(String.format("%s_last_interest", pool1.address())),
+                farmingDapp.getIntegerData(String.format(keyLastInterest, pool1.address())),
                 votingDapp.getIntegerData(String.format(keyRewardPoolFractionCurrent, pool1.address())),
-                farmingDapp.getIntegerData(String.format("%s_total_share_tokens_locked", pool1.address())),
+                farmingDapp.getIntegerData(String.format(keyShareTokensLocked, pool1.address())),
                 votingDapp.getIntegerData(String.format(keyRewardPoolFractionPrevious, pool1.address())),
                 scaleValue
         );
@@ -485,12 +481,12 @@ class SWOPFarmingTest {
                 firstCaller.invoke(i -> i.dApp(farmingDapp).function("claim", StringArg.as(pool1.address().toString())).fee(500000L)).tx().id()
         );
         assertAll("state after first user claim after reward update check",
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_last_interest", pool1.address()))).isEqualTo(userNewInterest2),
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_last_interest", pool1.address(), firstCaller.address()))).isEqualTo(userNewInterest2),
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_share_tokens_locked", pool1.address(), firstCaller.address()))).isEqualTo(userShareTokensLocked2),
-                () -> assertThat(farmingDapp.getIntegerData(String.format("%s_total_share_tokens_locked", pool1.address()))).isEqualTo(sTokensLockedBefore),
-                () -> assertThat(farmingDapp.getIntegerData(pool1.address() + "_" + firstCaller.address() + keyAvailableSWOP)).isEqualTo(0),
-                () -> assertThat(farmingDapp.getIntegerData(pool1.address() + keyLastInterestHeight)).isEqualTo(currentHeight),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyLastInterest, pool1.address()))).isEqualTo(userNewInterest2),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyUserLastInterest, pool1.address(), firstCaller.address()))).isEqualTo(userNewInterest2),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyUserShareTokensLocked, pool1.address(), firstCaller.address()))).isEqualTo(userShareTokensLocked2),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyShareTokensLocked, pool1.address()))).isEqualTo(sTokensLockedBefore),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyAvailableSWOP, pool1.address(), firstCaller.address()))).isEqualTo(0),
+                () -> assertThat(farmingDapp.getIntegerData(String.format(keyLastInterestHeight, pool1.address()))).isEqualTo(currentHeight),
                 () -> assertThat(firstCaller.getAssetBalance(swopId)).isEqualTo(userSWOPBalanceBefore + userAvailableSWOP2 + claimAmount2)
         );
 
@@ -509,9 +505,9 @@ class SWOPFarmingTest {
         long previousRewardPerBlock = BigInteger.valueOf(totalRewardPerBlockPrevious)
                 .multiply(BigInteger.valueOf(rewardPoolFractionPrevious)).divide(BigInteger.valueOf(totalVoteShare)).longValue();
         if (currentHeight < rewardUpdateHeight) {
-          long reward = previousRewardPerBlock * (currentHeight - lastInterestHeight);
-          BigInteger deltaInterest = BigInteger.valueOf(reward).multiply(BigInteger.valueOf(scaleValue)).divide(BigInteger.valueOf(shareTokenLocked));
-          return lastInterest + deltaInterest.longValue();
+            long reward = previousRewardPerBlock * (currentHeight - lastInterestHeight);
+            BigInteger deltaInterest = BigInteger.valueOf(reward).multiply(BigInteger.valueOf(scaleValue)).divide(BigInteger.valueOf(shareTokenLocked));
+            return lastInterest + deltaInterest.longValue();
         } else {
             if (lastInterestHeight > rewardUpdateHeight) {
                 if (shareTokenLocked == 0) {
