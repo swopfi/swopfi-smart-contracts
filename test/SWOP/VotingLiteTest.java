@@ -1,4 +1,4 @@
-package voting;
+package SWOP;
 
 import im.mak.paddle.Account;
 import im.mak.paddle.exceptions.ApiError;
@@ -120,7 +120,7 @@ public class VotingLiteTest {
                 Arguments.of(poolAddresses(secondPool), poolsVoteSWOPNew(10_00000000L), 11_00000000L),
                 Arguments.of(
                         poolAddresses(thirdPool, fourthPool, fifthPool),
-                        poolsVoteSWOPNew(9_00000000L, 580_00000000L, 400_00000000L), 1000_00000000L)
+                        poolsVoteSWOPNew(9_00000000L, 580_00000000L, 400_00000002L), 1000_00000000L)
         );
     }
 
