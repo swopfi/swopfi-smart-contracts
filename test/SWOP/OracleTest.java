@@ -144,7 +144,7 @@ public class OracleTest {
 
     static Stream<Arguments> invalidPoolAddresses() {
         return Stream.of(
-                Arguments.of("3Myqjf1D44wR8Vko4Tr5CwSzRNo2Vg9S7u7"), // another chain id
+                Arguments.of("3Myqjf1D44wR8Vko4Tr5CwSzRNo2Vg9S7u7"), // different chain id
                 Arguments.of("alias:" + (char) node().chainId() + ":alice"),
                 Arguments.of("alice"),
                 Arguments.of(""));
@@ -178,7 +178,7 @@ public class OracleTest {
 
         assertThat(assertThrows(ApiError.class, () ->
                 oracle.invoke(i -> i.function("renamePool",
-                        StringArg.as(pool1.address().toString()), StringArg.as("_B"))))
+                        StringArg.as(pool1.address().toString()), StringArg.as(invalidName))))
         ).hasMessageContaining(expectedErrorMessage);
     }
 
