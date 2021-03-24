@@ -209,34 +209,52 @@ func claimAndStakeSWOP() = if !isActive then throw("DApp is inactive at this mom
 }
 
 @Callable(i)
-func updateWeights(previousPools: List[String],previousRewards: List[Int],currentPools: List[String],currentRewards: List[Int],rewardUpdateHeight: Int) = if !isActive then throw("DApp is inactive at this moment") else {
-    if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStartStop].containsElement(i.callerPublicKey) then
+func updatePoolWeights() = {
+    let rewardUpdateHeight = this.getInteger(keyRewardUpdateHeight).valueOrErrorMessage("Can't read entry with key " + keyRewardUpdateHeight)
+    # TODO count periods by block timestamp
+
+    let votingAddress = Address(base58'') # TODO specify
+    let keyPoolVoteSWOP = "_vote_SWOP"
+    let keyTotalVoteSWOP = "total_vote_SWOP"
+    let scale10 = 10000000000
+
+    let oracle = Address(base58'') # TODO specify
+    let pools = oracle.getStringValue("pools").split(",")
+    # TODO if pools.size() > foldLimit then throw("can't calculate") else ...
+    let totalVotes = votingAddress.getIntegerValue(keyTotalVoteSWOP)
+
+    if !isActive then
+        throw("DApp is inactive at this moment")
+    else if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStartStop].containsElement(i.callerPublicKey) then # TODO почему здесь startStop???
         throw("Only admin can call this function")
-    else
+    else if rewardUpdateHeight < height then
+        throw("") # TODO wrong condition, see first TODO
+    else {
+        func u(acc: List[IntegerEntry], pool: String) = {
+            let total = acc[0].value
+            let entries = acc.removeByIndex(0)
 
-    func sum(a:Int, b:Int) = a + b
+            let currentWeight = this.getInteger(pool + keyRewardPoolFractionCurrent).valueOrElse(-1)
+            let currentVote = votingAddress.getInteger(pool + keyPoolVoteSWOP).valueOrElse(0)
 
-    func PreviousRewardEntry(accumulated: List[IntegerEntry], pool: String) = {
-        let poolIndex = previousPools.indexOf(pool).value()
-        let poolReward = previousRewards[poolIndex]
-        IntegerEntry(pool+keyRewardPoolFractionPrevious,poolReward) :: accumulated
+            let newWeight = scale10.fraction(currentVote, totalVotes)
+            let newPreviousWeight = IntegerEntry(pool + keyRewardPoolFractionPrevious, currentWeight)
+            let newCurrentWeight = IntegerEntry(pool + keyRewardPoolFractionCurrent, newWeight)
+
+            [IntegerEntry("total", total + newWeight)]
+                ++ entries
+                ++ if currentWeight == -1 then [] else [newPreviousWeight]
+                ++ [newCurrentWeight]
+        }
+
+        let result = FOLD<20>(pools, [IntegerEntry("total", 0)], u)
+        let diff = totalVotes - result[0].value
+
+        if diff > 0 then # TODO isn't equal to what?
+            throw("calculation error")
+        else
+            result.removeByIndex(0)
     }
-    func CurrentRewardEntry(accumulated: List[IntegerEntry], pool: String) = {
-        let poolIndex = currentPools.indexOf(pool).value()
-        let poolReward = currentRewards[poolIndex]
-        IntegerEntry(pool+keyRewardPoolFractionCurrent,poolReward) :: accumulated
-    }
-    let sumRewardPrevious = FOLD<20>(previousRewards, 0, sum)
-    let sumRewardCurrent =  FOLD<20>(currentRewards, 0, sum)
-
-    if rewardUpdateHeight < height then
-        throw("rewardUpdateHeight < height") else
-    if sumRewardPrevious != totalVoteShare || sumRewardCurrent != totalVoteShare then
-        throw("sumRewardPrevious != totalVoteShare or sumRewardCurrent != totalVoteShare")  else
-
-    let previousRewardEntryNew = FOLD<20>(previousPools, [], PreviousRewardEntry)
-    let currentRewardEntryNew = FOLD<20>(currentPools, [], CurrentRewardEntry)
-    previousRewardEntryNew ++ currentRewardEntryNew ++ [IntegerEntry(keyRewardUpdateHeight,rewardUpdateHeight)]
 }
 
 @Callable(i)
