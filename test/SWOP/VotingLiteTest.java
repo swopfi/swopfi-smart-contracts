@@ -2,11 +2,11 @@ package SWOP;
 
 import im.mak.paddle.Account;
 import im.mak.paddle.exceptions.ApiError;
-import im.mak.waves.transactions.common.AssetId;
-import im.mak.waves.transactions.data.IntegerEntry;
-import im.mak.waves.transactions.invocation.IntegerArg;
-import im.mak.waves.transactions.invocation.ListArg;
-import im.mak.waves.transactions.invocation.StringArg;
+import com.wavesplatform.transactions.common.AssetId;
+import com.wavesplatform.transactions.data.IntegerEntry;
+import com.wavesplatform.transactions.invocation.IntegerArg;
+import com.wavesplatform.transactions.invocation.ListArg;
+import com.wavesplatform.transactions.invocation.StringArg;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -82,8 +82,7 @@ public class VotingLiteTest {
                     swopId = firstCaller.issue(a -> a.quantity(Long.MAX_VALUE).name("SWOP").decimals(8)).tx().assetId();
                     firstCaller.transfer(t -> t.amount(Long.MAX_VALUE, swopId).to(governance));
                     farming.writeData(d -> d.string("SWOP_id", swopId.toString()));
-                }
-        );
+                });
         governance.setScript(s -> s.script(governanceScript));
     }
 
@@ -93,8 +92,7 @@ public class VotingLiteTest {
                 Arguments.of(poolAddresses(secondPool), poolsVoteSWOPNew(10_00000000L), 11_00000000L),
                 Arguments.of(
                         poolAddresses(thirdPool, fourthPool, fifthPool),
-                        poolsVoteSWOPNew(9_00000000L, 580_00000000L, 400_00000000L), 1000_00000000L)
-        );
+                        poolsVoteSWOPNew(9_00000000L, 580_00000000L, 400_00000000L), 1000_00000000L));
     }
 
     @ParameterizedTest(name = "first caller vote")
@@ -122,8 +120,7 @@ public class VotingLiteTest {
                 () -> assertThat(resultUserVotes).isEqualTo(expectedVotes),
                 () -> assertThat(resultPoolVotes).isEqualTo(expectedVotes),
                 () -> assertThat(voting.getIntegerData(firstCaller.address().toString() + kUserTotalVoteSWOP)).isEqualTo(expectedTotal),
-                () -> assertThat(voting.getIntegerData(kTotalVoteSWOP)).isEqualTo(expectedTotal)
-        );
+                () -> assertThat(voting.getIntegerData(kTotalVoteSWOP)).isEqualTo(expectedTotal));
     }
 
     @ParameterizedTest(name = "second caller vote")
@@ -159,8 +156,7 @@ public class VotingLiteTest {
                 () -> assertThat(resultUserVotes).isEqualTo(expectedUserVotes),
                 () -> assertThat(resultPoolVotes).isEqualTo(expectedPoolVotes),
                 () -> assertThat(voting.getIntegerData(secondCaller.address().toString() + kUserTotalVoteSWOP)).isEqualTo(expectedTotal),
-                () -> assertThat(voting.getIntegerData(kTotalVoteSWOP)).isEqualTo(totalVoteBefore + sumVote)
-        );
+                () -> assertThat(voting.getIntegerData(kTotalVoteSWOP)).isEqualTo(totalVoteBefore + sumVote));
     }
 
     Stream<Arguments> unvoteProvider() {
@@ -169,8 +165,7 @@ public class VotingLiteTest {
                 Arguments.of(poolAddresses(secondPool), poolsVoteSWOPNew(0L), 989_00000000L),
                 Arguments.of(
                         poolAddresses(thirdPool, fourthPool, fifthPool),
-                        poolsVoteSWOPNew(0L, 0L, 0L), 0L)
-        );
+                        poolsVoteSWOPNew(0L, 0L, 0L), 0L));
     }
     @ParameterizedTest(name = "second caller unvote")
     @MethodSource("unvoteProvider")
@@ -191,8 +186,7 @@ public class VotingLiteTest {
 
         assertAll("vote pool weight",
                 () -> assertThat(resultUserVotes).isEqualTo(expectedUserVotes),
-                () -> assertThat(voting.getIntegerData(secondCaller.address().toString() + kUserTotalVoteSWOP)).isEqualTo(expectedTotal)
-        );
+                () -> assertThat(voting.getIntegerData(secondCaller.address().toString() + kUserTotalVoteSWOP)).isEqualTo(expectedTotal));
     }
 
     Stream<Arguments> changeVoteProvider() {
@@ -201,8 +195,7 @@ public class VotingLiteTest {
                 Arguments.of(poolAddresses(secondPool), poolsVoteSWOPNew(580_00000000L), 980_00000000L),
                 Arguments.of(
                         poolAddresses(thirdPool, fourthPool, fifthPool),
-                        poolsVoteSWOPNew(9_00000000L, 10_00000000L, 1_00000000L), 1000_00000000L)
-        );
+                        poolsVoteSWOPNew(9_00000000L, 10_00000000L, 1_00000000L), 1000_00000000L));
     }
     @ParameterizedTest(name = "second caller change vote")
     @MethodSource("changeVoteProvider")
@@ -223,8 +216,7 @@ public class VotingLiteTest {
 
         assertAll("vote pool weight",
                 () -> assertThat(resultUserVotes).isEqualTo(expectedUserVotes),
-                () -> assertThat(voting.getIntegerData(secondCaller.address().toString() + kUserTotalVoteSWOP)).isEqualTo(expectedTotal)
-        );
+                () -> assertThat(voting.getIntegerData(secondCaller.address().toString() + kUserTotalVoteSWOP)).isEqualTo(expectedTotal));
     }
 
     @Test

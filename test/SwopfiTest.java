@@ -1,10 +1,10 @@
 import im.mak.paddle.Account;
 import im.mak.paddle.exceptions.ApiError;
-import im.mak.waves.transactions.common.AssetId;
-import im.mak.waves.transactions.data.BooleanEntry;
-import im.mak.waves.transactions.data.IntegerEntry;
-import im.mak.waves.transactions.data.StringEntry;
-import im.mak.waves.transactions.invocation.IntegerArg;
+import com.wavesplatform.transactions.common.AssetId;
+import com.wavesplatform.transactions.data.BooleanEntry;
+import com.wavesplatform.transactions.data.IntegerEntry;
+import com.wavesplatform.transactions.data.StringEntry;
+import com.wavesplatform.transactions.invocation.IntegerArg;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -17,7 +17,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Stream;
-import im.mak.waves.crypto.base.Base58;
+import com.wavesplatform.crypto.base.Base58;
 
 import static im.mak.paddle.Async.async;
 import static im.mak.paddle.Node.node;
@@ -92,8 +92,7 @@ class SwopfiTest {
                     exchanger8 = new Account(100_00000000L);
                     exchanger8.setScript(s -> s.script(dAppScript));
                 },
-                () -> firstCaller.sponsorFee(s -> s.amountForMinFee(minSponsoredAssetFee).assetId(tokenB))
-        );
+                () -> firstCaller.sponsorFee(s -> s.amountForMinFee(minSponsoredAssetFee).assetId(tokenB)));
     }
 
     Stream<Arguments> fundProvider() {
@@ -105,8 +104,7 @@ class SwopfiTest {
                 Arguments.of(exchanger5, 21234, 345678),
                 Arguments.of(exchanger6, 212345, 34567),
                 Arguments.of(exchanger7, 9999999, 8888888),
-                Arguments.of(exchanger8, 99999999, 199999999)
-        );
+                Arguments.of(exchanger8, 99999999, 199999999));
     }
 
     @ParameterizedTest(name = "caller inits {index} exchanger with {1} tokenA and {2} tokenB")
@@ -140,9 +138,7 @@ class SwopfiTest {
                         AssetId.as(exchanger.getStringData("share_asset_id")))),
                 () -> assertThat(exchanger.getAssetBalance(tokenA)).isEqualTo(fundAmountA),
                 () -> assertThat(exchanger.getAssetBalance(tokenB)).isEqualTo(fundAmountB),
-                () -> assertThat(firstCaller.getAssetBalance(shareTokenId)).isEqualTo(shareTokenSupply)
-
-        );
+                () -> assertThat(firstCaller.getAssetBalance(shareTokenId)).isEqualTo(shareTokenSupply));
         //for future staking fee check in replenish/withdraw tests
         stakingAcc.writeData(d -> d.integer(String.format("rpd_balance_%s_%s", tokenB, exchanger.address()), 100));
     }
@@ -160,8 +156,7 @@ class SwopfiTest {
                 Arguments.of(exchanger7, ThreadLocalRandom.current().nextLong(100_00000000L, 10000_00000000L)),
                 Arguments.of(exchanger8, ThreadLocalRandom.current().nextLong(10000L, 1_00000000L)),
                 Arguments.of(exchanger8, ThreadLocalRandom.current().nextLong(10_00000000L, 100_00000000L)),
-                Arguments.of(exchanger8, ThreadLocalRandom.current().nextLong(100_00000000L, 10000_00000000L))
-        );
+                Arguments.of(exchanger8, ThreadLocalRandom.current().nextLong(100_00000000L, 10000_00000000L)));
     }
 
     @ParameterizedTest(name = "firstCaller exchanges {1} tokenA")
@@ -201,9 +196,7 @@ class SwopfiTest {
                 () -> assertThat(exchanger.getAssetBalance(tokenA)).isEqualTo(amountTokenA + tokenReceiveAmount),
                 () -> assertThat(exchanger.getAssetBalance(tokenB)).isEqualTo(amountTokenB - tokenSendAmountWithFee - tokenSendGovernance),
                 () -> assertThat(firstCaller.getAssetBalance(tokenA)).isEqualTo(callerBalanceA - tokenReceiveAmount),
-                () -> assertThat(firstCaller.getAssetBalance(tokenB)).isEqualTo(callerBalanceB + tokenSendAmountWithFee)
-
-        );
+                () -> assertThat(firstCaller.getAssetBalance(tokenB)).isEqualTo(callerBalanceB + tokenSendAmountWithFee));
 
     }
 
@@ -220,8 +213,7 @@ class SwopfiTest {
                 Arguments.of(exchanger7, ThreadLocalRandom.current().nextLong(100_00000000L, 10000_00000000L)),
                 Arguments.of(exchanger8, ThreadLocalRandom.current().nextLong(10000L, 1_00000000L)),
                 Arguments.of(exchanger8, ThreadLocalRandom.current().nextLong(10_00000000L, 100_00000000L)),
-                Arguments.of(exchanger8, ThreadLocalRandom.current().nextLong(100_00000000L, 10000_00000000L))
-        );
+                Arguments.of(exchanger8, ThreadLocalRandom.current().nextLong(100_00000000L, 10000_00000000L)));
     }
 
     @ParameterizedTest(name = "firstCaller exchanges {1} tokenB")
@@ -260,8 +252,7 @@ class SwopfiTest {
                 () -> assertThat(exchanger.getAssetBalance(tokenA)).isEqualTo(amountTokenA - tokenSendAmountWithFee - tokenSendGovernance),
                 () -> assertThat(exchanger.getAssetBalance(tokenB)).isEqualTo(amountTokenB + tokenReceiveAmount),
                 () -> assertThat(firstCaller.getAssetBalance(tokenA)).isEqualTo(callerBalanceA + tokenSendAmountWithFee),
-                () -> assertThat(firstCaller.getAssetBalance(tokenB)).isEqualTo(callerBalanceB - tokenReceiveAmount)
-        );
+                () -> assertThat(firstCaller.getAssetBalance(tokenB)).isEqualTo(callerBalanceB - tokenReceiveAmount));
     }
 
     Stream<Arguments> replenishByTwiceProvider() {
@@ -270,8 +261,7 @@ class SwopfiTest {
                 Arguments.of(exchanger5),
                 Arguments.of(exchanger6),
                 Arguments.of(exchanger7),
-                Arguments.of(exchanger8)
-        );
+                Arguments.of(exchanger8));
     }
 
     @ParameterizedTest(name = "secondCaller replenish A/B by twice")
@@ -314,9 +304,7 @@ class SwopfiTest {
                 () -> assertThat(exchanger.getAssetBalance(tokenB)).isEqualTo(amountTokenBBefore + amountTokenBBefore),
                 () -> assertThat(secondCaller.getAssetBalance(tokenA)).isEqualTo(secondCallerBalanceA + stakingFee),
                 () -> assertThat(secondCaller.getAssetBalance(tokenB)).isEqualTo(0),
-                () -> assertThat(secondCaller.getAssetBalance(shareTokenId)).isEqualTo(shareTokenToPay)
-
-        );
+                () -> assertThat(secondCaller.getAssetBalance(shareTokenId)).isEqualTo(shareTokenToPay));
     }
 
     Stream<Arguments> withdrawByTwiceProvider() {
@@ -325,8 +313,7 @@ class SwopfiTest {
                 Arguments.of(exchanger5),
                 Arguments.of(exchanger6),
                 Arguments.of(exchanger7),
-                Arguments.of(exchanger8)
-        );
+                Arguments.of(exchanger8));
     }
 
     @ParameterizedTest(name = "secondCaller withdraw A/B by twice")
@@ -368,8 +355,7 @@ class SwopfiTest {
                 () -> assertThat(exchanger.getAssetBalance(tokenB)).isEqualTo(dAppTokensAmountB - tokensToPayB + stakingFee),
                 () -> assertThat(secondCaller.getAssetBalance(shareTokenId)).isEqualTo(0),
                 () -> assertThat(secondCaller.getAssetBalance(tokenA)).isEqualTo(secondCallerAmountA + tokensToPayA),
-                () -> assertThat(secondCaller.getAssetBalance(tokenB)).isEqualTo(secondCallerAmountB + tokensToPayB - stakingFee)
-        );
+                () -> assertThat(secondCaller.getAssetBalance(tokenB)).isEqualTo(secondCallerAmountB + tokensToPayB - stakingFee));
     }
 
     Stream<Arguments> replenishProvider() {
@@ -400,8 +386,7 @@ class SwopfiTest {
         ApiError error = assertThrows(ApiError.class, () -> firstCaller.invoke(i -> i.dApp(exchanger)
                 .function("replenishWithTwoTokens", IntegerArg.as(slippageTolerance))
                 .payment(insufficientTokenRatioAmounts.get("pmtAmountA"), tokenA)
-                .payment(insufficientTokenRatioAmounts.get("pmtAmountB"), tokenB))
-        );
+                .payment(insufficientTokenRatioAmounts.get("pmtAmountB"), tokenB)));
         assertThat(error).hasMessageContaining("Incorrect assets amount: amounts must have the contract ratio");
 
         Map<String, Long> tooBigTokenRatioAmounts = new HashMap<>();
@@ -411,8 +396,7 @@ class SwopfiTest {
         ApiError error2 = assertThrows(ApiError.class, () -> firstCaller.invoke(i -> i.dApp(exchanger)
                 .function("replenishWithTwoTokens", IntegerArg.as(slippageTolerance))
                 .payment(tooBigTokenRatioAmounts.get("pmtAmountA"), tokenA)
-                .payment(tooBigTokenRatioAmounts.get("pmtAmountB"), tokenB))
-        );
+                .payment(tooBigTokenRatioAmounts.get("pmtAmountB"), tokenB)));
         assertThat(error2).hasMessageContaining("Incorrect assets amount: amounts must have the contract ratio");
 
         Map<String, Long> replenishAmounts = new HashMap<>();
@@ -444,8 +428,7 @@ class SwopfiTest {
                         IntegerEntry.as("share_asset_supply", shareAssetSupply + shareTokenToPayAmount)),
                 () -> assertThat(exchanger.getAssetBalance(tokenA)).isEqualTo(balanceA + replenishAmounts.get("pmtAmountA")),
                 () -> assertThat(exchanger.getAssetBalance(tokenB)).isEqualTo(realBalanceB + pmtAmountB),
-                () -> assertThat(firstCaller.getAssetBalance(shareAssetId)).isEqualTo(callerShareBalance + shareTokenToPayAmount)
-        );
+                () -> assertThat(firstCaller.getAssetBalance(shareAssetId)).isEqualTo(callerShareBalance + shareTokenToPayAmount));
     }
 
     @Test

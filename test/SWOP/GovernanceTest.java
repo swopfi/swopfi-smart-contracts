@@ -1,9 +1,9 @@
 package SWOP;
 
 import im.mak.paddle.Account;
-import im.mak.waves.transactions.common.AssetId;
-import im.mak.waves.transactions.data.IntegerEntry;
-import im.mak.waves.transactions.invocation.IntegerArg;
+import com.wavesplatform.transactions.common.AssetId;
+import com.wavesplatform.transactions.data.IntegerEntry;
+import com.wavesplatform.transactions.invocation.IntegerArg;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.TestInstance;
@@ -16,7 +16,7 @@ import java.math.BigInteger;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Stream;
 
-import im.mak.waves.crypto.base.Base58;
+import com.wavesplatform.crypto.base.Base58;
 
 import static im.mak.paddle.Async.async;
 import static im.mak.paddle.Node.node;
@@ -57,8 +57,7 @@ public class GovernanceTest {
                             .to(secondCaller, Long.MAX_VALUE / 3)
                             .to(airdropCaller, Long.MAX_VALUE / 3));
                     farmingDapp.writeData(d -> d.string("SWOP_id", swopId.toString()));
-                }
-        );
+                });
     }
 
     Stream<Arguments> lockSWOPProvider() {
@@ -70,8 +69,7 @@ public class GovernanceTest {
                 Arguments.of(1, 1),
                 Arguments.of(firstRange, thirdRange),
                 Arguments.of(secondRange, thirdRange),
-                Arguments.of(thirdRange, firstRange)
-        );
+                Arguments.of(thirdRange, firstRange));
     }
 
     @ParameterizedTest(name = "user1 lock {0} SWOP, user2 lock {1} SWOP")
@@ -123,8 +121,7 @@ public class GovernanceTest {
                 Arguments.of(50000, 20000000, 3000),
                 Arguments.of(60000000, 500, 100000000),
                 Arguments.of(10000000000L, 2000000000000L, 10000000000L),
-                Arguments.of(300000000000L, 10000000000L, 10000000000000L)
-        );
+                Arguments.of(300000000000L, 10000000000L, 10000000000000L));
     }
 
     @ParameterizedTest(name = "user1 lock {0} SWOP -> user2 lock {0} SWOP -> airdrop {2} SWOP -> user1 claimAndWithdraw -> user2 claimAndWithdraw")
@@ -147,8 +144,7 @@ public class GovernanceTest {
         assertAll("state after airdrop check",
                 () -> assertThat(governanceDapp.getIntegerData(keyLastInterest)).isEqualTo(newInterest),
                 () -> assertThat(governanceDapp.getIntegerData(keyTotalSWOPAmount)).isEqualTo(totalSWOPAmount + user1LockAmount + user2LockAmount),
-                () -> assertThat(governanceDapp.getAssetBalance(swopId)).isEqualTo(governanceSWOPBalance + user1LockAmount + user2LockAmount + airdropAmount)
-        );
+                () -> assertThat(governanceDapp.getAssetBalance(swopId)).isEqualTo(governanceSWOPBalance + user1LockAmount + user2LockAmount + airdropAmount));
 
         long user1SWOPLocked = governanceDapp.getIntegerData(firstCaller.address() + keyUserSWOPAmount);
         long user1lastInterest = governanceDapp.getIntegerData(firstCaller.address() + keyUserLastInterest);
@@ -162,8 +158,7 @@ public class GovernanceTest {
         assertAll("state after first user claimAndWithdraw check",
                 () -> assertThat(governanceDapp.getIntegerData(firstCaller.address() + keyUserLastInterest)).isEqualTo(newInterest),
                 () -> assertThat(governanceDapp.getAssetBalance(swopId)).isEqualTo(governanceSWOPBalance1 - user1ClaimAmount),
-                () -> assertThat(firstCaller.getAssetBalance(swopId)).isEqualTo(user1SWOPBalance - user1LockAmount + user1ClaimAmount)
-        );
+                () -> assertThat(firstCaller.getAssetBalance(swopId)).isEqualTo(user1SWOPBalance - user1LockAmount + user1ClaimAmount));
 
         long user2SWOPLocked = governanceDapp.getIntegerData(secondCaller.address() + keyUserSWOPAmount);
         long user2LastInterest = governanceDapp.getIntegerData(secondCaller.address() + keyUserLastInterest);
@@ -188,8 +183,7 @@ public class GovernanceTest {
                 Arguments.of(50000, 20000000),
                 Arguments.of(60000000, 500),
                 Arguments.of(10000000000L, 2000000000000L),
-                Arguments.of(300000000000L, 10000000000L)
-        );
+                Arguments.of(300000000000L, 10000000000L));
     }
     @ParameterizedTest(name = "user1 lock {0} SWOP -> user2 lock {0} SWOP -> airdrop {2} SWOP -> user1 claimAndStake -> user2 claimAndStake")
     @MethodSource("lockAndAirdropProvider")
@@ -254,8 +248,7 @@ public class GovernanceTest {
                 Arguments.of(1, 1),
                 Arguments.of(1000, 50000),
                 Arguments.of(70000, 1000000),
-                Arguments.of(100000000, 100000)
-        );
+                Arguments.of(100000000, 100000));
     }
 
     @ParameterizedTest(name = "user1 withdraw {0} SWOP, user2 withdraw {1} SWOP")
