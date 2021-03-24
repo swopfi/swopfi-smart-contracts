@@ -15,7 +15,7 @@ let pools = match this.getString(keyPoolsListName) {
     case nothing => []
 }
 
-func isSelfInvoke(i: Invocation) = if i.caller == this then unit else throw("Only the Oracle itself can invoke this function")
+func isSelfCall(i: Invocation) = if i.caller == this then unit else throw("Only the Oracle itself can invoke this function")
 
 func getPoolNameIfValid(poolName: String) = {
     let underscoreIndex = poolName.indexOf("_").valueOrElse(-1)
@@ -32,7 +32,7 @@ func getPoolNameIfValid(poolName: String) = {
 func getAddressIfValid(address: String) = address.addressFromString().valueOrErrorMessage("Can't parse \"" + address + "\" as address").toString()
 
 @Callable(i)
-func addPool(poolAddress: String, poolName: String) = isSelfInvoke(i).valueOrElse({
+func addPool(poolAddress: String, poolName: String) = isSelfCall(i).valueOrElse({
     let validatedAddress = poolAddress.getAddressIfValid()
     let keyName = keyPrefixPoolName + validatedAddress
     let keyIndex = keyPrefixPoolIndex + validatedAddress
@@ -49,7 +49,7 @@ func addPool(poolAddress: String, poolName: String) = isSelfInvoke(i).valueOrEls
 })
 
 @Callable(i)
-func renamePool(poolAddress: String, newPoolName: String) = isSelfInvoke(i).valueOrElse({
+func renamePool(poolAddress: String, newPoolName: String) = isSelfCall(i).valueOrElse({
     let validatedAddress = poolAddress.getAddressIfValid()
     let keyName = keyPrefixPoolName + validatedAddress
     let possiblyAlreadyAddedPool = this.getString(keyName)
@@ -69,9 +69,9 @@ func verify() = {
 
     match tx {
         case invoke: InvokeScriptTransaction => {
-            let isSelfCall = invoke.dApp == this && ["addPool", "renamePool"].containsElement(invoke.function)
+            let isSelfInvoke = invoke.dApp == this && ["addPool", "renamePool"].containsElement(invoke.function)
 
-            signedByAdmin && invoke.payments.size() == 0 && isSelfCall
+            signedByAdmin && invoke.payments.size() == 0 && isSelfInvoke
         }
         case _: Transaction|Order => signedByAdmin
     }
