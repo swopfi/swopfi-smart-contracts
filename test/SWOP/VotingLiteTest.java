@@ -3,7 +3,6 @@ package SWOP;
 import im.mak.paddle.Account;
 import im.mak.paddle.exceptions.ApiError;
 import im.mak.waves.transactions.common.AssetId;
-import im.mak.waves.transactions.common.Id;
 import im.mak.waves.transactions.data.IntegerEntry;
 import im.mak.waves.transactions.invocation.IntegerArg;
 import im.mak.waves.transactions.invocation.ListArg;
@@ -104,8 +103,7 @@ public class VotingLiteTest {
         firstCaller.invoke(i -> i.dApp(voting)
                 .function("votePoolWeight",
                         ListArg.as(poolAddresses.toArray(new StringArg[0])),
-                        ListArg.as(poolsVoteSWOPNew.toArray(new IntegerArg[0])))
-                .fee(1_00500000L));
+                        ListArg.as(poolsVoteSWOPNew.toArray(new IntegerArg[0]))));
 
         List<Long> resultUserVotes = new ArrayList<>();
         for (StringArg pool : poolAddresses) {
@@ -135,8 +133,7 @@ public class VotingLiteTest {
         secondCaller.invoke(i -> i.dApp(voting)
                 .function("votePoolWeight",
                         ListArg.as(poolAddresses.toArray(new StringArg[0])),
-                        ListArg.as(poolsVoteSWOPNew.toArray(new IntegerArg[0])))
-                .fee(1_00500000L));
+                        ListArg.as(poolsVoteSWOPNew.toArray(new IntegerArg[0]))));
 
         List<Long> resultUserVotes = new ArrayList<>();
         for (StringArg pool : poolAddresses) {
@@ -178,10 +175,9 @@ public class VotingLiteTest {
     @ParameterizedTest(name = "second caller unvote")
     @MethodSource("unvoteProvider")
     void c_secondUnvote(List<StringArg> poolAddresses, List<IntegerArg> poolsVoteSWOPNew, long expectedTotal) {
-        Id invokeId = secondCaller.invoke(i -> i.dApp(voting).function("votePoolWeight",
+        secondCaller.invoke(i -> i.dApp(voting).function("votePoolWeight",
                 ListArg.as(poolAddresses.toArray(new StringArg[poolAddresses.size()])),
-                ListArg.as(poolsVoteSWOPNew.toArray(new IntegerArg[poolsVoteSWOPNew.size()]))).fee(1_00500000L)).tx().id();
-        node().waitForTransaction(invokeId);
+                ListArg.as(poolsVoteSWOPNew.toArray(new IntegerArg[poolsVoteSWOPNew.size()]))));
 
         List<Long> resultUserVotes = new ArrayList<>();
         for (StringArg pool : poolAddresses) {
@@ -211,10 +207,9 @@ public class VotingLiteTest {
     @ParameterizedTest(name = "second caller change vote")
     @MethodSource("changeVoteProvider")
     void d_secondChangeVote(List<StringArg> poolAddresses, List<IntegerArg> poolsVoteSWOPNew, long expectedTotal) {
-        Id invokeId = secondCaller.invoke(i -> i.dApp(voting).function("votePoolWeight",
+        secondCaller.invoke(i -> i.dApp(voting).function("votePoolWeight",
                 ListArg.as(poolAddresses.toArray(new StringArg[poolAddresses.size()])),
-                ListArg.as(poolsVoteSWOPNew.toArray(new IntegerArg[poolsVoteSWOPNew.size()]))).fee(1_00500000L)).tx().id();
-        node().waitForTransaction(invokeId);
+                ListArg.as(poolsVoteSWOPNew.toArray(new IntegerArg[poolsVoteSWOPNew.size()]))));
 
         List<Long> resultUserVotes = new ArrayList<>();
         for (StringArg pool : poolAddresses) {
@@ -235,20 +230,15 @@ public class VotingLiteTest {
     @Test
     void e_withdrawSWOP() {
         ApiError error = assertThrows(ApiError.class, () ->
-                firstCaller.invoke(i -> i.dApp(governance)
-                        .function("withdrawSWOP", IntegerArg.as(2))
-                        .fee(500000L)));
+                firstCaller.invoke(i -> i.dApp(governance).function("withdrawSWOP", IntegerArg.as(2))));
         assertThat(error).hasMessageContaining("withdrawAmount > availableFund");
 
         long userSWOPBalanceBefore = firstCaller.getAssetBalance(swopId);
-        firstCaller.invoke(i -> i.dApp(governance)
-                .function("withdrawSWOP", IntegerArg.as(1))
-                .fee(500000L));
+        firstCaller.invoke(i -> i.dApp(governance).function("withdrawSWOP", IntegerArg.as(1)));
 
         assertAll("state after first user lock check",
                 () -> assertThat(governance.getIntegerData(firstCaller.address() + "_SWOP_amount")).isEqualTo(firstCallerInitAmount),
-                () -> assertThat(firstCaller.getAssetBalance(swopId)).isEqualTo(userSWOPBalanceBefore + 1)
-        );
+                () -> assertThat(firstCaller.getAssetBalance(swopId)).isEqualTo(userSWOPBalanceBefore + 1));
     }
 
     @Test
@@ -260,14 +250,12 @@ public class VotingLiteTest {
         List<IntegerArg> currentRewards = poolsVoteSWOPNew(10 * scaleValue8, 20 * scaleValue8, 30 * scaleValue8, 15 * scaleValue8, 25 * scaleValue8);
 
         long rewardUpdateHeight = node().getHeight() + 3;
-        firstCaller.invoke(i -> i.dApp(governance)
-                .function("updateWeights",
-                        ListArg.as(previousPools.toArray(new StringArg[0])),
-                        ListArg.as(previousRewards.toArray(new IntegerArg[0])),
-                        ListArg.as(currentPools.toArray(new StringArg[0])),
-                        ListArg.as(currentRewards.toArray(new IntegerArg[0])),
-                        IntegerArg.as(rewardUpdateHeight))
-                .fee(1_00500000L));
+        firstCaller.invoke(i -> i.dApp(governance).function("updateWeights",
+                ListArg.as(previousPools.toArray(new StringArg[0])),
+                ListArg.as(previousRewards.toArray(new IntegerArg[0])),
+                ListArg.as(currentPools.toArray(new StringArg[0])),
+                ListArg.as(currentRewards.toArray(new IntegerArg[0])),
+                IntegerArg.as(rewardUpdateHeight)));
 
         List<Long> resultPreviousRewards = new ArrayList<>();
         for (StringArg pool : previousPools) {
@@ -292,8 +280,7 @@ public class VotingLiteTest {
         assertAll("update weights check",
                 () -> assertThat(resultPreviousRewards).isEqualTo(expectedPreviousRewards),
                 () -> assertThat(resultCurrentRewards).isEqualTo(expectedCurrentRewards),
-                () -> assertThat(governance.getIntegerData(keyRewardUpdateHeight)).isEqualTo(rewardUpdateHeight)
-        );
+                () -> assertThat(governance.getIntegerData(keyRewardUpdateHeight)).isEqualTo(rewardUpdateHeight));
     }
 
     private List<StringArg> poolAddresses(String... pools) {

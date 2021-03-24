@@ -4,7 +4,6 @@ import im.mak.paddle.Account;
 import im.mak.waves.crypto.base.Base58;
 import im.mak.waves.transactions.common.Amount;
 import im.mak.waves.transactions.common.AssetId;
-import im.mak.waves.transactions.common.Id;
 import im.mak.waves.transactions.data.IntegerEntry;
 import im.mak.waves.transactions.invocation.IntegerArg;
 import im.mak.waves.transactions.invocation.StringArg;
@@ -94,7 +93,9 @@ class FarmingTest {
 
     @Test
     void a_init() {
-        firstCaller.invoke(i -> i.dApp(farmingDApp).function("init", StringArg.as(earlyLP.address().toString())).fee(1_00500000L));
+        firstCaller.invoke(i -> i.dApp(farmingDApp)
+                .function("init", StringArg.as(earlyLP.address().toString()))
+                .fee(1_00500000L));
         swopId = AssetId.as(farmingDApp.getStringData("SWOP_id"));
         assertThat(farmingDApp.getAssetBalance(swopId)).isEqualTo(initSWOPAmount);
     }
@@ -119,10 +120,10 @@ class FarmingTest {
                 .integer(keyTotalRewardPerBlockCurrent, totalRewardPerBlockCurrent)
                 .integer(keyTotalRewardPerBlockPrevious, totalRewardPerBlockPrevious));
 
-        firstCaller.invoke(i -> i.dApp(farmingDApp).function("initPoolShareFarming", StringArg.as(poolAddress)).fee(500000L));
-        assertAll("state after init check",
-                () -> assertThat(farmingDApp.getIntegerData(String.format(keyShareTokensLocked, poolAddress))).isEqualTo(0),
-                () -> assertThat(farmingDApp.getIntegerData(String.format(keyLastInterest, poolAddress))).isEqualTo(0)
+        firstCaller.invoke(i -> i.dApp(farmingDApp).function("initPoolShareFarming", StringArg.as(poolAddress)));
+        assertThat(farmingDApp.getData()).contains(
+                IntegerEntry.as(String.format(keyShareTokensLocked, poolAddress), 0),
+                IntegerEntry.as(String.format(keyLastInterest, poolAddress), 0)
         );
     }
 
@@ -189,7 +190,9 @@ class FarmingTest {
         AssetId shareAssetId = pool.address().equals(pool1.address()) ? shareAssetId1 : shareAssetId2;
 
         node().waitForHeight(startFarmingHeight);
-        firstCaller.invoke(i -> i.dApp(farmingDApp).function("lockShareTokens", StringArg.as(poolAddress)).payment(1, shareAssetId).fee(500000L));
+        firstCaller.invoke(i -> i.dApp(farmingDApp)
+                .function("lockShareTokens", StringArg.as(poolAddress))
+                .payment(1, shareAssetId));
         node().waitNBlocks(1);
 
         long sTokensLockedBeforeFirst = farmingDApp.getIntegerData(String.format(keyShareTokensLocked, poolAddress));
@@ -210,8 +213,7 @@ class FarmingTest {
 
         firstCaller.invoke(i -> i.dApp(farmingDApp)
                 .function("lockShareTokens", StringArg.as(poolAddress))
-                .payment(lockShareAmount, shareAssetId)
-                .fee(500000L));
+                .payment(lockShareAmount, shareAssetId));
 
         assertThat(farmingDApp.getData()).contains(
                 IntegerEntry.as(String.format(keyLastInterest, poolAddress), user1NewInterest),
@@ -237,8 +239,7 @@ class FarmingTest {
 
         secondCaller.invoke(i -> i.dApp(farmingDApp)
                 .function("lockShareTokens", StringArg.as(poolAddress))
-                .payment(lockShareAmount, shareAssetId)
-                .fee(500000L));
+                .payment(lockShareAmount, shareAssetId));
         node().waitNBlocks(1);
 
         assertThat(farmingDApp.getData()).contains(
@@ -290,13 +291,16 @@ class FarmingTest {
                 votingDApp.getIntegerData(String.format(keyRewardPoolFractionPrevious, poolAddress)),
                 scaleValue
         );
-        firstCaller.invoke(i -> i.dApp(farmingDApp).function("withdrawShareTokens", StringArg.as(poolAddress), IntegerArg.as(withdrawShareAmount)).payment(withdrawShareAmount, shareAssetId).fee(500000L));
+        firstCaller.invoke(i -> i.dApp(farmingDApp)
+                .function("withdrawShareTokens", StringArg.as(poolAddress), IntegerArg.as(withdrawShareAmount))
+                .payment(withdrawShareAmount, shareAssetId));
 
         assertAll("state after first user lock check",
                 () -> assertThat(farmingDApp.getIntegerData(String.format(keyLastInterest, poolAddress))).isCloseTo(user1NewInterest, within(10L)),
                 () -> assertThat(farmingDApp.getIntegerData(String.format(keyUserLastInterest, poolAddress, firstCaller.address()))).isCloseTo(user1NewInterest, within(10L)),
-                () -> assertThat(farmingDApp.getIntegerData(String.format(keyUserShareTokensLocked, poolAddress, firstCaller.address()))).isEqualTo(user1ShareTokensLocked - withdrawShareAmount),
-                () -> assertThat(farmingDApp.getIntegerData(String.format(keyShareTokensLocked, poolAddress))).isEqualTo(sTokensLockedBeforeFirst - withdrawShareAmount)
+                () -> assertThat(farmingDApp.getData()).contains(
+                        IntegerEntry.as(String.format(keyUserShareTokensLocked, poolAddress, firstCaller.address()), user1ShareTokensLocked - withdrawShareAmount),
+                        IntegerEntry.as(String.format(keyShareTokensLocked, poolAddress), sTokensLockedBeforeFirst - withdrawShareAmount))
         );
 
         long sTokensLockedBeforeSecond = farmingDApp.getIntegerData(String.format(keyShareTokensLocked, poolAddress));
@@ -311,7 +315,9 @@ class FarmingTest {
                 scaleValue
         );
         long user2ShareTokensLocked = farmingDApp.getIntegerData(String.format(keyUserShareTokensLocked, poolAddress, secondCaller.address()));
-        secondCaller.invoke(i -> i.dApp(farmingDApp).function("withdrawShareTokens", StringArg.as(poolAddress), IntegerArg.as(withdrawShareAmount)).payment(withdrawShareAmount, shareAssetId).fee(500000L));
+        secondCaller.invoke(i -> i.dApp(farmingDApp)
+                .function("withdrawShareTokens", StringArg.as(poolAddress), IntegerArg.as(withdrawShareAmount))
+                .payment(withdrawShareAmount, shareAssetId));
 //        node().waitNBlocks(1);
 
         assertAll("state after second user lock check",
@@ -348,15 +354,15 @@ class FarmingTest {
         );
         long claimAmount1 = BigInteger.valueOf(user1ShareTokensLocked).multiply(BigInteger.valueOf(user1NewInterest - lastInterest1)).divide(BigInteger.valueOf(scaleValue)).longValue();
 
-        firstCaller.invoke(i -> i.dApp(farmingDApp).function("claim", StringArg.as(poolAddress)).fee(500000L));
-        assertAll("state after first user claim check",
-                () -> assertThat(farmingDApp.getIntegerData(String.format(keyLastInterest, poolAddress))).isEqualTo(user1NewInterest),
-                () -> assertThat(farmingDApp.getIntegerData(String.format(keyUserLastInterest, poolAddress, firstCaller.address()))).isEqualTo(user1NewInterest),
-                () -> assertThat(farmingDApp.getIntegerData(String.format(keyUserShareTokensLocked, poolAddress, firstCaller.address()))).isEqualTo(user1ShareTokensLocked),
-                () -> assertThat(farmingDApp.getIntegerData(String.format(keyShareTokensLocked, poolAddress))).isEqualTo(sTokensLockedBefore),
-                () -> assertThat(farmingDApp.getIntegerData(String.format(keyAvailableSWOP, poolAddress, firstCaller.address()))).isEqualTo(0),
-                () -> assertThat(farmingDApp.getIntegerData(String.format(keyLastInterestHeight, poolAddress))).isEqualTo(currentHeight1)
-        );
+        firstCaller.invoke(i -> i.dApp(farmingDApp).function("claim", StringArg.as(poolAddress)));
+
+        assertThat(farmingDApp.getData()).describedAs("state after first user claim check").contains(
+                IntegerEntry.as(String.format(keyLastInterest, poolAddress), user1NewInterest),
+                IntegerEntry.as(String.format(keyUserLastInterest, poolAddress, firstCaller.address()), user1NewInterest),
+                IntegerEntry.as(String.format(keyUserShareTokensLocked, poolAddress, firstCaller.address()), user1ShareTokensLocked),
+                IntegerEntry.as(String.format(keyShareTokensLocked, poolAddress), sTokensLockedBefore),
+                IntegerEntry.as(String.format(keyAvailableSWOP, poolAddress, firstCaller.address()), 0),
+                IntegerEntry.as(String.format(keyLastInterestHeight, poolAddress), currentHeight1));
 
         long user2ShareTokensLocked = farmingDApp.getIntegerData(String.format(keyUserShareTokensLocked, poolAddress, secondCaller.address()));
         long lastInterest2 = farmingDApp.getIntegerData(String.format(keyLastInterest, poolAddress));
@@ -378,15 +384,14 @@ class FarmingTest {
         );
         long claimAmount2 = BigInteger.valueOf(user2ShareTokensLocked).multiply(BigInteger.valueOf(user2NewInterest - lastInterest2)).divide(BigInteger.valueOf(scaleValue)).longValue();
 
-        secondCaller.invoke(i -> i.dApp(farmingDApp).function("claim", StringArg.as(poolAddress)).fee(500000L));
-        assertAll("state after second user claim check",
-                () -> assertThat(farmingDApp.getIntegerData(String.format(keyLastInterest, poolAddress))).isEqualTo(user2NewInterest),
-                () -> assertThat(farmingDApp.getIntegerData(String.format(keyUserLastInterest, poolAddress, secondCaller.address()))).isEqualTo(user2NewInterest),
-                () -> assertThat(farmingDApp.getIntegerData(String.format(keyUserShareTokensLocked, poolAddress, secondCaller.address()))).isEqualTo(user2ShareTokensLocked),
-                () -> assertThat(farmingDApp.getIntegerData(String.format(keyShareTokensLocked, poolAddress))).isEqualTo(sTokensLockedBefore),
-                () -> assertThat(farmingDApp.getIntegerData(String.format(keyAvailableSWOP, poolAddress, secondCaller.address()))).isEqualTo(0),
-                () -> assertThat(farmingDApp.getIntegerData(String.format(keyLastInterestHeight, poolAddress))).isEqualTo(currentHeight2)
-        );
+        secondCaller.invoke(i -> i.dApp(farmingDApp).function("claim", StringArg.as(poolAddress)));
+        assertThat(farmingDApp.getData()).describedAs("state after second user claim check").contains(
+                IntegerEntry.as(String.format(keyLastInterest, poolAddress), user2NewInterest),
+                IntegerEntry.as(String.format(keyUserLastInterest, poolAddress, secondCaller.address()), user2NewInterest),
+                IntegerEntry.as(String.format(keyUserShareTokensLocked, poolAddress, secondCaller.address()), user2ShareTokensLocked),
+                IntegerEntry.as(String.format(keyShareTokensLocked, poolAddress), sTokensLockedBefore),
+                IntegerEntry.as(String.format(keyAvailableSWOP, poolAddress, secondCaller.address()), 0),
+                IntegerEntry.as(String.format(keyLastInterestHeight, poolAddress), currentHeight2));
     }
 
     @Test
@@ -409,15 +414,15 @@ class FarmingTest {
                 scaleValue
         );
         long claimAmount1 = BigInteger.valueOf(userShareTokensLocked).multiply(BigInteger.valueOf(userNewInterest - lastInterest)).divide(BigInteger.valueOf(scaleValue)).longValue();
-        firstCaller.invoke(i -> i.dApp(farmingDApp).function("lockShareTokens", StringArg.as(pool1.address().toString())).payment(lockShareAmount, shareAssetId1).fee(500000L));
+        firstCaller.invoke(i -> i.dApp(farmingDApp).function("lockShareTokens", StringArg.as(pool1.address().toString())).payment(lockShareAmount, shareAssetId1));
 
-        assertAll("state after first user lock check",
-                () -> assertThat(farmingDApp.getIntegerData(String.format(keyLastInterest, pool1.address()))).isEqualTo(userNewInterest),
-                () -> assertThat(farmingDApp.getIntegerData(String.format(keyUserLastInterest, pool1.address(), firstCaller.address()))).isEqualTo(userNewInterest),
-                () -> assertThat(farmingDApp.getIntegerData(String.format(keyUserShareTokensLocked, pool1.address(), firstCaller.address()))).isEqualTo(userShareTokensLocked + lockShareAmount),
-                () -> assertThat(farmingDApp.getIntegerData(String.format(keyShareTokensLocked, pool1.address()))).isEqualTo(sTokensLockedBeforeFirst + lockShareAmount),
-                () -> assertThat(farmingDApp.getIntegerData(String.format(keyAvailableSWOP, pool1.address(), firstCaller.address()))).isEqualTo(userAvailableSWOP + claimAmount1)
-        );
+        assertThat(farmingDApp.getData()).describedAs("state after first user lock check").contains(
+                IntegerEntry.as(String.format(keyLastInterest, pool1.address()), userNewInterest),
+                IntegerEntry.as(String.format(keyUserLastInterest, pool1.address(), firstCaller.address()), userNewInterest),
+                IntegerEntry.as(String.format(keyUserShareTokensLocked, pool1.address(), firstCaller.address()), userShareTokensLocked + lockShareAmount),
+                IntegerEntry.as(String.format(keyShareTokensLocked, pool1.address()), sTokensLockedBeforeFirst + lockShareAmount),
+                IntegerEntry.as(String.format(keyAvailableSWOP, pool1.address(), firstCaller.address()), userAvailableSWOP + claimAmount1));
+        
         node().waitNBlocks(2);
         votingDApp.writeData(d -> d
                 .integer(String.format(keyRewardPoolFractionCurrent, pool1.address()), secondReward)
@@ -442,17 +447,16 @@ class FarmingTest {
         );
         long claimAmount2 = BigInteger.valueOf(userShareTokensLocked2).multiply(BigInteger.valueOf(userNewInterest2 - lastInterest2)).divide(BigInteger.valueOf(scaleValue)).longValue();
 
-        firstCaller.invoke(i -> i.dApp(farmingDApp).function("claim", StringArg.as(pool1.address().toString())).fee(500000L));
+        firstCaller.invoke(i -> i.dApp(farmingDApp).function("claim", StringArg.as(pool1.address().toString())));
         assertAll("state after first user claim after reward update check",
-                () -> assertThat(farmingDApp.getIntegerData(String.format(keyLastInterest, pool1.address()))).isEqualTo(userNewInterest2),
-                () -> assertThat(farmingDApp.getIntegerData(String.format(keyUserLastInterest, pool1.address(), firstCaller.address()))).isEqualTo(userNewInterest2),
-                () -> assertThat(farmingDApp.getIntegerData(String.format(keyUserShareTokensLocked, pool1.address(), firstCaller.address()))).isEqualTo(userShareTokensLocked2),
-                () -> assertThat(farmingDApp.getIntegerData(String.format(keyShareTokensLocked, pool1.address()))).isEqualTo(sTokensLockedBefore),
-                () -> assertThat(farmingDApp.getIntegerData(String.format(keyAvailableSWOP, pool1.address(), firstCaller.address()))).isEqualTo(0),
-                () -> assertThat(farmingDApp.getIntegerData(String.format(keyLastInterestHeight, pool1.address()))).isEqualTo(currentHeight),
-                () -> assertThat(firstCaller.getAssetBalance(swopId)).isEqualTo(userSWOPBalanceBefore + userAvailableSWOP2 + claimAmount2)
-        );
-
+                () -> assertThat(farmingDApp.getData()).contains(
+                        IntegerEntry.as(String.format(keyLastInterest, pool1.address()), userNewInterest2),
+                        IntegerEntry.as(String.format(keyUserLastInterest, pool1.address(), firstCaller.address()), userNewInterest2),
+                        IntegerEntry.as(String.format(keyUserShareTokensLocked, pool1.address(), firstCaller.address()), userShareTokensLocked2),
+                        IntegerEntry.as(String.format(keyShareTokensLocked, pool1.address()), sTokensLockedBefore),
+                        IntegerEntry.as(String.format(keyAvailableSWOP, pool1.address(), firstCaller.address()), 0),
+                        IntegerEntry.as(String.format(keyLastInterestHeight, pool1.address()), currentHeight)),
+                () -> assertThat(firstCaller.getAssetBalance(swopId)).isEqualTo(userSWOPBalanceBefore + userAvailableSWOP2 + claimAmount2));
     }
 
     private long calcInterest(long lastInterestHeight,

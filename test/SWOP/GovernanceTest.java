@@ -2,7 +2,7 @@ package SWOP;
 
 import im.mak.paddle.Account;
 import im.mak.waves.transactions.common.AssetId;
-import im.mak.waves.transactions.common.Id;
+import im.mak.waves.transactions.data.IntegerEntry;
 import im.mak.waves.transactions.invocation.IntegerArg;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer;
@@ -13,7 +13,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.math.BigInteger;
-import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Stream;
 
@@ -51,16 +50,13 @@ public class GovernanceTest {
     @BeforeAll
     void before() {
         async(
-                () -> {
-                    Id setScriptId = governanceDapp.setScript(s -> s.script(dAppScript)).tx().id();
-                    node().waitForTransaction(setScriptId);
-                },
+                () -> governanceDapp.setScript(s -> s.script(dAppScript)),
                 () -> {
                     swopId = firstCaller.issue(a -> a.quantity(Long.MAX_VALUE).name("SWOP").decimals(shareAssetDecimals)).tx().assetId();
-                    node().waitForTransaction(swopId);
-                    node().waitForTransaction(firstCaller.transfer(t -> t.amount(Long.MAX_VALUE / 3, swopId).to(secondCaller)).tx().id());
-                    node().waitForTransaction(firstCaller.transfer(t -> t.amount(Long.MAX_VALUE / 3, swopId).to(airdropCaller)).tx().id());
-                    node().waitForTransaction(farmingDapp.writeData(d -> d.string("SWOP_id", swopId.toString())).tx().id());
+                    firstCaller.massTransfer(t -> t.assetId(swopId)
+                            .to(secondCaller, Long.MAX_VALUE / 3)
+                            .to(airdropCaller, Long.MAX_VALUE / 3));
+                    farmingDapp.writeData(d -> d.string("SWOP_id", swopId.toString()));
                 }
         );
     }
@@ -97,33 +93,26 @@ public class GovernanceTest {
         }
 
         long lastInterest = 0;
-        node().waitForTransaction(
-                firstCaller.invoke(i -> i.dApp(governanceDapp)
-                        .function("lockSWOP")
-                        .payment(user1LockAmount, swopId).fee(500000L)).tx().id()
-        );
+        firstCaller.invoke(i -> i.dApp(governanceDapp).function("lockSWOP").payment(user1LockAmount, swopId));
 
         assertAll("state after first user lock check",
-                () -> assertThat(governanceDapp.getIntegerData(firstCaller.address() + keyUserLastInterest)).isEqualTo(lastInterest),
-                () -> assertThat(governanceDapp.getIntegerData(firstCaller.address() + keyUserSWOPAmount)).isEqualTo(user1SWOPAmount + user1LockAmount),
-                () -> assertThat(governanceDapp.getIntegerData(keyTotalSWOPAmount)).isEqualTo(totalSWOPAmount + user1LockAmount),
+                () -> assertThat(governanceDapp.getData()).contains(
+                        IntegerEntry.as(firstCaller.address() + keyUserLastInterest, lastInterest),
+                        IntegerEntry.as(firstCaller.address() + keyUserSWOPAmount, user1SWOPAmount + user1LockAmount),
+                        IntegerEntry.as(keyTotalSWOPAmount, totalSWOPAmount + user1LockAmount)),
                 () -> assertThat(governanceDapp.getAssetBalance(swopId)).isEqualTo(totalSWOPAmount + user1LockAmount),
-                () -> assertThat(firstCaller.getAssetBalance(swopId)).isEqualTo(user1SWOPBalance - user1LockAmount)
-        );
-
-        node().waitForTransaction(
-                secondCaller.invoke(i -> i.dApp(governanceDapp)
-                        .function("lockSWOP")
-                        .payment(user2LockAmount, swopId).fee(500000L)).tx().id()
-        );
+                () -> assertThat(firstCaller.getAssetBalance(swopId)).isEqualTo(user1SWOPBalance - user1LockAmount));
+        
+        secondCaller.invoke(i -> i.dApp(governanceDapp).function("lockSWOP")
+                .payment(user2LockAmount, swopId));
 
         assertAll("state after second user lock check",
-                () -> assertThat(governanceDapp.getIntegerData(secondCaller.address() + keyUserLastInterest)).isEqualTo(lastInterest),
-                () -> assertThat(governanceDapp.getIntegerData(secondCaller.address() + keyUserSWOPAmount)).isEqualTo(user2SWOPAmount + user2LockAmount),
-                () -> assertThat(governanceDapp.getIntegerData(keyTotalSWOPAmount)).isEqualTo(totalSWOPAmount + user1LockAmount + user2LockAmount),
+                () -> assertThat(governanceDapp.getData()).contains(
+                        IntegerEntry.as(secondCaller.address() + keyUserLastInterest, lastInterest),
+                        IntegerEntry.as(secondCaller.address() + keyUserSWOPAmount, user2SWOPAmount + user2LockAmount),
+                        IntegerEntry.as(keyTotalSWOPAmount, totalSWOPAmount + user1LockAmount + user2LockAmount)),
                 () -> assertThat(governanceDapp.getAssetBalance(swopId)).isEqualTo(totalSWOPAmount + user1LockAmount + user2LockAmount),
-                () -> assertThat(secondCaller.getAssetBalance(swopId)).isEqualTo(user2SWOPBalance - user2LockAmount)
-        );
+                () -> assertThat(secondCaller.getAssetBalance(swopId)).isEqualTo(user2SWOPBalance - user2LockAmount));
     }
 
     Stream<Arguments> lockAndAirdropProvider() {
@@ -148,30 +137,12 @@ public class GovernanceTest {
         long totalSWOPAmount = governanceDapp.getIntegerData(keyTotalSWOPAmount);
         long governanceSWOPBalance = governanceDapp.getAssetBalance(swopId);
 
-        node().waitForTransaction(
-                firstCaller.invoke(i -> i.dApp(governanceDapp)
-                        .function("lockSWOP")
-                        .payment(user1LockAmount, swopId).fee(500000L)).tx().id()
-        );
+        firstCaller.invoke(i -> i.dApp(governanceDapp).function("lockSWOP").payment(user1LockAmount, swopId));
+        secondCaller.invoke(i -> i.dApp(governanceDapp).function("lockSWOP").payment(user2LockAmount, swopId));
 
-        node().waitForTransaction(
-                secondCaller.invoke(i -> i.dApp(governanceDapp)
-                        .function("lockSWOP")
-                        .payment(user2LockAmount, swopId).fee(500000L)).tx().id()
-        );
-
-        long lastInterest;
-        if (user1LockAmount == 100L) {
-            lastInterest = 0;
-        } else {
-            lastInterest = governanceDapp.getIntegerData(keyLastInterest);
-        }
+        long lastInterest = user1LockAmount == 100L ? 0 : governanceDapp.getIntegerData(keyLastInterest);
         long newInterest = calcNewInterest(lastInterest, airdropAmount, totalSWOPAmount + user1LockAmount + user2LockAmount);
-        node().waitForTransaction(
-                airdropCaller.invoke(i -> i.dApp(governanceDapp)
-                        .function("airDrop")
-                        .payment(airdropAmount, swopId).fee(500000L)).tx().id()
-        );
+        airdropCaller.invoke(i -> i.dApp(governanceDapp).function("airDrop").payment(airdropAmount, swopId));
 
         assertAll("state after airdrop check",
                 () -> assertThat(governanceDapp.getIntegerData(keyLastInterest)).isEqualTo(newInterest),
@@ -186,11 +157,7 @@ public class GovernanceTest {
                 .divide(BigInteger.valueOf(100000000L)).longValue();
         long governanceSWOPBalance1 = governanceDapp.getAssetBalance(swopId);
 
-        node().waitForTransaction(
-                firstCaller.invoke(i -> i.dApp(governanceDapp)
-                        .function("claimAndWithdrawSWOP")
-                        .fee(500000L)).tx().id()
-        );
+        firstCaller.invoke(i -> i.dApp(governanceDapp).function("claimAndWithdrawSWOP"));
 
         assertAll("state after first user claimAndWithdraw check",
                 () -> assertThat(governanceDapp.getIntegerData(firstCaller.address() + keyUserLastInterest)).isEqualTo(newInterest),
@@ -205,17 +172,12 @@ public class GovernanceTest {
                 .divide(BigInteger.valueOf(100000000L)).longValue();
         long governanceSWOPBalance2 = governanceDapp.getAssetBalance(swopId);
 
-        node().waitForTransaction(
-                secondCaller.invoke(i -> i.dApp(governanceDapp)
-                        .function("claimAndWithdrawSWOP")
-                        .fee(500000L)).tx().id()
-        );
+        secondCaller.invoke(i -> i.dApp(governanceDapp).function("claimAndWithdrawSWOP"));
 
         assertAll("state after second claimAndWithdraw lock check",
                 () -> assertThat(governanceDapp.getIntegerData(secondCaller.address() + keyUserLastInterest)).isEqualTo(newInterest),
                 () -> assertThat(governanceDapp.getAssetBalance(swopId)).isEqualTo(governanceSWOPBalance2 - user2ClaimAmount),
-                () -> assertThat(secondCaller.getAssetBalance(swopId)).isEqualTo(user2SWOPBalance - user2LockAmount + user2ClaimAmount)
-        );
+                () -> assertThat(secondCaller.getAssetBalance(swopId)).isEqualTo(user2SWOPBalance - user2LockAmount + user2ClaimAmount));
     }
 
     Stream<Arguments> claimStakeProvider() {
@@ -240,26 +202,13 @@ public class GovernanceTest {
         long totalSWOPAmount = governanceDapp.getIntegerData(keyTotalSWOPAmount);
         long governanceSWOPBalance = governanceDapp.getAssetBalance(swopId);
 
-        node().waitForTransaction(
-                firstCaller.invoke(i -> i.dApp(governanceDapp)
-                        .function("lockSWOP")
-                        .payment(user1LockAmount, swopId).fee(500000L)).tx().id()
-        );
-
-        node().waitForTransaction(
-                secondCaller.invoke(i -> i.dApp(governanceDapp)
-                        .function("lockSWOP")
-                        .payment(user2LockAmount, swopId).fee(500000L)).tx().id()
-        );
+        firstCaller.invoke(i -> i.dApp(governanceDapp).function("lockSWOP").payment(user1LockAmount, swopId));
+        secondCaller.invoke(i -> i.dApp(governanceDapp).function("lockSWOP").payment(user2LockAmount, swopId));
 
         long lastInterest =governanceDapp.getIntegerData(keyLastInterest);
 
         long newInterest = calcNewInterest(lastInterest, airdropAmount, totalSWOPAmount + user1LockAmount + user2LockAmount);
-        node().waitForTransaction(
-                airdropCaller.invoke(i -> i.dApp(governanceDapp)
-                        .function("airDrop")
-                        .payment(airdropAmount, swopId).fee(500000L)).tx().id()
-        );
+        airdropCaller.invoke(i -> i.dApp(governanceDapp).function("airDrop").payment(airdropAmount, swopId));
 
         long user1SWOPLocked = governanceDapp.getIntegerData(firstCaller.address() + keyUserSWOPAmount);
         long user1lastInterest = governanceDapp.getIntegerData(firstCaller.address() + keyUserLastInterest);
@@ -272,19 +221,15 @@ public class GovernanceTest {
         long governanceSWOPBalance1 = governanceDapp.getAssetBalance(swopId);
         long totalSWOPAmount1 = governanceDapp.getIntegerData(keyTotalSWOPAmount);
 
-        node().waitForTransaction(
-                firstCaller.invoke(i -> i.dApp(governanceDapp)
-                        .function("claimAndStakeSWOP")
-                        .fee(500000L)).tx().id()
-        );
+        firstCaller.invoke(i -> i.dApp(governanceDapp).function("claimAndStakeSWOP"));
         System.out.println("user1SWOPLocked" + user1SWOPLocked);
         System.out.println("user1ClaimAmount" + user1ClaimAmount);
         assertAll("state after first user claimAndStake check",
-                () -> assertThat(governanceDapp.getIntegerData(firstCaller.address() + keyUserLastInterest)).isEqualTo(newInterest),
-                () -> assertThat(governanceDapp.getIntegerData(firstCaller.address() + keyUserSWOPAmount)).isEqualTo(user1SWOPLocked + user1ClaimAmount),
-                () -> assertThat(governanceDapp.getIntegerData(keyTotalSWOPAmount)).isEqualTo(totalSWOPAmount1 + user1ClaimAmount),
-                () -> assertThat(firstCaller.getAssetBalance(swopId)).isEqualTo(user1SWOPBalance - user1LockAmount)
-        );
+                () -> assertThat(governanceDapp.getData()).contains(
+                        IntegerEntry.as(firstCaller.address() + keyUserLastInterest, newInterest),
+                        IntegerEntry.as(firstCaller.address() + keyUserSWOPAmount, user1SWOPLocked + user1ClaimAmount),
+                        IntegerEntry.as(keyTotalSWOPAmount, totalSWOPAmount1 + user1ClaimAmount)),
+                () -> assertThat(firstCaller.getAssetBalance(swopId)).isEqualTo(user1SWOPBalance - user1LockAmount));
 
         long user2SWOPLocked = governanceDapp.getIntegerData(secondCaller.address() + keyUserSWOPAmount);
         long user2LastInterest = governanceDapp.getIntegerData(secondCaller.address() + keyUserLastInterest);
@@ -294,18 +239,14 @@ public class GovernanceTest {
         long governanceSWOPBalance2 = governanceDapp.getAssetBalance(swopId);
         long totalSWOPAmount2 = governanceDapp.getIntegerData(keyTotalSWOPAmount);
 
-        node().waitForTransaction(
-                secondCaller.invoke(i -> i.dApp(governanceDapp)
-                        .function("claimAndStakeSWOP")
-                        .fee(500000L)).tx().id()
-        );
+        secondCaller.invoke(i -> i.dApp(governanceDapp).function("claimAndStakeSWOP"));
 
         assertAll("state after second user claimAndStake check",
-                () -> assertThat(governanceDapp.getIntegerData(secondCaller.address() + keyUserLastInterest)).isEqualTo(newInterest),
-                () -> assertThat(governanceDapp.getIntegerData(secondCaller.address() + keyUserSWOPAmount)).isEqualTo(user2SWOPLocked + user2ClaimAmount),
-                () -> assertThat(governanceDapp.getIntegerData(keyTotalSWOPAmount)).isEqualTo(totalSWOPAmount2 + user2ClaimAmount),
-                () -> assertThat(secondCaller.getAssetBalance(swopId)).isEqualTo(user2SWOPBalance - user2LockAmount)
-        );
+                () -> assertThat(governanceDapp.getData()).contains(
+                        IntegerEntry.as(secondCaller.address() + keyUserLastInterest, newInterest),
+                        IntegerEntry.as(secondCaller.address() + keyUserSWOPAmount, user2SWOPLocked + user2ClaimAmount),
+                        IntegerEntry.as(keyTotalSWOPAmount, totalSWOPAmount2 + user2ClaimAmount)),
+                () -> assertThat(secondCaller.getAssetBalance(swopId)).isEqualTo(user2SWOPBalance - user2LockAmount));
     }
 
     Stream<Arguments> withdrawSWOPProvider() {
@@ -332,31 +273,25 @@ public class GovernanceTest {
         long lastInterest = governanceDapp.getIntegerData(keyLastInterest);
 
 
-        node().waitForTransaction(
-                firstCaller.invoke(i -> i.dApp(governanceDapp)
-                        .function("withdrawSWOP", IntegerArg.as(user1WithdrawAmount)).fee(500000L)).tx().id()
-        );
+        firstCaller.invoke(i -> i.dApp(governanceDapp).function("withdrawSWOP", IntegerArg.as(user1WithdrawAmount)));
 
         assertAll("state after first user withdraw check",
-                () -> assertThat(governanceDapp.getIntegerData(firstCaller.address() + keyUserLastInterest)).isEqualTo(user1Interest),
-                () -> assertThat(governanceDapp.getIntegerData(firstCaller.address() + keyUserSWOPAmount)).isEqualTo(user1SWOPAmount - user1WithdrawAmount),
-                () -> assertThat(governanceDapp.getIntegerData(keyTotalSWOPAmount)).isEqualTo(totalSWOPAmount - user1WithdrawAmount),
+                () -> assertThat(governanceDapp.getData()).contains(
+                        IntegerEntry.as(firstCaller.address() + keyUserLastInterest, user1Interest),
+                        IntegerEntry.as(firstCaller.address() + keyUserSWOPAmount, user1SWOPAmount - user1WithdrawAmount),
+                        IntegerEntry.as(keyTotalSWOPAmount, totalSWOPAmount - user1WithdrawAmount)),
                 () -> assertThat(governanceDapp.getAssetBalance(swopId)).isEqualTo(governanceSWOPBalance - user1WithdrawAmount),
-                () -> assertThat(firstCaller.getAssetBalance(swopId)).isEqualTo(user1SWOPBalance + user1WithdrawAmount)
-        );
+                () -> assertThat(firstCaller.getAssetBalance(swopId)).isEqualTo(user1SWOPBalance + user1WithdrawAmount));
 
-        node().waitForTransaction(
-                secondCaller.invoke(i -> i.dApp(governanceDapp)
-                        .function("withdrawSWOP", IntegerArg.as(user2WithdrawAmount)).fee(500000L)).tx().id()
-        );
+        secondCaller.invoke(i -> i.dApp(governanceDapp).function("withdrawSWOP", IntegerArg.as(user2WithdrawAmount)));
 
         assertAll("state after second user withdraw check",
-                () -> assertThat(governanceDapp.getIntegerData(secondCaller.address() + keyUserLastInterest)).isEqualTo(user2Interest),
-                () -> assertThat(governanceDapp.getIntegerData(secondCaller.address() + keyUserSWOPAmount)).isEqualTo(user2SWOPAmount - user2WithdrawAmount),
-                () -> assertThat(governanceDapp.getIntegerData(keyTotalSWOPAmount)).isEqualTo(totalSWOPAmount - user1WithdrawAmount - user2WithdrawAmount),
+                () -> assertThat(governanceDapp.getData()).contains(
+                        IntegerEntry.as(secondCaller.address() + keyUserLastInterest, user2Interest),
+                        IntegerEntry.as(secondCaller.address() + keyUserSWOPAmount, user2SWOPAmount - user2WithdrawAmount),
+                        IntegerEntry.as(keyTotalSWOPAmount, totalSWOPAmount - user1WithdrawAmount - user2WithdrawAmount)),
                 () -> assertThat(governanceDapp.getAssetBalance(swopId)).isEqualTo(governanceSWOPBalance - user1WithdrawAmount - user2WithdrawAmount),
-                () -> assertThat(secondCaller.getAssetBalance(swopId)).isEqualTo(user2SWOPBalance + user2WithdrawAmount)
-        );
+                () -> assertThat(secondCaller.getAssetBalance(swopId)).isEqualTo(user2SWOPBalance + user2WithdrawAmount));
     }
 
 
