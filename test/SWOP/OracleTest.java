@@ -56,18 +56,40 @@ public class OracleTest {
     void canAddPool() {
         oracle.invoke(i -> i.function("addPool",
                 StringArg.as(pool1.address().toString()), StringArg.as("A_B")));
+
+        assertThat(oracle.getData()).containsExactlyInAnyOrder(
+                IntegerEntry.as("index_" + pool1.address(), 0),
+                StringEntry.as("pool_" + pool1.address(), "A_B"),
+                StringEntry.as("pools", pool1.address().toString())
+        );
     }
 
     @Test @Order(10)
     void canAddPoolWithTheSameName() {
         oracle.invoke(i -> i.function("addPool",
                 StringArg.as(pool2.address().toString()), StringArg.as("A_B")));
+
+        assertThat(oracle.getData()).containsExactlyInAnyOrder(
+                IntegerEntry.as("index_" + pool1.address(), 0),
+                StringEntry.as("pool_" + pool1.address(), "A_B"),
+                IntegerEntry.as("index_" + pool2.address(), 1),
+                StringEntry.as("pool_" + pool2.address(), "A_B"),
+                StringEntry.as("pools", pool1.address() + "," + pool2.address())
+        );
     }
 
     @Test @Order(20)
     void canRenamePool() {
         oracle.invoke(i -> i.function("renamePool",
                 StringArg.as(pool2.address().toString()), StringArg.as("B_C")));
+
+        assertThat(oracle.getData()).containsExactlyInAnyOrder(
+                IntegerEntry.as("index_" + pool1.address(), 0),
+                StringEntry.as("pool_" + pool1.address(), "A_B"),
+                IntegerEntry.as("index_" + pool2.address(), 1),
+                StringEntry.as("pool_" + pool2.address(), "B_C"),
+                StringEntry.as("pools", pool1.address() + "," + pool2.address())
+        );
     }
 
     @Test @Order(30)
