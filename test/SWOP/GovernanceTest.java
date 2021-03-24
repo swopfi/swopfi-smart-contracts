@@ -206,9 +206,6 @@ public class GovernanceTest {
 
         long user1SWOPLocked = governanceDapp.getIntegerData(firstCaller.address() + keyUserSWOPAmount);
         long user1lastInterest = governanceDapp.getIntegerData(firstCaller.address() + keyUserLastInterest);
-        System.out.println("newInterest" + newInterest);
-        System.out.println("user1lastInterest" + user1lastInterest);
-        System.out.println("user1SWOPLocked" + user1SWOPLocked);
         long user1ClaimAmount = BigInteger.valueOf(user1SWOPLocked)
                 .multiply(BigInteger.valueOf(newInterest - user1lastInterest))
                 .divide(BigInteger.valueOf(100000000L)).longValue();
@@ -216,8 +213,6 @@ public class GovernanceTest {
         long totalSWOPAmount1 = governanceDapp.getIntegerData(keyTotalSWOPAmount);
 
         firstCaller.invoke(i -> i.dApp(governanceDapp).function("claimAndStakeSWOP"));
-        System.out.println("user1SWOPLocked" + user1SWOPLocked);
-        System.out.println("user1ClaimAmount" + user1ClaimAmount);
         assertAll("state after first user claimAndStake check",
                 () -> assertThat(governanceDapp.getData()).contains(
                         IntegerEntry.as(firstCaller.address() + keyUserLastInterest, newInterest),

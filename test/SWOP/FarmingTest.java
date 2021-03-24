@@ -109,7 +109,6 @@ class FarmingTest {
     void b_initPoolShareFarming(Account pool) {
         int rewardUpdateHeight = node().getHeight();
         String poolAddress = pool.address().toString();
-        System.out.println(poolAddress);
 
         votingDApp.writeData(d -> d
                 .integer(String.format(keyRewardPoolFractionCurrent, poolAddress), firstReward)
@@ -261,10 +260,8 @@ class FarmingTest {
         AssetId shareAssetId;
         if (pool == pool1) {
             shareAssetId = shareAssetId1;
-            if (withdrawShareAmount == 1) {
-                int blockDuration = 2;
-                node().waitNBlocks(blockDuration);
-            }
+            if (withdrawShareAmount == 1)
+                node().waitNBlocks(2);
         } else {
             shareAssetId = shareAssetId2;
         }

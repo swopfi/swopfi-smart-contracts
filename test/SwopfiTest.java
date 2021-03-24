@@ -279,13 +279,12 @@ class SwopfiTest {
         double ratioShareTokensInA = BigDecimal.valueOf(amountTokenABefore - stakingFee).multiply(BigDecimal.valueOf(scaleValue8)).divide(BigDecimal.valueOf(amountTokenABefore), 8, RoundingMode.HALF_DOWN).longValue();
         double ratioShareTokensInB = BigDecimal.valueOf(amountTokenBBefore - stakingFee).multiply(BigDecimal.valueOf(scaleValue8)).divide(BigDecimal.valueOf(amountTokenBBefore), 8, RoundingMode.HALF_DOWN).longValue();
 
-        long shareTokenToPay;
-        if (ratioShareTokensInA <= ratioShareTokensInB) {
-            shareTokenToPay = BigDecimal.valueOf(ratioShareTokensInA).multiply(BigDecimal.valueOf(shareTokenSupplyBefore)).divide(BigDecimal.valueOf(scaleValue8), 8, RoundingMode.HALF_DOWN).longValue();
-        } else {
-            shareTokenToPay = BigDecimal.valueOf(ratioShareTokensInB).multiply(BigDecimal.valueOf(shareTokenSupplyBefore)).divide(BigDecimal.valueOf(scaleValue8), 8, RoundingMode.HALF_DOWN).longValue();
+        double ratioShareTokens = Math.min(ratioShareTokensInA, ratioShareTokensInB);
+        long shareTokenToPay = BigDecimal.valueOf(ratioShareTokens)
+                .multiply(BigDecimal.valueOf(shareTokenSupplyBefore))
+                .divide(BigDecimal.valueOf(scaleValue8), 8, RoundingMode.HALF_DOWN)
+                .longValue();
 
-        }
         AssetId shareTokenId = AssetId.as(exchanger.getStringData("share_asset_id"));
 
         assertAll("data and balances",

@@ -269,19 +269,17 @@ public class SwopfiFlatTest {
         long tokenShareSupply = exchanger.getIntegerData("share_asset_supply");
         shareTokenId = AssetId.as(exchanger.getStringData("share_asset_id"));
         long callerTokenShareBalance = firstCaller.getAssetBalance(shareTokenId);
-        long amountVirtualReplanishTokenA = pmtAmount - virtualSwapTokenPay;
+        long amountVirtualReplenishTokenA = pmtAmount - virtualSwapTokenPay;
         long contractBalanceAfterVirtualSwapTokenA = dAppTokensAmountA + virtualSwapTokenPay;
         long contractBalanceAfterVirtualSwapTokenB = dAppTokensAmountB - virtualSwapTokenGet;
-        double ratioShareTokensInA = BigDecimal.valueOf(amountVirtualReplanishTokenA).multiply(BigDecimal.valueOf(scaleValue8)).divide(BigDecimal.valueOf(contractBalanceAfterVirtualSwapTokenA), 8, RoundingMode.HALF_DOWN).longValue();
+        double ratioShareTokensInA = BigDecimal.valueOf(amountVirtualReplenishTokenA).multiply(BigDecimal.valueOf(scaleValue8)).divide(BigDecimal.valueOf(contractBalanceAfterVirtualSwapTokenA), 8, RoundingMode.HALF_DOWN).longValue();
         double ratioShareTokensInB = BigDecimal.valueOf(virtualSwapTokenGet - stakingFee).multiply(BigDecimal.valueOf(scaleValue8)).divide(BigDecimal.valueOf(contractBalanceAfterVirtualSwapTokenB), 8, RoundingMode.HALF_DOWN).longValue();
 
-        long shareTokenToPayAmount;
-        if (ratioShareTokensInA <= ratioShareTokensInB) {
-            shareTokenToPayAmount = BigDecimal.valueOf(ratioShareTokensInA).multiply(BigDecimal.valueOf(tokenShareSupply)).divide(BigDecimal.valueOf(scaleValue8), 8, RoundingMode.HALF_DOWN).longValue();
-        } else {
-            shareTokenToPayAmount = BigDecimal.valueOf(ratioShareTokensInB).multiply(BigDecimal.valueOf(tokenShareSupply)).divide(BigDecimal.valueOf(scaleValue8), 8, RoundingMode.HALF_DOWN).longValue();
-
-        }
+        double ratioShareTokens = Math.min(ratioShareTokensInA, ratioShareTokensInB);
+        long shareTokenToPayAmount = BigDecimal.valueOf(ratioShareTokens)
+                .multiply(BigDecimal.valueOf(tokenShareSupply))
+                .divide(BigDecimal.valueOf(scaleValue8), 8, RoundingMode.HALF_DOWN)
+                .longValue();
         long invariantCalculated = invariantCalc(dAppTokensAmountA + pmtAmount, dAppTokensAmountB).longValue();
 
         firstCaller.invoke(i -> i.dApp(exchanger)
@@ -331,21 +329,13 @@ public class SwopfiFlatTest {
         long contractBalanceAfterVirtualSwapTokenB = dAppTokensAmountB + virtualSwapTokenPay;
 
         double ratioShareTokensInA = BigDecimal.valueOf(virtualSwapTokenGet).multiply(BigDecimal.valueOf(scaleValue8)).divide(BigDecimal.valueOf(contractBalanceAfterVirtualSwapTokenA), 8, RoundingMode.HALF_DOWN).longValue();
-        System.out.println("ratioShareTokensInA" + ratioShareTokensInA);
         double ratioShareTokensInB = BigDecimal.valueOf(amountVirtualReplenishTokenB - stakingFee).multiply(BigDecimal.valueOf(scaleValue8)).divide(BigDecimal.valueOf(contractBalanceAfterVirtualSwapTokenB), 8, RoundingMode.HALF_DOWN).longValue();
-        System.out.println("ratioShareTokensInB" + ratioShareTokensInB);
 
-        long shareTokenToPayAmount;
-        if (ratioShareTokensInA <= ratioShareTokensInB) {
-            //fraction(ratioShareTokensInA,tokenShareSupply,scaleValue8)
-            shareTokenToPayAmount = BigDecimal.valueOf(ratioShareTokensInA).multiply(BigDecimal.valueOf(tokenShareSupply)).divide(BigDecimal.valueOf(scaleValue8), 8, RoundingMode.HALF_DOWN).longValue();
-        } else {
-            //fraction(ratioShareTokensInB,tokenShareSupply,scaleValue8)
-            shareTokenToPayAmount = BigDecimal.valueOf(ratioShareTokensInB).multiply(BigDecimal.valueOf(tokenShareSupply)).divide(BigDecimal.valueOf(scaleValue8), 8, RoundingMode.HALF_DOWN).longValue();
-
-        }
-
-        System.out.println("shareTokenToPayAmount: " + shareTokenToPayAmount);
+        double ratioShareTokens = Math.min(ratioShareTokensInA, ratioShareTokensInB);
+        long shareTokenToPayAmount = BigDecimal.valueOf(ratioShareTokens)
+                .multiply(BigDecimal.valueOf(tokenShareSupply))
+                .divide(BigDecimal.valueOf(scaleValue8), 8, RoundingMode.HALF_DOWN)
+                .longValue();
         long invariantCalculated = invariantCalc(dAppTokensAmountA, dAppTokensAmountB + pmtAmount).longValue();
 
         firstCaller.invoke(i -> i.dApp(exchanger)
@@ -391,12 +381,11 @@ public class SwopfiFlatTest {
         double ratioShareTokensInA = BigDecimal.valueOf(amountTokenABefore - stakingFee).multiply(BigDecimal.valueOf(scaleValue8)).divide(BigDecimal.valueOf(amountTokenABefore), 8, RoundingMode.HALF_DOWN).longValue();
         double ratioShareTokensInB = BigDecimal.valueOf(amountTokenBBefore - stakingFee).multiply(BigDecimal.valueOf(scaleValue8)).divide(BigDecimal.valueOf(amountTokenBBefore), 8, RoundingMode.HALF_DOWN).longValue();
 
-        long shareTokenToPay;
-        if (ratioShareTokensInA <= ratioShareTokensInB) {
-            shareTokenToPay = BigDecimal.valueOf(ratioShareTokensInA).multiply(BigDecimal.valueOf(shareTokenSupplyBefore)).divide(BigDecimal.valueOf(scaleValue8), 8, RoundingMode.HALF_DOWN).longValue();
-        } else {
-            shareTokenToPay = BigDecimal.valueOf(ratioShareTokensInB).multiply(BigDecimal.valueOf(shareTokenSupplyBefore)).divide(BigDecimal.valueOf(scaleValue8), 8, RoundingMode.HALF_DOWN).longValue();
-        }
+        double ratioShareTokens = Math.min(ratioShareTokensInA, ratioShareTokensInB);
+        long shareTokenToPay = BigDecimal.valueOf(ratioShareTokens)
+                .multiply(BigDecimal.valueOf(shareTokenSupplyBefore))
+                .divide(BigDecimal.valueOf(scaleValue8), 8, RoundingMode.HALF_DOWN)
+                .longValue();
 
         assertAll("data and balances",
                 () -> assertThat(exchanger.getData()).contains(
