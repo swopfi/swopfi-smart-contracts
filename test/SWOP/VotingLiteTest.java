@@ -221,9 +221,9 @@ public class VotingLiteTest {
 
     @Test
     void e_withdrawSWOP() {
-        ApiError error = assertThrows(ApiError.class, () ->
-                firstCaller.invoke(i -> i.dApp(governance).function("withdrawSWOP", IntegerArg.as(2))));
-        assertThat(error).hasMessageContaining("withdrawAmount > availableFund");
+        assertThat(assertThrows(ApiError.class, () ->
+                firstCaller.invoke(i -> i.dApp(governance).function("withdrawSWOP", IntegerArg.as(2))))
+        ).hasMessageContaining("withdrawAmount > availableFund");
 
         long userSWOPBalanceBefore = firstCaller.getAssetBalance(swopId);
         firstCaller.invoke(i -> i.dApp(governance).function("withdrawSWOP", IntegerArg.as(1)));

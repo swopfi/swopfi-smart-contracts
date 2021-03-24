@@ -382,21 +382,23 @@ class SwopfiTest {
         insufficientTokenRatioAmounts.put("pmtAmountA", aReplenishAmountByRatio(contractRatioMin - 2, pmtAmountB - stakingFee, balanceA, balanceB));
         insufficientTokenRatioAmounts.put("pmtAmountB", pmtAmountB);
 
-        ApiError error = assertThrows(ApiError.class, () -> firstCaller.invoke(i -> i.dApp(exchanger)
-                .function("replenishWithTwoTokens", IntegerArg.as(slippageTolerance))
-                .payment(insufficientTokenRatioAmounts.get("pmtAmountA"), tokenA)
-                .payment(insufficientTokenRatioAmounts.get("pmtAmountB"), tokenB)));
-        assertThat(error).hasMessageContaining("Incorrect assets amount: amounts must have the contract ratio");
+        assertThat(assertThrows(ApiError.class, () ->
+                firstCaller.invoke(i -> i.dApp(exchanger)
+                        .function("replenishWithTwoTokens", IntegerArg.as(slippageTolerance))
+                        .payment(insufficientTokenRatioAmounts.get("pmtAmountA"), tokenA)
+                        .payment(insufficientTokenRatioAmounts.get("pmtAmountB"), tokenB)))
+        ).hasMessageContaining("Incorrect assets amount: amounts must have the contract ratio");
 
         Map<String, Long> tooBigTokenRatioAmounts = new HashMap<>();
         tooBigTokenRatioAmounts.put("pmtAmountA", aReplenishAmountByRatio(contractRatioMax + 2, pmtAmountB - stakingFee, balanceA, balanceB));
         tooBigTokenRatioAmounts.put("pmtAmountB", pmtAmountB);
 
-        ApiError error2 = assertThrows(ApiError.class, () -> firstCaller.invoke(i -> i.dApp(exchanger)
-                .function("replenishWithTwoTokens", IntegerArg.as(slippageTolerance))
-                .payment(tooBigTokenRatioAmounts.get("pmtAmountA"), tokenA)
-                .payment(tooBigTokenRatioAmounts.get("pmtAmountB"), tokenB)));
-        assertThat(error2).hasMessageContaining("Incorrect assets amount: amounts must have the contract ratio");
+        assertThat(assertThrows(ApiError.class, () ->
+                firstCaller.invoke(i -> i.dApp(exchanger)
+                        .function("replenishWithTwoTokens", IntegerArg.as(slippageTolerance))
+                        .payment(tooBigTokenRatioAmounts.get("pmtAmountA"), tokenA)
+                        .payment(tooBigTokenRatioAmounts.get("pmtAmountB"), tokenB)))
+        ).hasMessageContaining("Incorrect assets amount: amounts must have the contract ratio");
 
         Map<String, Long> replenishAmounts = new HashMap<>();
         replenishAmounts.put("pmtAmountA", aReplenishAmountByRatio(contractRatioMin + 1, pmtAmountB - stakingFee, balanceA, balanceB));
@@ -443,13 +445,14 @@ class SwopfiTest {
         long tokenSendAmountWithFee = tokenSendAmountWithoutFee.multiply(BigInteger.valueOf(commissionScaleDelimiter - commission)).divide(BigInteger.valueOf(commissionScaleDelimiter)).longValue();
         long tokenSendGovernance = tokenSendAmountWithoutFee.longValue() * commissionGovernance / commissionScaleDelimiter;
 
-        ApiError error = assertThrows(ApiError.class, () ->
+        assertThat(assertThrows(ApiError.class, () ->
                 firstCaller.invoke(i -> i.dApp(exchanger8)
                         .function("exchange", IntegerArg.as(tokenSendAmountWithFee))
-                        .payment(tokenReceiveAmount, tokenA)));
-        assertThat(error).hasMessageContaining("Error while executing account-script:" +
-                " Insufficient DApp balance to pay " + tokenSendAmountWithFee + " tokenB due to staking. Available: 0 tokenB." +
-                " Please contact support in Telegram: https://t.me/swopfisupport");
+                        .payment(tokenReceiveAmount, tokenA)))
+        ).hasMessageContaining(
+                "Error while executing account-script: Insufficient DApp balance to pay " + tokenSendAmountWithFee
+                        + " tokenB due to staking. Available: 0 tokenB."
+                        + " Please contact support in Telegram: https://t.me/swopfisupport");
 
         stakingAcc.writeData(d -> d.integer(String.format("rpd_balance_%s_%s", tokenB, exchanger8.address()), balanceB - tokenSendAmountWithFee - tokenSendGovernance - 1));
         firstCaller.invoke(i -> i.dApp(exchanger8)
@@ -459,34 +462,37 @@ class SwopfiTest {
 
     @Test
     void h_canShutdown() {
-        ApiError error = assertThrows(ApiError.class, () ->
-                firstCaller.invoke(i -> i.dApp(exchanger1).function("shutdown")));
-        assertThat(error).hasMessageContaining("Only admin can call this function");
+        assertThat(assertThrows(ApiError.class, () ->
+                firstCaller.invoke(i -> i.dApp(exchanger1).function("shutdown")))
+        ).hasMessageContaining("Only admin can call this function");
 
         secondCaller.invoke(i -> i.dApp(exchanger1).function("shutdown"));
         assertThat(exchanger1.getBooleanData("active")).isFalse();
         assertThat(exchanger1.getStringData("shutdown_cause")).isEqualTo("Paused by admin");
 
 
-        ApiError error1 = assertThrows(ApiError.class, () ->
-                firstCaller.invoke(i -> i.dApp(exchanger1).function("shutdown")));
-        assertThat(error1).hasMessageContaining("DApp is already suspended. Cause: Paused by admin");
+        assertThat(assertThrows(ApiError.class, () ->
+                firstCaller.invoke(i -> i.dApp(exchanger1).function("shutdown")))
+        ).hasMessageContaining("DApp is already suspended. Cause: Paused by admin");
     }
 
     @Test
     void i_canActivate() {
-        ApiError error = assertThrows(ApiError.class, () ->
-                firstCaller.invoke(i -> i.dApp(exchanger1).function("activate")));
-        assertThat(error).hasMessageContaining("Only admin can call this function");
+        assertThat(assertThrows(ApiError.class, () ->
+                firstCaller.invoke(i -> i.dApp(exchanger1).function("activate")))
+        ).hasMessageContaining("Only admin can call this function");
 
         secondCaller.invoke(i -> i.dApp(exchanger1).function("activate"));
-        assertThat(exchanger1.getBooleanData("active")).isTrue();
-        ApiError error1 = assertThrows(ApiError.class, () -> exchanger1.getStringData("shutdown_cause"));
-        assertThat(error1).hasMessageContaining("no data for this key");
 
-        ApiError error2 = assertThrows(ApiError.class, () ->
-                firstCaller.invoke(i -> i.dApp(exchanger1).function("activate")));
-        assertThat(error2).hasMessageContaining("DApp is already active");
+        assertThat(exchanger1.getBooleanData("active")).isTrue();
+
+        assertThat(assertThrows(ApiError.class, () ->
+                exchanger1.getStringData("shutdown_cause"))
+        ).hasMessageContaining("no data for this key");
+
+        assertThat(assertThrows(ApiError.class, () ->
+                firstCaller.invoke(i -> i.dApp(exchanger1).function("activate")))
+        ).hasMessageContaining("DApp is already active");
     }
 
 
