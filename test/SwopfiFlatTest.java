@@ -239,11 +239,11 @@ public class SwopfiFlatTest {
         long amountTokenB = exchanger7.getIntegerData("B_asset_balance");
         long amountSendEstimated = amountToSendEstimated(amountTokenB, amountTokenA, amountTokenB + amountBelowLimit);
 
-        ApiError error = assertThrows(ApiError.class, () ->
+        assertThat(assertThrows(ApiError.class, () ->
                 firstCaller.invoke(i -> i.dApp(exchanger7)
                         .function("exchange", IntegerArg.as(amountSendEstimated), IntegerArg.as(amountSendEstimated))
-                        .payment(amountBelowLimit, tokenB)));
-        assertThat(error).hasMessageContaining("Only swap of 10.000000 or more tokens is allowed");
+                        .payment(amountBelowLimit, tokenB)))
+        ).hasMessageContaining("Only swap of 10.000000 or more tokens is allowed");
     }
 
     Stream<Arguments> replenishOneTokenAProvider() {
@@ -408,10 +408,11 @@ public class SwopfiFlatTest {
     @Test
     void h_slippToleranceAboveLimit() {
         int slippageToleranceAboveLimit = 11;
-        ApiError error = assertThrows(ApiError.class, () -> secondCaller.invoke(i -> i.dApp(exchanger7)
-                .function("replenishWithTwoTokens", IntegerArg.as(slippageToleranceAboveLimit))
-                .payment(100, tokenA).payment(100, tokenB)));
-        assertThat(error).hasMessageContaining("Slippage tolerance must be <= 1%");
+        assertThat(assertThrows(ApiError.class, () ->
+                secondCaller.invoke(i -> i.dApp(exchanger7)
+                        .function("replenishWithTwoTokens", IntegerArg.as(slippageToleranceAboveLimit))
+                        .payment(100, tokenA).payment(100, tokenB)))
+        ).hasMessageContaining("Slippage tolerance must be <= 1%");
     }
 
     @ParameterizedTest(name = "secondCaller withdraw A/B by twice")
@@ -470,12 +471,13 @@ public class SwopfiFlatTest {
         long tokenSendAmountWithFee = BigInteger.valueOf(tokenSendAmountWithoutFee).multiply(BigInteger.valueOf(commissionScaleDelimiter - commission)).divide(BigInteger.valueOf(commissionScaleDelimiter)).longValue();
         long tokenSendGovernance = tokenSendAmountWithoutFee * commissionGovernance / commissionScaleDelimiter;
 
-        ApiError error = assertThrows(ApiError.class, () -> firstCaller.invoke(i -> i.dApp(exchanger7)
+        assertThat(assertThrows(ApiError.class, () -> firstCaller.invoke(i -> i.dApp(exchanger7)
                 .function("exchange", IntegerArg.as(amountSendEstimated), IntegerArg.as(tokenSendAmountWithFee))
-                .payment(tokenReceiveAmount, tokenA)));
-        assertThat(error).hasMessageContaining("Error while executing account-script:" +
-                " Insufficient DApp balance to pay " + tokenSendAmountWithFee + " tokenB due to staking. Available: 0 tokenB." +
-                " Please contact support in Telegram: https://t.me/swopfisupport");
+                .payment(tokenReceiveAmount, tokenA)))
+        ).hasMessageContaining(
+                "Error while executing account-script: Insufficient DApp balance to pay " + tokenSendAmountWithFee
+                        + " tokenB due to staking. Available: 0 tokenB."
+                        + " Please contact support in Telegram: https://t.me/swopfisupport");
 
         stakingAcc.writeData(d -> d.integer(String.format("rpd_balance_%s_%s", tokenB, exchanger7.address()), balanceB - tokenSendAmountWithFee - tokenSendGovernance - 1));
         firstCaller.invoke(i -> i.dApp(exchanger7)
@@ -485,34 +487,35 @@ public class SwopfiFlatTest {
 
     @Test
     void k_canShutdown() {
-        ApiError error = assertThrows(ApiError.class, () ->
-                firstCaller.invoke(i -> i.dApp(exchanger1).function("shutdown")));
-        assertThat(error).hasMessageContaining("Only admin can call this function");
+        assertThat(assertThrows(ApiError.class, () ->
+                firstCaller.invoke(i -> i.dApp(exchanger1).function("shutdown")))
+        ).hasMessageContaining("Only admin can call this function");
 
         secondCaller.invoke(i -> i.dApp(exchanger1).function("shutdown").fee(900000L));
         assertThat(exchanger1.getBooleanData("active")).isFalse();
         assertThat(exchanger1.getStringData("shutdown_cause")).isEqualTo("Paused by admin");
 
 
-        ApiError error1 = assertThrows(ApiError.class, () ->
-                firstCaller.invoke(i -> i.dApp(exchanger1).function("shutdown")));
-        assertThat(error1).hasMessageContaining("DApp is already suspended. Cause: Paused by admin");
+        assertThat(assertThrows(ApiError.class, () ->
+                firstCaller.invoke(i -> i.dApp(exchanger1).function("shutdown")))
+        ).hasMessageContaining("DApp is already suspended. Cause: Paused by admin");
     }
 
     @Test
     void l_canActivate() {
-        ApiError error = assertThrows(ApiError.class, () ->
-                firstCaller.invoke(i -> i.dApp(exchanger1).function("activate")));
-        assertThat(error).hasMessageContaining("Only admin can call this function");
+        assertThat(assertThrows(ApiError.class, () ->
+                firstCaller.invoke(i -> i.dApp(exchanger1).function("activate")))
+        ).hasMessageContaining("Only admin can call this function");
 
         secondCaller.invoke(i -> i.dApp(exchanger1).function("activate"));
         assertThat(exchanger1.getBooleanData("active")).isTrue();
-        ApiError error1 = assertThrows(ApiError.class, () -> exchanger1.getStringData("shutdown_cause"));
-        assertThat(error1).hasMessageContaining("no data for this key");
+        assertThat(assertThrows(ApiError.class, () ->
+                exchanger1.getStringData("shutdown_cause"))
+        ).hasMessageContaining("no data for this key");
 
-        ApiError error2 = assertThrows(ApiError.class, () ->
-                firstCaller.invoke(i -> i.dApp(exchanger1).function("activate")));
-        assertThat(error2).hasMessageContaining("DApp is already active");
+        assertThat(assertThrows(ApiError.class, () ->
+                firstCaller.invoke(i -> i.dApp(exchanger1).function("activate")))
+        ).hasMessageContaining("DApp is already active");
     }
 
     private double skewness(long x, long y) {
