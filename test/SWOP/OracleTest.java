@@ -97,12 +97,12 @@ public class OracleTest {
         assertThat(assertThrows(ApiError.class, () ->
                 oracle.invoke(i -> i.function("addPool",
                         StringArg.as(pool1.address().toString()), StringArg.as("A_B"))))
-        ).hasMessageContaining("Pool with address \"" + pool1.address() + "\" is already defined with name \"A_B\"");
+        ).hasMessageContaining("Pool \"" + pool1.address() + "\" is already added with name \"A_B\"");
 
         assertThat(assertThrows(ApiError.class, () ->
                 oracle.invoke(i -> i.function("addPool",
                         StringArg.as(pool2.address().toString()), StringArg.as("A_B"))))
-        ).hasMessageContaining("Pool with address \"" + pool2.address() + "\" is already defined with name \"B_C\"");
+        ).hasMessageContaining("Pool \"" + pool2.address() + "\" is already added with name \"B_C\"");
     }
 
     @Test @Order(40)
@@ -110,7 +110,7 @@ public class OracleTest {
         assertThat(assertThrows(ApiError.class, () ->
                 oracle.invoke(i -> i.function("renamePool",
                         StringArg.as(pool3.address().toString()), StringArg.as("A_C"))))
-        ).hasMessageContaining("Pool with address \"" + pool3.address() + "\" has not yet been added");
+        ).hasMessageContaining("Pool \"" + pool3.address() + "\" has not been added yet");
     }
 
     @Test @Order(50)
@@ -169,17 +169,17 @@ public class OracleTest {
     @ParameterizedTest() @Order(80)
     @MethodSource("invalidPoolNames")
     void cantAddOrRemovePoolWithInvalidNameFormat(String invalidName) {
-        String expectedErrorMessage = "Pool name must consist of two asset names separated by an underscore character";
-
         assertThat(assertThrows(ApiError.class, () ->
                 oracle.invoke(i -> i.function("addPool",
                         StringArg.as(user.address().toString()), StringArg.as(invalidName))))
-        ).hasMessageContaining(expectedErrorMessage);
+        ).hasMessageContaining(
+                "Pool name \"" + invalidName + "\" must consist of two asset names separated by an underscore character");
 
         assertThat(assertThrows(ApiError.class, () ->
                 oracle.invoke(i -> i.function("renamePool",
                         StringArg.as(pool1.address().toString()), StringArg.as(invalidName))))
-        ).hasMessageContaining(expectedErrorMessage);
+        ).hasMessageContaining(
+                "Pool name \"" + invalidName + "\" must consist of two asset names separated by an underscore character");
     }
 
 }

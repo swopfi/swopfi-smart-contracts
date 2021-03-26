@@ -2,62 +2,84 @@
 {-# CONTENT_TYPE DAPP #-}
 {-# SCRIPT_TYPE ACCOUNT #-}
 
+# Admins public keys
 let adminPubKey1 = base58'DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA'
 let adminPubKey2 = base58'E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7'
 let adminPubKey3 = base58'AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ'
 
-let keyPoolsListName = "pools"
-let keyPrefixPoolName = "pool_"
-let keyPrefixPoolIndex = "index_"
+# Entry keys
+let keyPools = "pools"
+func keyName(address: String) = "pool_" + address
+func keyIndex(address: String) = "index_" + address
 
-let pools = match this.getString(keyPoolsListName) {
-    case string: String => string.split(",")
-    case nothing => []
-}
+let poolsEntryValue = this.getString(keyPools).valueOrElse("")
+let poolsList = if poolsEntryValue == "" then [] else poolsEntryValue.split(",")
 
+# Validators
+func validate(validators: List[Unit]) = unit
 func isSelfCall(i: Invocation) = if i.caller == this then unit else throw("Only the Oracle itself can invoke this function")
+func isAddressValid(address: String) = if address.addressFromString().isDefined() then unit else throw("Can't parse \"" + address + "\" as address")
+func isNameValid(name: String) = {
+    let underscoreIndex = name.indexOf("_").valueOrElse(-1)
+    let underscoreLastIndex = name.lastIndexOf("_").valueOrElse(-1)
+    let hasSingleUnderscore = underscoreIndex == underscoreLastIndex && underscoreIndex > 0 && underscoreIndex != (name.size() - 1)
 
-func getPoolNameIfValid(poolName: String) = {
-    let underscoreIndex = poolName.indexOf("_").valueOrElse(-1)
-    let underscoreLastIndex = poolName.lastIndexOf("_").valueOrElse(-1)
-    let hasSingleUnderscore =
-        underscoreIndex == underscoreLastIndex && underscoreIndex > 0 && underscoreIndex != (poolName.size() - 1)
-
-    if hasSingleUnderscore then
-        poolName
-    else
-        throw("Pool name must consist of two asset names separated by an underscore character")
+    if hasSingleUnderscore then unit else throw("Pool name \"" + name + "\" must consist of two asset names separated by an underscore character")
+}
+func isPoolAlreadyAdded(address: String) = if this.getString(keyName(address)).isDefined() then unit else throw("Pool \"" + address + "\" has not been added yet")
+func isPoolNotYetAdded(address: String) = {
+    let possiblyAlreadyAddedPool = this.getString(keyName(address))
+    if !possiblyAlreadyAddedPool.isDefined() then unit else throw("Pool \"" + address + "\" is already added with name \"" + possiblyAlreadyAddedPool.value() + "\"")
 }
 
-func getAddressIfValid(address: String) = address.addressFromString().valueOrErrorMessage("Can't parse \"" + address + "\" as address").toString()
+let indices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+func createPoolEntries(index: Int, address: String, name: String) = [
+    IntegerEntry(keyIndex(address), index),
+    StringEntry(keyName(address), name)
+]
 
 @Callable(i)
-func addPool(poolAddress: String, poolName: String) = isSelfCall(i).valueOrElse({
-    let validatedAddress = poolAddress.getAddressIfValid()
-    let keyName = keyPrefixPoolName + validatedAddress
-    let keyIndex = keyPrefixPoolIndex + validatedAddress
-
-    let possiblyAlreadyAddedPool = this.getString(keyName)
-
-    if possiblyAlreadyAddedPool.isDefined() then
-        throw("Pool with address \"" + validatedAddress + "\" is already defined with name \"" + possiblyAlreadyAddedPool.value() + "\"")
-    else [
-        IntegerEntry(keyIndex, pools.size()),
-        StringEntry(keyName, poolName.getPoolNameIfValid()),
-        StringEntry(keyPoolsListName, (pools :+ validatedAddress).makeString(","))
-    ]
+func addPool(address: String, name: String) = validate([isSelfCall(i), isAddressValid(address), isNameValid(name), isPoolNotYetAdded(address)]).valueOrElse({
+    createPoolEntries(poolsList.size(), address, name) :+ StringEntry(keyPools, (poolsList :+ address).makeString(","))
 })
 
 @Callable(i)
-func renamePool(poolAddress: String, newPoolName: String) = isSelfCall(i).valueOrElse({
-    let validatedAddress = poolAddress.getAddressIfValid()
-    let keyName = keyPrefixPoolName + validatedAddress
-    let possiblyAlreadyAddedPool = this.getString(keyName)
+func addPools(addresses: List[String], names: List[String]) = validate([isSelfCall(i)]).valueOrElse({
+    func addPoolInFold(acc: List[StringEntry|IntegerEntry], index: Int) = {
+        let address = addresses[index]
+        let name = names[index]
 
-    if possiblyAlreadyAddedPool.isDefined() then [
-        StringEntry(keyName, newPoolName.getPoolNameIfValid())
-    ] else
-        throw("Pool with address \"" + validatedAddress + "\" has not yet been added")
+        validate([isAddressValid(address), isNameValid(name), isPoolNotYetAdded(address)]).valueOrElse({
+            acc ++ createPoolEntries(poolsList.size() + index + 1, addresses[index], names[index])
+        })
+    }
+
+    func concatenatePoolsLists(acc: List[String], item: String) = acc :+ item
+
+    let result = FOLD<10>(indices, [], addPoolInFold)
+    let newPoolsList = StringEntry(keyPools, (poolsList ++ addresses).makeString(","))
+
+    result :+ newPoolsList
+})
+
+@Callable(i)
+func renamePool(address: String, name: String) = validate([isSelfCall(i), isAddressValid(address), isNameValid(name), isPoolAlreadyAdded(address)]).valueOrElse({
+    [ StringEntry(keyName(address), name) ]
+})
+
+@Callable(i)
+func renamePools(addresses: List[String], names: List[String]) = validate([isSelfCall(i)]).valueOrElse({
+    func renamePoolInFold(acc: List[StringEntry], index: Int) = {
+        let address = addresses[index]
+        let name = names[index]
+
+        validate([isAddressValid(address), isNameValid(name), isPoolAlreadyAdded(address)]).valueOrElse(
+            acc :+ StringEntry(keyName(address), name)
+        )
+    }
+
+    FOLD<10>(indices, [], renamePoolInFold)
 })
 
 @Verifier(tx)
@@ -69,7 +91,7 @@ func verify() = {
 
     match tx {
         case invoke: InvokeScriptTransaction => {
-            let isSelfInvoke = invoke.dApp == this && ["addPool", "renamePool"].containsElement(invoke.function)
+            let isSelfInvoke = invoke.dApp == this && ["addPool", "addPools", "renamePool", "renamePools"].containsElement(invoke.function)
 
             signedByAdmin && invoke.payments.size() == 0 && isSelfInvoke
         }
