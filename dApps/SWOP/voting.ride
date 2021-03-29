@@ -19,11 +19,7 @@ func isCallerInGovernance(user: Address) = {
     else false
 }
 
-func isPoolInGovernance(poolAddress: String) = {
-    if govAddr.getInteger(poolAddress + "_current_pool_fraction_reward").valueOrElse(0) > 0
-    then true
-    else false
-}
+func isPoolInGovernance(poolAddress: String) = govAddr.getInteger(poolAddress + "_current_pool_fraction_reward").isDefined()
 
 @Callable(i)
 func votePoolWeight(poolAddresses:List[String], poolsVoteSWOPNew:List[Int]) = {
