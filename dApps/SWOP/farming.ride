@@ -22,6 +22,7 @@ let keyUserSWOPLastClaimedAmount = "_SWOP_last_claimed_amount"
 let keyAvailableSWOP = "_available_SWOP"
 let keyFarmingStartHeight = "farming_start_height"
 let governanceAddress = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
+let adminIncreaseInterestAddress = Address(base58'3PPupsBVHgDXaRhyMbkTxminzAotp8AMsr6')
 let oneWeekInBlock = 10106 # 1440*7*60/59.84 where 59.84 - real block duration in seconds
 let totalVoteShare = 10000000000
 
@@ -150,6 +151,17 @@ func initPoolShareFarming(pool:String) = {
         IntegerEntry(pool + keyLastInterest, 0)
     ]
 }
+
+@Callable(i)
+funcUpdatePoolInterest(pool:String) = {
+    if i.caller != adminIncreaseInterestAddress then
+        throw("Only the Admin itself can call this function") else
+    let (userNewInterest,currentInterest,claimAmount,userShareTokensAmount) = claimCalc(pool,i.caller,0)
+    [
+        IntegerEntry(pool + keyLastInterest, userNewInterest)
+    ]
+}
+
 
 @Callable(i)
 func lockShareTokens(pool:String) = {
