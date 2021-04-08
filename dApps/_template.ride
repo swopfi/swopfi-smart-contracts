@@ -1,0 +1,101 @@
+{-# STDLIB_VERSION 4 #-}
+{-# CONTENT_TYPE DAPP #-}
+{-# SCRIPT_TYPE ACCOUNT #-}
+
+# Admin public keys
+let Admin1 = base58'DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA'
+let Admin2 = base58'E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7'
+let Admin3 = base58'AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ'
+let AdminStartStop = base58'EtVkT6ed8GtbUiVVEqdmEqsp2J4qbb3rre2HFgxeVYdg'
+let AdminInvoke = base58'Czn4yoAuUZCVCLJDRfskn8URfkwpknwBTZDbs1wFrY7h'
+let admins = [Admin1, Admin2, Admin3, AdminStartStop]
+
+# Related SwopFi addresses (read from oracle if possible)
+let Farming = Address(base58'3P73HDkPqG15nLXevjCbmXtazHYTZbpPoPw')
+let Governance = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
+let Bank = Address(base58'3P6J84oH51DzY6xk2mT5TheXRbrCwBMxonp')
+let EarlyBirds = Address(base58'3PJuspTjxHhEJQjMEmLM5upiGQYCtCi5LyD')
+let Voting = Address(base58'3PQZWxShKGRgBN1qoJw6B4s9YWS9FneZTPg')
+let Oracle = Address(base58'3PEbqViERCoKnmcSULh6n2aiMvUdSQdCsom')
+
+# Related other addresses (read from oracle if possible)
+let StakingUsdnNsbt = Address(base58'3PNikM6yp4NqcSU8guxQtmR5onr2D4e8yTJ')
+let StakingDefo = Address(base58'3PFhcMmEZoQTQ6ohA844c7C9M8ZJ18P8dDj')
+
+# Asset Ids
+let SWOP = base58'Ehie5xYpeN8op1Cctc6aGUrqx8jq3jtf1DSjXDbfm7aT'
+let USDN = base58'DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p'
+
+# Entry keys
+let kActive = "active"
+let kCause = "cause"
+
+# Entry keys with prefix and/or suffix
+func kComplex(part1: String, part2: String) = "prefix_" + part1 + "_" + part2 + "_suffix"
+
+# Validators
+func validate(validations: List[Unit]) = unit
+func isSelfCall(i: Invocation) = if i.caller == this then unit else throw("Only the DApp itself can invoke this function")
+func isCallerAdmin(i: Invocation) = if admins.containsElement(i.callerPublicKey) then unit else throw("Only admin can call this function")
+let isActive = this.getBoolean(kActive).valueOrElse(false)
+func isDAppActive() = if isActive then unit else throw("DApp is inactive at this moment")
+func isDAppInactive() = if !isActive then unit else throw("DApp is already active")
+func isDAppNotInitialized() = if !this.getBoolean(kActive).isDefined() then unit else throw("DApp is already initialized")
+
+func suspend(cause: String) = [
+    BooleanEntry(kActive, false),
+    StringEntry(kCause, cause)
+]
+
+# Function to define initial state of DApp
+@Callable(i)
+func init() = [isDAppNotInitialized(), isSelfCall(i)].validate().valueOrElse({
+    [BooleanEntry(kActive, true)]
+})
+
+# Template of function
+@Callable(i)
+func doSome() = [isDAppActive()].validate().valueOrElse({
+    # TODO size and id validator
+    let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
+    [StringEntry(kComplex(i.caller.toString(), i.transactionId.toBase58String()), pmtAmount.toString())]
+})
+
+# Function to temporarily stop the DApp
+@Callable(i)
+func shutdown() = [isDAppActive(), isCallerAdmin(i)].validate().valueOrElse({
+    suspend("Paused by admin")
+})
+
+# Function to re-enable the DApp
+@Callable(i)
+func activate() = [isDAppInactive(), isCallerAdmin(i)].validate().valueOrElse({
+    [
+        BooleanEntry(kActive, true),
+        DeleteEntry(kCause)
+    ]
+})
+
+# Typical base rules of verifier
+@Verifier(tx)
+func verify() = {
+    let multiSigned = {
+        let admin1Signed = if sigVerify(tx.bodyBytes, tx.proofs[0], Admin1) then 1 else 0
+        let admin2Signed = if sigVerify(tx.bodyBytes, tx.proofs[1], Admin2) then 1 else 0
+        let admin3Signed = if sigVerify(tx.bodyBytes, tx.proofs[2], Admin3) then 1 else 0
+        admin1Signed + admin2Signed + admin3Signed >= 2
+    }
+    let signedByAnyAdmin = sigVerify(tx.bodyBytes, tx.proofs[0], AdminInvoke)
+                        || sigVerify(tx.bodyBytes, tx.proofs[0], Admin3)
+                        || sigVerify(tx.bodyBytes, tx.proofs[0], Admin2)
+                        || sigVerify(tx.bodyBytes, tx.proofs[0], Admin1)
+
+    match tx {
+        case invoke: InvokeScriptTransaction =>
+            let selfInit = invoke.dApp == this && invoke.function == "init"
+            (selfInit && signedByAnyAdmin) || multiSigned
+        case _: SetScriptTransaction => multiSigned
+        case _: Transaction|Order => false
+        case _ => false
+    }
+}
