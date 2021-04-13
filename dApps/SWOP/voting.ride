@@ -6,8 +6,8 @@ let adminPubKey1 = base58'DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA'
 let adminPubKey2 = base58'E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7'
 let adminPubKey3 = base58'AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ'
 
-let kUserPoolVoteSWOP = "_vote" # existed key
-let kUserPoolStruc = "_user_pool_struc" # new keys structure
+let kUserPoolVoteSWOP = "_vote"
+let kUserPoolStruc = "_user_pool_struc"
 
 let kUserTotalVoteSWOP = "_user_total_SWOP_vote"
 let kUserTotalStruc = "_user_total_struc"
@@ -20,16 +20,16 @@ let kTotalStruc = "total_struc"
 
 let kStartHeight = "start_height"
 let kBasePeriod = "base_period"
-let kPeriodLength = "period_legth"
+let kPeriodLength = "period_length"
 let kDurationFullVotePower = "duration_full_vote_power"
 let kMinVotePower = "min_vote_power"
 
 let scale8 = 100000000
 
 let basePeriod = this.getInteger(kBasePeriod).valueOrErrorMessage("Empty kBasePeriod") # 0
-let startHeight = this.getInteger(kStartHeight) .valueOrErrorMessage("Empty kStartHeight")
+let startHeight = this.getInteger(kStartHeight).valueOrErrorMessage("Empty kStartHeight")
 let periodLength =  this.getInteger(kPeriodLength).valueOrErrorMessage("Empty kPeriodLength")  # 10102
-let durationFullVotePower = this.getInteger(kPeriodLength).valueOrErrorMessage("Empty kPeriodLength") # 1443, 1 days in block after voting start
+let durationFullVotePower = this.getInteger(kDurationFullVotePower).valueOrErrorMessage("Empty kDurationFullVotePower") # 1443, 1 days in block after voting start
 let minVotePower = this.getInteger(kMinVotePower).valueOrErrorMessage("Empty kMinVotePower") # 10000000, minVoteCoeff/scale8 between 0 and 1 - voting power if vote at the end of voting period
 
 let govAddr = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
@@ -110,9 +110,12 @@ func votePoolWeight(poolAddress: String, userPoolVoteSWOPnew: Int) = {
     if !isCallerInGovernance(i.caller) then
         throw("This address has 0 SWOP in Governance dApp")
     else
-    
+    # if true then throw(userTotalVoteSWOPnew.toString() + " "+ userSWOPinGovernance.toString()) else
     if userTotalVoteSWOPnew > userSWOPinGovernance then
         throw(this.toString() + " has " + userSWOPinGovernance.toString() +  " SWOP in governance. New SWOP in voting " + userTotalVoteSWOPnew.toString())
+    else
+    if userTotalVoteSWOPnew < 0 then
+        throw("New userPoolVoteSWOPnew < 0")
     else
 
     if userPoolVoteSWOPnew >= userPoolVoteSWOP then # if user add swop in voting
