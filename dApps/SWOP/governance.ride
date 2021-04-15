@@ -190,8 +190,9 @@ func withdrawSWOP(withdrawAmount: Int) = if !isActive then throw("DApp is inacti
     let (userNewInterest,claimAmount) = claimCalc(i.caller)
     let userVoteAmount = getUserTotalVoteAmount(i.caller)
     let userUnvoteAmount = getUserUnvoteAmount(i.caller)
-    let availableFund = userSWOPLocked - userVoteAmount - userUnvoteAmount
-    if withdrawAmount > availableFund then throw("withdrawAmount > availableFund") else
+    if userUnvoteAmount < 0 || userVoteAmount < 0 then throw("userUnvoteAmount < 0 || userVoteAmount < 0") else 
+    let availableToUnstake = userSWOPLocked - userVoteAmount - userUnvoteAmount
+    if withdrawAmount > availableToUnstake then throw("withdrawAmount > availableToUnstake") else
     let totalSWOPLockedNew = totalSWOPLocked + claimAmount - withdrawAmount
     let userSWOPamountNew = userSWOPLocked + claimAmount - withdrawAmount
     let userClaimedAmount = getUserSWOPClaimedAmount(i.caller)
