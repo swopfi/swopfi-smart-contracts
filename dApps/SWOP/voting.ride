@@ -67,8 +67,12 @@ func calcDeleteEntry(caller: String,poolAddress: String, userPoolVoteSWOPnew: In
 }
 
 @Callable(i)
-func votePoolWeight(poolAddress: String, userPoolVoteSWOPnew: Int) = {
-
+func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = {
+    if poolAddressesL.size() > 1 || poolsVoteSWOPNewL.size() > 1 
+        then throw(" poolAddressesL.size > 1 or poolsVoteSWOPNewL.size >") else
+    let poolAddress = poolAddressesL[0]
+    let userPoolVoteSWOPnew = poolsVoteSWOPNewL[0]
+    
     let userSWOPinGovernance = govAddr.getInteger(i.caller.toString() + "_SWOP_amount").valueOrErrorMessage("Empty _SWOP_amount at gov. address")
     
     # extract info from structure
