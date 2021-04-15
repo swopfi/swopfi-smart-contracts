@@ -82,7 +82,7 @@ func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = 
             (data[0].parseIntValue(),data[1].parseIntValue(),data[2].parseIntValue(),data[3].parseIntValue())
         else 
             let uPoolVoteSWOP = this.getInteger(i.caller.toString() + "_" + poolAddress + kUserPoolVoteSWOP).valueOrElse(0)
-            (uPoolVoteSWOP,uPoolVoteSWOP,currPeriod,0)
+            (uPoolVoteSWOP,uPoolVoteSWOP,0,0)
 
     let (userTotalVoteSWOP,userUnvoted,userUnvotedPeriod) = if isDefined(this.getString(i.caller.toString() + kUserTotalStruc))
         then 
@@ -90,7 +90,7 @@ func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = 
             (data[0].parseIntValue(),data[1].parseIntValue(),data[2].parseIntValue())
         else 
             let uPoolTotalSWOP = this.getInteger(toString(i.caller) + kUserTotalVoteSWOP).valueOrElse(0)
-            (uPoolTotalSWOP,0,currPeriod)
+            (uPoolTotalSWOP,0,0)
     let (poolVoteSWOP,poolActiveSWOP,poolPeriod,poolFreezeSWOP) = if isDefined(this.getString(poolAddress + kPoolStruc))
         then 
             let data = this.getString(poolAddress + kPoolStruc).valueOrErrorMessage("Empty kPoolStruc").split("_")
