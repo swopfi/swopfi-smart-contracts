@@ -66,6 +66,10 @@ func calcDeleteEntry(caller: String,poolAddress: String, userPoolVoteSWOPnew: In
     [deleteKeyUserPoolVoteSWOP,deleteKeyUserTotalVoteSWOP,deleteKeyPoolVoteSWOP,deleteKeyTotalVoteSWOP]
 }
 
+func countOfNegative(accumulated: Int, listValue: Int) =
+   if (listValue < 0) then accumulated+1 else accumulated
+
+
 @Callable(i)
 func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = {
     if poolAddressesL.size() > 1 || poolsVoteSWOPNewL.size() > 1 
@@ -118,11 +122,9 @@ func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = 
     if userTotalVoteSWOPnew > userSWOPinGovernance then
         throw(this.toString() + " has " + userSWOPinGovernance.toString() +  " SWOP in governance. New SWOP in voting " + userTotalVoteSWOPnew.toString())
     else
-    if userTotalVoteSWOPnew < 0 then
-        throw("New userTotalVoteSWOPnew < 0")
-    if userPoolVoteSWOPnew < 0 then
-        throw("New userPoolVoteSWOPnew < 0")
-    else
+
+    if userTotalVoteSWOPnew < 0 then throw("New userTotalVoteSWOPnew < 0") else
+    if userPoolVoteSWOPnew < 0 then throw("New userPoolVoteSWOPnew < 0") else
 
     if userPoolVoteSWOPnew >= userPoolVoteSWOP then # if user add swop in voting
         # entry for user pool
@@ -215,7 +217,8 @@ func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = 
         let totalEntry = [
             StringEntry(kTotalStruc, totalStrucNew)
         ] 
-
+        let allNewValues = [currPeriod,userPoolFreezeSWOPnew,userPoolActiveVoteSWOPnew,userPoolFreezeSWOPnew,userUnvotedNew,userUnvotedPeriodNew,poolVoteSWOPnew,poolFreezeSWOPnew,poolActiveSWOPnew,totalVoteSWOPnew,totalFreezeSWOPnew,totalActiveSWOPnew]
+        if FOLD<12>(allNewValues, 0, countOfNegative) > 0 then throw("One or more values are negative") else
         userPoolEntry ++ userTotalEntry ++ poolEntry ++ totalEntry ++ calcDeleteEntry(i.caller.toString(),poolAddress, userPoolVoteSWOPnew)
 
 }
