@@ -115,6 +115,8 @@ func votePoolWeight(poolAddress: String, userPoolVoteSWOPnew: Int) = {
         throw(this.toString() + " has " + userSWOPinGovernance.toString() +  " SWOP in governance. New SWOP in voting " + userTotalVoteSWOPnew.toString())
     else
     if userTotalVoteSWOPnew < 0 then
+        throw("New userTotalVoteSWOPnew < 0")
+    if userPoolVoteSWOPnew < 0 then
         throw("New userPoolVoteSWOPnew < 0")
     else
 
