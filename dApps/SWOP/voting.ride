@@ -66,10 +66,6 @@ func calcDeleteEntry(caller: String,poolAddress: String, userPoolVoteSWOPnew: In
     [deleteKeyUserPoolVoteSWOP,deleteKeyUserTotalVoteSWOP,deleteKeyPoolVoteSWOP,deleteKeyTotalVoteSWOP]
 }
 
-func countOfNegative(accumulated: Int, listValue: Int) =
-   if (listValue < 0) then accumulated+1 else accumulated
-
-
 @Callable(i)
 func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = {
     if poolAddressesL.size() > 1 || poolsVoteSWOPNewL.size() > 1 
@@ -218,7 +214,7 @@ func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = 
             StringEntry(kTotalStruc, totalStrucNew)
         ] 
         let allNewValues = [currPeriod,userPoolFreezeSWOPnew,userPoolActiveVoteSWOPnew,userPoolFreezeSWOPnew,userUnvotedNew,userUnvotedPeriodNew,poolVoteSWOPnew,poolFreezeSWOPnew,poolActiveSWOPnew,totalVoteSWOPnew,totalFreezeSWOPnew,totalActiveSWOPnew]
-        if FOLD<12>(allNewValues, 0, countOfNegative) > 0 then throw("One or more values are negative") else
+        if allNewValues.min() < 0 then throw("One or more values are negative") else
         userPoolEntry ++ userTotalEntry ++ poolEntry ++ totalEntry ++ calcDeleteEntry(i.caller.toString(),poolAddress, userPoolVoteSWOPnew)
 
 }
