@@ -160,7 +160,7 @@ func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = 
             else totalVoteSWOP + poolVoteDiffSWOP*coef/scale8 
         let totalFreezeSWOPnew = if poolPeriod == currPeriod then totalFreezeSWOP
             else totalVoteSWOP
-        let totalStrucNew = totalVoteSWOPnew.toString() + "_" + totalActiveSWOPnew.toString() + "_" + totalPeriod.toString() + "_" + totalFreezeSWOPnew.toString()
+        let totalStrucNew = totalVoteSWOPnew.toString() + "_" + totalActiveSWOPnew.toString() + "_" + currPeriod.toString() + "_" + totalFreezeSWOPnew.toString()
         let totalEntry = [
             StringEntry(kTotalStruc, totalStrucNew)
         ] 
@@ -209,7 +209,7 @@ func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = 
         let totalActiveSWOPnew = if totalVoteSWOP - totalFreezeSWOP == 0 then 0 
             else  totalFreezeSWOPnew + (totalActiveSWOP - totalFreezeSWOP)*(totalVoteSWOPnew-totalFreezeSWOPnew)/(totalVoteSWOP - totalFreezeSWOP)
         
-        let totalStrucNew = totalVoteSWOPnew.toString() + "_" + totalActiveSWOPnew.toString() + "_" + totalPeriod.toString() + "_" + totalFreezeSWOPnew.toString()
+        let totalStrucNew = totalVoteSWOPnew.toString() + "_" + totalActiveSWOPnew.toString() + "_" + currPeriod.toString() + "_" + totalFreezeSWOPnew.toString()
         let totalEntry = [
             StringEntry(kTotalStruc, totalStrucNew)
         ] 
