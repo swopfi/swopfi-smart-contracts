@@ -37,7 +37,6 @@ let govAddr = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
 let currPeriod = basePeriod + (height-startHeight)/periodLength
 
 func isCallerInGovernance(user: Address) = {
-    #if govAddr.getInteger(user.toString() + "_SWOP_amount").valueOrElse(0) > 0 || this.getInteger(user.toString() + kUserTotalVoteSWOP).valueOrElse(0) > 0
     if govAddr.getInteger(user.toString() + "_SWOP_amount").valueOrElse(0) > 0 
     then true
     else false
@@ -69,11 +68,14 @@ func calcDeleteEntry(caller: String,poolAddress: String, userPoolVoteSWOPnew: In
 @Callable(i)
 func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = {
     if poolAddressesL.size() > 1 || poolsVoteSWOPNewL.size() > 1 
-        then throw(" poolAddressesL.size > 1 or poolsVoteSWOPNewL.size >") else
+        then throw("poolAddressesL.size > 1 or poolsVoteSWOPNewL.size > 1") else
     let poolAddress = poolAddressesL[0]
     let userPoolVoteSWOPnew = poolsVoteSWOPNewL[0]
     
-    let userSWOPinGovernance = govAddr.getInteger(i.caller.toString() + "_SWOP_amount").valueOrErrorMessage("Empty _SWOP_amount at gov. address")
+    if !isPoolInGovernance(poolAddress) then
+        throw("This pool has no _current_pool_fraction_reward in Governance dApp")
+    else
+        let userSWOPinGovernance = govAddr.getInteger(i.caller.toString() + "_SWOP_amount").valueOrErrorMessage("Empty _SWOP_amount at gov. address")
     
     # extract info from structure
     let (userPoolVoteSWOP,userPoolActiveVoteSWOP,userPoolVotePeriod,userPoolFreezeSWOP) = if isDefined(this.getString(i.caller.toString()  + "_" + poolAddress + kUserPoolStruc))
@@ -91,30 +93,28 @@ func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = 
         else 
             let uPoolTotalSWOP = this.getInteger(toString(i.caller) + kUserTotalVoteSWOP).valueOrElse(0)
             (uPoolTotalSWOP,0,0)
-    let (poolVoteSWOP,poolActiveSWOP,poolPeriod,poolFreezeSWOP) = if isDefined(this.getString(poolAddress + kPoolStruc))
+    let (poolVoteSWOP,poolActiveSWOP,poolPeriod) = if isDefined(this.getString(poolAddress + kPoolStruc))
         then 
             let data = this.getString(poolAddress + kPoolStruc).valueOrErrorMessage("Empty kPoolStruc").split("_")
-            (data[0].parseIntValue(),data[1].parseIntValue(),data[2].parseIntValue(),data[3].parseIntValue())
+            (data[0].parseIntValue(),data[1].parseIntValue(),data[2].parseIntValue())
         else 
             let uPoolVoteSWOP = this.getInteger(poolAddress + kPoolVoteSWOP).valueOrElse(0)
             (uPoolVoteSWOP,uPoolVoteSWOP,0,0)
 
-    let (totalVoteSWOP,totalActiveSWOP,totalPeriod,totalFreezeSWOP) = if isDefined(this.getString(kTotalStruc))
+    let (totalVoteSWOP,totalActiveSWOP,totalPeriod) = if isDefined(this.getString(kTotalStruc))
         then 
             let data = this.getString(kTotalStruc).valueOrErrorMessage("Empty kTotalStruc").split("_")
-            (data[0].parseIntValue(),data[1].parseIntValue(),data[2].parseIntValue(),data[3].parseIntValue())
+            (data[0].parseIntValue(),data[1].parseIntValue(),data[2].parseIntValue())
         else 
             let uTotalVoteSWOP = this.getInteger(kTotalVoteSWOP).valueOrElse(0)
             (uTotalVoteSWOP,uTotalVoteSWOP,0,0)
 
     let poolVoteDiffSWOP = userPoolVoteSWOPnew - userPoolVoteSWOP
     let userTotalVoteSWOPnew = userTotalVoteSWOP + poolVoteDiffSWOP
-    # if true then throw(userTotalVoteSWOPnew.toString()) else
 
     if !isCallerInGovernance(i.caller) then
         throw("This address has 0 SWOP in Governance dApp")
     else
-    # if true then throw(userTotalVoteSWOPnew.toString() + " "+ userSWOPinGovernance.toString()) else
     if userTotalVoteSWOPnew > userSWOPinGovernance then
         throw(this.toString() + " has " + userSWOPinGovernance.toString() +  " SWOP in governance. New SWOP in voting " + userTotalVoteSWOPnew.toString())
     else
@@ -125,12 +125,12 @@ func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = 
     if userPoolVoteSWOPnew >= userPoolVoteSWOP then # if user add swop in voting
         # entry for user pool
         let coef = votingCoef()
-        let userPoolActiveVoteSWOPnew = if userPoolVotePeriod == currPeriod then userPoolActiveVoteSWOP +  poolVoteDiffSWOP*coef/scale8
-            else userPoolVoteSWOP +  poolVoteDiffSWOP*coef/scale8 
+        let userPoolActiveVoteSWOPnew = if userPoolVotePeriod == currPeriod then userPoolActiveVoteSWOP + fraction(poolVoteDiffSWOP,coef,scale8)
+            else userPoolVoteSWOP + fraction(poolVoteDiffSWOP,coef,scale8)
         let userPoolFreezeSWOPnew = if userPoolVotePeriod == currPeriod then userPoolFreezeSWOP
             else userPoolVoteSWOP
-        let userUnvotedNew = if userUnvoted == currPeriod then userUnvoted
-            else max([0,userUnvoted-poolVoteDiffSWOP])
+        let userUnvotedNew = if userUnvotedPeriod == currPeriod then max([0, userUnvoted-poolVoteDiffSWOP]) else 0
+        let userUnvotedPeriodNew = currPeriod
 
         let userPoolStrucNew = userPoolVoteSWOPnew.toString() + "_" + userPoolActiveVoteSWOPnew.toString() + "_" + currPeriod.toString() + "_" + userPoolFreezeSWOPnew.toString()
         let userPoolEntry = [
@@ -138,29 +138,25 @@ func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = 
         ]    
 
         # entry for user total
-        let userTotalStrucNew = userTotalVoteSWOPnew.toString() + "_" + userUnvotedNew.toString() + "_" + currPeriod.toString()
+        let userTotalStrucNew = userTotalVoteSWOPnew.toString() + "_" + userUnvotedNew.toString() + "_" + userUnvotedPeriodNew.toString()
         let userTotalEntry = [
             StringEntry(i.caller.toString() + kUserTotalStruc, userTotalStrucNew)
         ]     
 
         # entry for pool
         let poolVoteSWOPnew = poolVoteSWOP + poolVoteDiffSWOP
-        let poolActiveSWOPnew = if poolPeriod == currPeriod then poolActiveSWOP +  poolVoteDiffSWOP*coef/scale8
-            else poolVoteSWOP +  poolVoteDiffSWOP*coef/scale8 
-        let poolFreezeSWOPnew =  if poolPeriod == currPeriod then poolFreezeSWOP
-            else poolVoteSWOP
-        let poolStrucNew = poolVoteSWOPnew.toString() + "_" + poolActiveSWOPnew.toString() + "_" + currPeriod.toString() + "_" + poolFreezeSWOPnew.toString()
+        let poolActiveSWOPnew = if poolPeriod == currPeriod then poolActiveSWOP + fraction(poolVoteDiffSWOP,coef,scale8)
+            else poolVoteSWOP + fraction(poolVoteDiffSWOP,coef,scale8) 
+        let poolStrucNew = poolVoteSWOPnew.toString() + "_" + poolActiveSWOPnew.toString() + "_" + currPeriod.toString()
         let poolEntry = [
             StringEntry(poolAddress + kPoolStruc, poolStrucNew)
         ] 
 
         # entry for total
         let totalVoteSWOPnew = totalVoteSWOP + poolVoteDiffSWOP
-        let totalActiveSWOPnew = if totalPeriod == currPeriod then totalActiveSWOP +  poolVoteDiffSWOP*coef/scale8
-            else totalVoteSWOP + poolVoteDiffSWOP*coef/scale8 
-        let totalFreezeSWOPnew = if poolPeriod == currPeriod then totalFreezeSWOP
-            else totalVoteSWOP
-        let totalStrucNew = totalVoteSWOPnew.toString() + "_" + totalActiveSWOPnew.toString() + "_" + currPeriod.toString() + "_" + totalFreezeSWOPnew.toString()
+        let totalActiveSWOPnew = if totalPeriod == currPeriod then totalActiveSWOP + fraction(poolVoteDiffSWOP,coef,scale8)
+            else totalVoteSWOP + fraction(poolVoteDiffSWOP,coef,scale8)
+        let totalStrucNew = totalVoteSWOPnew.toString() + "_" + totalActiveSWOPnew.toString() + "_" + currPeriod.toString()
         let totalEntry = [
             StringEntry(kTotalStruc, totalStrucNew)
         ] 
@@ -171,12 +167,14 @@ func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = 
         let removePoolVote = -poolVoteDiffSWOP
 
         # entry for user pool
-        let userPoolFreezeSWOPnew = if userPoolVotePeriod == currPeriod then min([userPoolFreezeSWOP,userPoolVoteSWOPnew])
-            else userPoolVoteSWOPnew
-        let userPoolActiveVoteSWOPnew = if userPoolVoteSWOP - userPoolFreezeSWOP == 0 then 0 
-            else  userPoolFreezeSWOPnew + (userPoolActiveVoteSWOP - userPoolFreezeSWOP)*(userPoolVoteSWOPnew-userPoolFreezeSWOPnew)/(userPoolVoteSWOP - userPoolFreezeSWOP)
-        let newUnvoted = max([0, removePoolVote - if userUnvotedPeriod == currPeriod then userPoolVoteSWOP - userPoolFreezeSWOP else 0])
-        let userUnvotedNew = if userUnvotedPeriod == currPeriod then userUnvoted else 0 + newUnvoted
+        let userPoolFreezeSWOPnew = if userPoolVotePeriod == currPeriod then userPoolFreezeSWOP else userPoolVoteSWOP
+        let userPoolFreezeSWOP2 = min([userPoolFreezeSWOP, userPoolVoteSWOP])
+        let userPoolFreezeSWOPnew2 = min([userPoolFreezeSWOPnew, userPoolVoteSWOPnew])
+        let userPoolActiveVoteSWOPnew = userPoolFreezeSWOPnew2 + if userPoolVoteSWOP - userPoolFreezeSWOP == 0 then 0 
+            else fraction(userPoolActiveVoteSWOP - userPoolFreezeSWOP,userPoolVoteSWOPnew - userPoolFreezeSWOPnew2, userPoolVoteSWOP-userPoolFreezeSWOP)
+        let userPoolActiveVoteDiff = userPoolActiveVoteSWOPnew - userPoolActiveVoteSWOP
+        let newUnvoted = max([0, removePoolVote - if userPoolVotePeriod == currPeriod then userPoolVoteSWOP - userPoolFreezeSWOP2 else 0])
+        let userUnvotedNew = newUnvoted + if userUnvotedPeriod == currPeriod then userUnvoted else 0 
         let userUnvotedPeriodNew = if newUnvoted > 0 then currPeriod else userUnvotedPeriod
         
         let userPoolStrucNew = userPoolVoteSWOPnew.toString() + "_" + userPoolActiveVoteSWOPnew.toString() + "_" + currPeriod.toString() + "_" + userPoolFreezeSWOPnew.toString()
@@ -185,35 +183,29 @@ func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = 
         ]    
 
         # entry for user total
-        let userTotalStrucNew = userTotalVoteSWOPnew.toString() + "_" + userUnvotedNew.toString() + "_" + currPeriod.toString()
+        let userTotalStrucNew = userTotalVoteSWOPnew.toString() + "_" + userUnvotedNew.toString() + "_" + userUnvotedPeriodNew.toString()
         let userTotalEntry = [
             StringEntry(i.caller.toString() + kUserTotalStruc, userTotalStrucNew)
         ]     
 
         #pool
         let poolVoteSWOPnew = poolVoteSWOP - removePoolVote
-        let poolFreezeSWOPnew = if poolPeriod == currPeriod then min([poolFreezeSWOP,poolVoteSWOPnew])
-            else poolVoteSWOPnew
-        let poolActiveSWOPnew = if poolVoteSWOP - poolFreezeSWOP == 0 then 0 
-            else  poolFreezeSWOPnew + (poolActiveSWOP - poolFreezeSWOP)*(poolVoteSWOPnew-poolFreezeSWOPnew)/(poolVoteSWOP - poolFreezeSWOP)
+        let poolActiveSWOPnew = poolActiveSWOP + userPoolActiveVoteDiff
         
-        let poolStrucNew = poolVoteSWOPnew.toString() + "_" + poolActiveSWOPnew.toString() + "_" + currPeriod.toString() + "_" + poolFreezeSWOPnew.toString()
+        let poolStrucNew = poolVoteSWOPnew.toString() + "_" + poolActiveSWOPnew.toString() + "_" + currPeriod.toString()
         let poolEntry = [
             StringEntry(poolAddress + kPoolStruc, poolStrucNew)
         ] 
 
         #total
         let totalVoteSWOPnew = totalVoteSWOP - removePoolVote
-        let totalFreezeSWOPnew = if totalPeriod == currPeriod then min([totalFreezeSWOP,totalVoteSWOPnew])
-            else totalVoteSWOPnew
-        let totalActiveSWOPnew = if totalVoteSWOP - totalFreezeSWOP == 0 then 0 
-            else  totalFreezeSWOPnew + (totalActiveSWOP - totalFreezeSWOP)*(totalVoteSWOPnew-totalFreezeSWOPnew)/(totalVoteSWOP - totalFreezeSWOP)
+        let totalActiveSWOPnew = totalActiveSWOP + userPoolActiveVoteDiff
         
-        let totalStrucNew = totalVoteSWOPnew.toString() + "_" + totalActiveSWOPnew.toString() + "_" + currPeriod.toString() + "_" + totalFreezeSWOPnew.toString()
+        let totalStrucNew = totalVoteSWOPnew.toString() + "_" + totalActiveSWOPnew.toString() + "_" + currPeriod.toString()
         let totalEntry = [
             StringEntry(kTotalStruc, totalStrucNew)
         ] 
-        let allNewValues = [currPeriod,userPoolFreezeSWOPnew,userPoolActiveVoteSWOPnew,userPoolFreezeSWOPnew,userUnvotedNew,userUnvotedPeriodNew,poolVoteSWOPnew,poolFreezeSWOPnew,poolActiveSWOPnew,totalVoteSWOPnew,totalFreezeSWOPnew,totalActiveSWOPnew]
+        let allNewValues = [currPeriod,userPoolFreezeSWOPnew,userPoolActiveVoteSWOPnew,userPoolFreezeSWOPnew,userUnvotedNew,userUnvotedPeriodNew,poolVoteSWOPnew,poolActiveSWOPnew,totalVoteSWOPnew,totalActiveSWOPnew]
         if allNewValues.min() < 0 then throw("One or more values are negative") else
         userPoolEntry ++ userTotalEntry ++ poolEntry ++ totalEntry ++ calcDeleteEntry(i.caller.toString(),poolAddress, userPoolVoteSWOPnew)
 
