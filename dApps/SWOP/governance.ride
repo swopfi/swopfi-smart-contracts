@@ -18,7 +18,7 @@ let keyUserSWOPLocked = "_SWOP_amount"
 let keyUserGetBackHeight = "_getBackHeight"
 let keyTotalSWOPLocked = "total_SWOP_amount"
 let kUserTotalVoteSWOP = "_user_total_SWOP_vote"
-let keyUserVoteOptionAmount = "_SWOP_option_amount"
+let keyUserVoteOptionAmount = "_SWOP_option_amount" 
 let keyTotalVoteOptionAmount = "total_SWOP_option_amount"
 let keyUserSWOPClaimedAmount = "_SWOP_claimed_amount"
 let keyUserSWOPLastClaimedAmount = "_SWOP_last_claimed_amount"
@@ -42,6 +42,14 @@ let SWOP = farmingSWOPAddress.getStringValue(keySWOPid).fromBase58String()
 let scaleValue = 100000000 # 10^8
 let totalVoteShare = 10000000000
 
+let kStartHeight = "start_height"
+let kBasePeriod = "base_period"
+let kPeriodLength = "period_length"
+let kUserTotalStruc = "_user_total_struc"
+let basePeriod = votingLiteContract.getInteger(kBasePeriod).valueOrErrorMessage("Empty kBasePeriod at voting contract") 
+let startHeight = votingLiteContract.getInteger(kStartHeight) .valueOrErrorMessage("Empty kStartHeight at voting contract")
+let periodLength =  votingLiteContract.getInteger(kPeriodLength).valueOrErrorMessage("Empty kPeriodLength at voting contract")  
+let currVotingPeriod = basePeriod + (height-startHeight)/periodLength
 
 func suspend(cause: String) = [
     BooleanEntry(keyActive, false),
@@ -74,7 +82,19 @@ func getUserInterestInfo(user:Address, lastInterest: Int) = {
 func getTotalSWOPLocked() = this.getInteger(keyTotalSWOPLocked)
                                                 .valueOrElse(0)
 
-func getUserTotalVoteAmount(user:Address) = votingLiteContract.getInteger(user.toString() + kUserTotalVoteSWOP).valueOrElse(0)
+func getUserVoteInfo(user:Address) = {
+    let (userTotalVoteSWOP,userUnvoted,userUnvotedPeriod) = if isDefined(votingLiteContract.getString(user.toString() + kUserTotalStruc))
+        then 
+            let data = votingLiteContract.getString(user.toString() + kUserTotalStruc).valueOrErrorMessage("Empty kUserTotalStruc").split("_")
+            (data[0].parseIntValue(),data[1].parseIntValue(),data[2].parseIntValue())
+        else 
+            let uPoolTotalSWOP = votingLiteContract.getInteger(toString(user) + kUserTotalVoteSWOP).valueOrElse(0)
+            (uPoolTotalSWOP,0,currVotingPeriod)
+
+    let userUnvotedActual = if userUnvotedPeriod == currVotingPeriod then userUnvoted else 0
+
+    (userTotalVoteSWOP,userUnvotedActual)
+}
 
 func getUserVoteOptionAmount(user:Address) = this.getInteger(user.toString() + keyUserVoteOptionAmount)
                                                 .valueOrElse(0)
@@ -154,12 +174,14 @@ func lockSWOP() = if !isActive then throw("DApp is inactive at this moment") els
 
 @Callable(i)
 func withdrawSWOP(withdrawAmount: Int) = if !isActive then throw("DApp is inactive at this moment") else {
+    if withdrawAmount <= 0 then throw("withdrawAmount <= 0") else
     let totalSWOPLocked = getTotalSWOPLocked()
     let userSWOPLocked = getUserSWOPLocked(i.caller)
     let (userNewInterest,claimAmount) = claimCalc(i.caller)
-    let userVoteAmount = getUserTotalVoteAmount(i.caller)
-    let availableFund = userSWOPLocked - userVoteAmount
-    if withdrawAmount > availableFund then throw("withdrawAmount > availableFund") else
+    let (userVoteAmount,userUnvoteAmount) = getUserVoteInfo(i.caller)
+    if userUnvoteAmount < 0 || userVoteAmount < 0 then throw("userUnvoteAmount < 0 || userVoteAmount < 0") else 
+    let availableToUnstake = userSWOPLocked - userVoteAmount - userUnvoteAmount
+    if withdrawAmount > availableToUnstake then throw("withdrawAmount > availableToUnstake") else
     let totalSWOPLockedNew = totalSWOPLocked + claimAmount - withdrawAmount
     let userSWOPamountNew = userSWOPLocked + claimAmount - withdrawAmount
     let userClaimedAmount = getUserSWOPClaimedAmount(i.caller)
@@ -195,7 +217,7 @@ func claimAndStakeSWOP() = if !isActive then throw("DApp is inactive at this mom
     let userSWOPLocked = getUserSWOPLocked(i.caller)
     let lastInterest = getLastInterestInfo()
     let (userNewInterest,claimAmount) = claimCalc(i.caller)
-    let userSWOPLockedNew = userSWOPLocked + claimAmount
+    let userSWOPLockedNew = userSWOPLocked + claimAmount 
     let totalSWOPLockedNew = totalSWOPLocked + claimAmount
     let userClaimedAmount = getUserSWOPClaimedAmount(i.caller)
     let userClaimedAmountNew = userClaimedAmount + claimAmount
@@ -211,10 +233,10 @@ func claimAndStakeSWOP() = if !isActive then throw("DApp is inactive at this mom
 
 @Callable(i)
 func updateWeights(previousPools: List[String],previousRewards: List[Int],currentPools: List[String],currentRewards: List[Int],rewardUpdateHeight: Int) = if !isActive then throw("DApp is inactive at this moment") else {
-    if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStartStop, adminPubKeyWallet].containsElement(i.callerPublicKey) then
+     if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStartStop, adminPubKeyWallet].containsElement(i.callerPublicKey) then
         throw("Only admin can call this function")
     else
-
+    
     func sum(a:Int, b:Int) = a + b
 
     func PreviousRewardEntry(accumulated: List[IntegerEntry], pool: String) = {
@@ -230,9 +252,9 @@ func updateWeights(previousPools: List[String],previousRewards: List[Int],curren
     let sumRewardPrevious = FOLD<20>(previousRewards, 0, sum)
     let sumRewardCurrent =  FOLD<20>(currentRewards, 0, sum)
 
-    if rewardUpdateHeight < height then
-        throw("rewardUpdateHeight < height") else
-    if sumRewardPrevious != totalVoteShare || sumRewardCurrent != totalVoteShare then
+    if rewardUpdateHeight < height then 
+        throw("rewardUpdateHeight < height") else 
+    if sumRewardPrevious != totalVoteShare || sumRewardCurrent != totalVoteShare then 
         throw("sumRewardPrevious != totalVoteShare or sumRewardCurrent != totalVoteShare")  else
 
     let previousRewardEntryNew = FOLD<20>(previousPools, [], PreviousRewardEntry)
