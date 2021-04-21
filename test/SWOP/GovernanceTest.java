@@ -4,6 +4,7 @@ import im.mak.paddle.Account;
 import com.wavesplatform.transactions.common.AssetId;
 import com.wavesplatform.transactions.data.IntegerEntry;
 import com.wavesplatform.transactions.invocation.IntegerArg;
+import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.TestInstance;
@@ -34,15 +35,24 @@ public class GovernanceTest {
     String keyUserLastInterest = "_last_interest";
     String keyUserSWOPAmount = "_SWOP_amount";
     String keyTotalSWOPAmount = "total_SWOP_amount";
+    private final String kBasePeriod = "base_period";
+    private final String kStartHeight = "start_height";
+    private final String kPeriodLength = "period_length";
     private Account pool = new Account(1000_00000000L);
     private Account firstCaller = new Account(1000_00000000L);
     private Account secondCaller = new Account(1000_00000000L);
     private Account airdropCaller = new Account(1000_00000000L);
     private Account governanceDapp = new Account(1000_00000000L);
     private Account farmingDapp = new Account(1000_00000000L);
+    private Account votingDapp = new Account(1000_00000000L);
     private AssetId swopId;
+    private final String votingScript = StringUtils.substringBefore(
+            fromFile("dApps/SWOP/voting.ride")
+                    .replace("3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS", governanceDapp.address().toString()),
+            "@Verifier");
     private String dAppScript = fromFile("dApps/SWOP/governance.ride")
             .replace("3P73HDkPqG15nLXevjCbmXtazHYTZbpPoPw", farmingDapp.address().toString())
+            .replace("3PQZWxShKGRgBN1qoJw6B4s9YWS9FneZTPg", votingDapp.address().toString())
             .replace("DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA", Base58.encode(farmingDapp.publicKey().bytes()))
             .replace("E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7", Base58.encode(farmingDapp.publicKey().bytes()))
             .replace("AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ", Base58.encode(farmingDapp.publicKey().bytes()));
@@ -51,13 +61,24 @@ public class GovernanceTest {
     void before() {
         async(
                 () -> governanceDapp.setScript(s -> s.script(dAppScript)),
+                () -> votingDapp.setScript(s -> s.script(votingScript)),
                 () -> {
                     swopId = firstCaller.issue(a -> a.quantity(Long.MAX_VALUE).name("SWOP").decimals(shareAssetDecimals)).tx().assetId();
                     firstCaller.massTransfer(t -> t.assetId(swopId)
                             .to(secondCaller, Long.MAX_VALUE / 3)
                             .to(airdropCaller, Long.MAX_VALUE / 3));
                     farmingDapp.writeData(d -> d.string("SWOP_id", swopId.toString()));
-                });
+                },
+                () -> governanceDapp.writeData(d -> d.data(
+                        IntegerEntry.as(kBasePeriod, 0_000000000L),
+                        IntegerEntry.as(kPeriodLength, 10102_000000000L),
+                        IntegerEntry.as(kStartHeight, 0_000000000L)
+                )),
+                () -> votingDapp.writeData(d -> d.data(
+                        IntegerEntry.as(kBasePeriod, 0_000000000L),
+                        IntegerEntry.as(kPeriodLength, 10102_000000000L),
+                        IntegerEntry.as(kStartHeight, 0_000000000L)
+                )));
     }
 
     Stream<Arguments> lockSWOPProvider() {
@@ -100,7 +121,7 @@ public class GovernanceTest {
                         IntegerEntry.as(keyTotalSWOPAmount, totalSWOPAmount + user1LockAmount)),
                 () -> assertThat(governanceDapp.getAssetBalance(swopId)).isEqualTo(totalSWOPAmount + user1LockAmount),
                 () -> assertThat(firstCaller.getAssetBalance(swopId)).isEqualTo(user1SWOPBalance - user1LockAmount));
-        
+
         secondCaller.invoke(i -> i.dApp(governanceDapp).function("lockSWOP")
                 .payment(user2LockAmount, swopId));
 
