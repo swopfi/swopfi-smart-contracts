@@ -9,6 +9,8 @@ let keyAssetIdA = "A_asset_id"
 let keyAssetIdB = "B_asset_id"
 let keyBalanceA = "A_asset_balance"
 let keyBalanceB = "B_asset_balance"
+let keyBalanceInitA = "A_asset_init"
+let keyBalanceInitB = "B_asset_init"
 let keyShareAssetId = "share_asset_id"
 let keyShareAssetSupply = "share_asset_supply"
 let keyCommission = "commission"
@@ -64,6 +66,9 @@ let stakedAmountUSDN = match stakingAddress.getInteger("rpd_balance_" + USDN.toB
     case staked: Int => staked
     case nothing: Unit => 0
 }
+
+let assetInitA = this.getIntegerValue(keyBalanceInitA)
+let assetInitB = this.getIntegerValue(keyBalanceInitB)
 
 let availableBalanceA = balanceA - if assetIdA == USDN then stakedAmountUSDN else 0
 let availableBalanceB = balanceB - if assetIdB == USDN then stakedAmountUSDN else 0
@@ -145,12 +150,93 @@ func init() = {
 }
 
 @Callable(i)
+func initWithInitRatio(amtAssetA: Int, amtAssetB: Int) = {
+    let pmtAssetIdA = i.payments[0].assetId
+    let pmtAssetIdB = i.payments[1].assetId
+    let (pmtStrAssetIdA, pmtAssetNameA, pmtDecimalsA) = getAssetInfo(pmtAssetIdA)
+    let (pmtStrAssetIdB, pmtAssetNameB, pmtDecimalsB) = getAssetInfo(pmtAssetIdB)
+
+    if this.getBoolean(keyActive).isDefined() then
+        throw("DApp is already active")
+    else if pmtAssetIdA == pmtAssetIdB then
+        throw("Assets must be different")
+    else {
+        let shareName = "s" + pmtAssetNameA.take(7) + "_" + pmtAssetNameB.take(7)
+        let shareDescription = "ShareToken of SwopFi protocol for " + pmtAssetNameA + " and " + pmtAssetNameB + " at address " + this.toString()
+
+        let shareDecimals = (pmtDecimalsA + pmtDecimalsB) / 2
+        let shareInitialSupply = 0
+        let shareIssue = Issue(shareName, shareDescription, shareInitialSupply, shareDecimals, true)
+        let shareIssueId = shareIssue.calculateAssetId()
+        [
+            StringEntry(keyVersion, version),
+            BooleanEntry(keyActive, true),
+            StringEntry(keyAssetIdA, pmtStrAssetIdA),
+            StringEntry(keyAssetIdB, pmtStrAssetIdB),
+            IntegerEntry(keyBalanceInitA, amtAssetA),
+            IntegerEntry(keyBalanceInitB, amtAssetB),
+            IntegerEntry(keyCommission, commission),
+            IntegerEntry(keyCommissionScaleDelimiter, commissionScaleDelimiter),
+            shareIssue,
+            StringEntry(keyShareAssetId, shareIssueId.toBase58String()),
+            IntegerEntry(keyShareAssetSupply, shareInitialSupply)
+        ]
+    }
+}
+
+@Callable(i)
 func replenishWithTwoTokens(slippageTolerance: Int) = {
     let pmtAssetIdA = i.payments[0].assetId
     let pmtAssetIdB = i.payments[1].assetId
     # block for accounting the cost of commissions for staking operations
     let pmtAmountA = deductStakingFee(i.payments[0].amount, pmtAssetIdA)
     let pmtAmountB = deductStakingFee(i.payments[1].amount, pmtAssetIdB)
+
+    if (balanceA == 0 && balanceB == 0) then {
+        let (pmtStrAssetIdA, pmtAssetNameA, pmtDecimalsA) = getAssetInfo(pmtAssetIdA)
+        let (pmtStrAssetIdB, pmtAssetNameB, pmtDecimalsB) = getAssetInfo(pmtAssetIdB)
+
+        if this.getBoolean(keyActive).isDefined() then
+            throw("DApp is already active")
+        else if pmtAssetIdA == pmtAssetIdB then
+            throw("Assets must be different")
+        else {
+            let shareDecimals = (pmtDecimalsA + pmtDecimalsB) / 2
+            let shareInitialSupply = fraction(
+                pow(pmtAmountA, pmtDecimalsA, 5, 1, pmtDecimalsA, HALFDOWN),
+                pow(pmtAmountB, pmtDecimalsB, 5, 1, pmtDecimalsB, HALFDOWN),
+                pow(10, 0, shareDecimals, 0, 0, HALFDOWN)
+            )
+
+            let tokenRatio = fraction(assetInitA, scaleValue8, pmtAmountA)
+                .fraction(scaleValue3, assetInitB.fraction(scaleValue8, pmtAmountB))
+
+            if !isActive then
+                throw("DApp is inactive at this moment")
+            else if slippageTolerance < 0 || slippageTolerance > slippageToleranceDelimiter then
+                throw("Slippage tolerance must be between 0 and " + slippageToleranceDelimiter.toString() + " inclusively. Actual: " + slippageTolerance.toString())
+            else if i.payments.size() != 2 then
+                throw("Two attached assets expected")
+            else if pmtAssetIdA != assetIdA || pmtAssetIdB != assetIdB then
+                throw("Incorrect assets attached. Expected: " + strAssetIdA + " and " + strAssetIdB)
+            else if tokenRatio < (scaleValue3 * (slippageToleranceDelimiter - slippageTolerance)) / slippageToleranceDelimiter
+                    || tokenRatio > (scaleValue3 * (slippageToleranceDelimiter + slippageTolerance)) / slippageToleranceDelimiter then
+                throw("Incorrect assets amount: amounts must have the contract ratio")
+            else if shareInitialSupply == 0 then
+                throw("Too small amount to replenish")
+            else if !hasEnoughBalance then
+                suspend("Suspicious state. Actual balances: " + balanceA.toString() + " " + assetNameA + ", " + balanceB.toString() + " " + assetNameB
+                + ". State: " + accountBalance(assetIdA).toString() + " " + assetNameA + ", " + accountBalance(assetIdB).toString() + " " + assetNameB)
+            else
+            [
+                Reissue(shareAssetId, shareInitialSupply, true),
+                IntegerEntry(keyBalanceA, pmtAmountA),
+                IntegerEntry(keyBalanceB, pmtAmountB),
+                IntegerEntry(keyShareAssetSupply, shareInitialSupply),
+                ScriptTransfer(i.caller, shareInitialSupply, shareAssetId)
+            ]
+        }
+    } else
 
     # fraction should be equal 1(multiple by 1000) if depositor replenish with proportion according to actual price
     let tokenRatio = fraction(balanceA, scaleValue8, pmtAmountA)
@@ -231,6 +317,8 @@ func exchange(minAmountToReceive: Int) = {
 
     if !isActive then
         throw("DApp is inactive at this moment")
+    else if balanceA == 0 && balanceB == 0 then
+        throw("Can't exchange with zero balance")
     else if minAmountToReceive <= 0 then
         throw("Minimal amount to receive must be positive. Actual: " + minAmountToReceive.toString())
     else if i.payments.size() != 1 then
@@ -240,6 +328,7 @@ func exchange(minAmountToReceive: Int) = {
         + ". State: " + accountBalance(assetIdA).toString() + " " + assetNameA + ", " + accountBalance(assetIdB).toString() + " " + assetNameB)
     else if pmtAssetId == assetIdA then {
         let assetIdSend = assetIdB
+
         let (amountWithoutFee, amountWithFee, governanceReward) = calculateFees(balanceA, balanceB)
 
         let newBalanceA = balanceA + pmtAmount
