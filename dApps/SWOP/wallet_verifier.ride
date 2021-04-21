@@ -3,6 +3,7 @@
 {-# SCRIPT_TYPE ACCOUNT #-}
 
 let governanceAddress = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
+let farmingAddress = Address(base58'3P73HDkPqG15nLXevjCbmXtazHYTZbpPoPw')
 let oracleAddress = Address(base58'3PEbqViERCoKnmcSULh6n2aiMvUdSQdCsom')
 let adminInvoke = base58'Czn4yoAuUZCVCLJDRfskn8URfkwpknwBTZDbs1wFrY7h'
 let adminPubKey1 = base58'DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA'
@@ -17,9 +18,10 @@ func verify() = match tx {
     let isExchangeCall = oracleAddress.getString(keyPrefixPoolName + invoke.dApp.addressFromRecipient().toString()).isDefined() && invoke.function == "exchange"
     let isAirdropCall = invoke.dApp == governanceAddress && invoke.function == "airDrop"
     let isUpdateWeightsCall = invoke.dApp == governanceAddress && invoke.function == "updateWeights"
+    let isUpdatePoolInterest = invoke.dApp == farmingAddress && invoke.function == "updatePoolInterest"
     let signedByAdmin = sigVerify(tx.bodyBytes, tx.proofs[0], adminInvoke)
 
-    (((isExchangeCall || isAirdropCall) && invoke.payments.size() == 1) || (isUpdateWeightsCall && invoke.payments.size() == 0)) && signedByAdmin
+    (((isExchangeCall || isAirdropCall) && invoke.payments.size() == 1) || ((isUpdateWeightsCall || isUpdatePoolInterest) && invoke.payments.size() == 0)) && signedByAdmin
   }
   case _ => {
     let adminPubKey1Signed = if sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1) then 1 else 0
