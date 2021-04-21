@@ -82,8 +82,8 @@ func getUserInterestInfo(user:Address, lastInterest: Int) = {
 func getTotalSWOPLocked() = this.getInteger(keyTotalSWOPLocked)
                                                 .valueOrElse(0)
 
-func getUserUnvoteAmount(user:Address) = {
-    let (userTotalVoteSWOP,userUnvoted,userUnvotedPeriod) = if isDefined(this.getString(user.toString() + kUserTotalStruc))
+func getUserVoteInfo(user:Address) = {
+    let (userTotalVoteSWOP,userUnvoted,userUnvotedPeriod) = if isDefined(votingLiteContract.getString(user.toString() + kUserTotalStruc))
         then 
             let data = votingLiteContract.getString(user.toString() + kUserTotalStruc).valueOrErrorMessage("Empty kUserTotalStruc").split("_")
             (data[0].parseIntValue(),data[1].parseIntValue(),data[2].parseIntValue())
@@ -91,9 +91,9 @@ func getUserUnvoteAmount(user:Address) = {
             let uPoolTotalSWOP = votingLiteContract.getInteger(toString(user) + kUserTotalVoteSWOP).valueOrElse(0)
             (uPoolTotalSWOP,0,currVotingPeriod)
 
-    if userUnvotedPeriod == currVotingPeriod then 
-        userUnvoted
-    else 0
+    let userUnvotedActual = if userUnvotedPeriod == currVotingPeriod then userUnvoted else 0
+
+    (userTotalVoteSWOP,userUnvotedActual)
 }
 
 func getUserVoteOptionAmount(user:Address) = this.getInteger(user.toString() + keyUserVoteOptionAmount)
@@ -122,17 +122,6 @@ func getTotalVoteOptionAmount(voteName: String, option: String) = {
         }
     tvoa
 }
-
-func getUserTotalVoteAmount(user:Address) = {
-      let (userTotalVoteSWOP,userUnvoted,userUnvotedPeriod) = if isDefined(this.getString(user.toString() + kUserTotalStruc))
-        then 
-            let data = this.getString(user.toString() + kUserTotalStruc).valueOrErrorMessage("Empty kUserTotalStruc").split("_")
-            (data[0].parseIntValue(),data[1].parseIntValue(),data[2].parseIntValue())
-        else 
-            let uPoolTotalSWOP = this.getInteger(toString(user) + kUserTotalVoteSWOP).valueOrElse(0)
-            (uPoolTotalSWOP,0,currVotingPeriod)
-        userTotalVoteSWOP
-} 
 
 func getUserGetBackAmount(voteName:String,option:String,user:Address,getBackSWOPHeight:Int) = {
     let key = voteName + "_" + option + "_" + user.toString() + "_" + getBackSWOPHeight.toString()
@@ -185,11 +174,11 @@ func lockSWOP() = if !isActive then throw("DApp is inactive at this moment") els
 
 @Callable(i)
 func withdrawSWOP(withdrawAmount: Int) = if !isActive then throw("DApp is inactive at this moment") else {
+    if withdrawAmount <= 0 then throw("withdrawAmount <= 0") else
     let totalSWOPLocked = getTotalSWOPLocked()
     let userSWOPLocked = getUserSWOPLocked(i.caller)
     let (userNewInterest,claimAmount) = claimCalc(i.caller)
-    let userVoteAmount = getUserTotalVoteAmount(i.caller)
-    let userUnvoteAmount = getUserUnvoteAmount(i.caller)
+    let (userVoteAmount,userUnvoteAmount) = getUserVoteInfo(i.caller)
     if userUnvoteAmount < 0 || userVoteAmount < 0 then throw("userUnvoteAmount < 0 || userVoteAmount < 0") else 
     let availableToUnstake = userSWOPLocked - userVoteAmount - userUnvoteAmount
     if withdrawAmount > availableToUnstake then throw("withdrawAmount > availableToUnstake") else

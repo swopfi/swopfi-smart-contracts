@@ -58,16 +58,13 @@ func votingCoef() = {
 }
 
 func calcDeleteEntry(caller: String,poolAddress: String, userPoolVoteSWOPnew: Int) ={
-
     func deleteIfExists(list: List[DeleteEntry], key: String) =
         if this.getInteger(key).isDefined() then list :+ DeleteEntry(key) else list
-
     [].deleteIfExists(caller + "_" + poolAddress + kUserPoolVoteSWOP)
     .deleteIfExists(caller + kUserTotalVoteSWOP)
     .deleteIfExists(poolAddress + kPoolVoteSWOP)
     .deleteIfExists(kTotalVoteSWOP)
 }
-
 
 @Callable(i)
 func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = {
@@ -176,7 +173,7 @@ func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = 
         let userPoolFreezeSWOPnew2 = min([userPoolFreezeSWOPnew, userPoolVoteSWOPnew])
         let userPoolActiveVoteSWOPnew = userPoolFreezeSWOPnew2 + if userPoolVoteSWOP - userPoolFreezeSWOP == 0 then 0 
             else fraction(userPoolActiveVoteSWOP - userPoolFreezeSWOP,userPoolVoteSWOPnew - userPoolFreezeSWOPnew2, userPoolVoteSWOP-userPoolFreezeSWOP)
-        let userPoolActiveVoteDiff = userPoolActiveVoteSWOPnew - userPoolActiveVoteSWOP
+        let userPoolActiveVoteDiff = userPoolActiveVoteSWOPnew - if userPoolVotePeriod == currPeriod then userPoolActiveVoteSWOP else userPoolVoteSWOP
         let newUnvoted = max([0, removePoolVote - if userPoolVotePeriod == currPeriod then userPoolVoteSWOP - userPoolFreezeSWOP2 else 0])
         let userUnvotedNew = newUnvoted + if userUnvotedPeriod == currPeriod then userUnvoted else 0 
         let userUnvotedPeriodNew = if newUnvoted > 0 then currPeriod else userUnvotedPeriod
@@ -194,7 +191,7 @@ func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = 
 
         #pool
         let poolVoteSWOPnew = poolVoteSWOP - removePoolVote
-        let poolActiveSWOPnew = if poolPeriod == currPeriod then poolActiveSWOP else poolVoteSWOP  + userPoolActiveVoteDiff 
+        let poolActiveSWOPnew = if poolPeriod == currPeriod then poolActiveSWOP + userPoolActiveVoteDiff else poolVoteSWOP  + userPoolActiveVoteDiff 
 
         let poolStrucNew = poolVoteSWOPnew.toString() + "_" + poolActiveSWOPnew.toString() + "_" + currPeriod.toString()
         let poolEntry = [
@@ -203,7 +200,7 @@ func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = 
 
         #total
         let totalVoteSWOPnew = totalVoteSWOP - removePoolVote
-        let totalActiveSWOPnew =  if totalPeriod == currPeriod then totalActiveSWOP else totalVoteSWOP + userPoolActiveVoteDiff
+        let totalActiveSWOPnew = if totalPeriod == currPeriod then totalActiveSWOP + userPoolActiveVoteDiff else totalVoteSWOP + userPoolActiveVoteDiff
         
         let totalStrucNew = totalVoteSWOPnew.toString() + "_" + totalActiveSWOPnew.toString() + "_" + currPeriod.toString()
         let totalEntry = [
