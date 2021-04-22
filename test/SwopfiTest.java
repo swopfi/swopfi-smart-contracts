@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Stream;
 
+import static im.mak.paddle.token.Waves.WAVES;
 import static im.mak.paddle.util.Async.async;
 import static im.mak.paddle.Node.node;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -42,23 +43,23 @@ class SwopfiTest {
     private final Address governance = Address.as("3MP9d7iovdAZtsPeRcq97skdsQH5MPEsfgm");
     private final int minSponsoredAssetFee = 30000;
     private final long stakingFee = 9 * minSponsoredAssetFee;
-    private final Account firstCaller = new Account(1000_00000000L);
-    private final Account secondCaller = new Account(1000_00000000L);
-    private final Account stakingAcc = new Account(1000_00000000L);
+    private final Account firstCaller = new Account(WAVES.amount(1000));
+    private final Account secondCaller = new Account(WAVES.amount(1000));
+    private final Account stakingAcc = new Account(WAVES.amount(1000));
     private final AssetId tokenA = firstCaller.issue(a -> a.quantity(Long.MAX_VALUE).name("tokenA").decimals(aDecimal)).tx().assetId();
     private final AssetId tokenB = firstCaller.issue(a -> a.quantity(Long.MAX_VALUE).name("tokenB").decimals(bDecimal)).tx().assetId();
 
     @BeforeAll
     void before() {
         async(
-                () -> exchanger1 = new CpmmDApp(100_00000000L, governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
-                () -> exchanger2 = new CpmmDApp(100_00000000L, governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
-                () -> exchanger3 = new CpmmDApp(100_00000000L, governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
-                () -> exchanger4 = new CpmmDApp(100_00000000L, governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
-                () -> exchanger5 = new CpmmDApp(100_00000000L, governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
-                () -> exchanger6 = new CpmmDApp(100_00000000L, governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
-                () -> exchanger7 = new CpmmDApp(100_00000000L, governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
-                () -> exchanger8 = new CpmmDApp(100_00000000L, governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
+                () -> exchanger1 = new CpmmDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
+                () -> exchanger2 = new CpmmDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
+                () -> exchanger3 = new CpmmDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
+                () -> exchanger4 = new CpmmDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
+                () -> exchanger5 = new CpmmDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
+                () -> exchanger6 = new CpmmDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
+                () -> exchanger7 = new CpmmDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
+                () -> exchanger8 = new CpmmDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
                 () -> firstCaller.sponsorFee(tokenB, minSponsoredAssetFee));
     }
 
@@ -82,7 +83,8 @@ class SwopfiTest {
 
         int digitsInShareToken = (aDecimal + bDecimal) / 2;
 
-        firstCaller.invoke(exchanger.init(), i -> i.payments(Amount.of(fundAmountA, tokenA), Amount.of(fundAmountB, tokenB)).additionalFee(1_00000000L));
+        firstCaller.invoke(exchanger.init(), i -> i
+                .payment(fundAmountA, tokenA).payment(fundAmountB, tokenB).additionalFee(WAVES.amount(1)));
         node().waitNBlocks(1);
 
         AssetId shareTokenId = AssetId.as(exchanger.getStringData("share_asset_id"));
@@ -233,8 +235,8 @@ class SwopfiTest {
         long amountTokenABefore = exchanger.getIntegerData("A_asset_balance");
         long amountTokenBBefore = exchanger.getIntegerData("B_asset_balance");
         long secondCallerBalanceA = secondCaller.getAssetBalance(tokenA);
-        firstCaller.transfer(secondCaller, tokenA, amountTokenABefore).tx().id();
-        firstCaller.transfer(secondCaller, tokenB, amountTokenBBefore).tx().id();
+        firstCaller.transfer(secondCaller, amountTokenABefore, tokenA).tx().id();
+        firstCaller.transfer(secondCaller, amountTokenBBefore, tokenB).tx().id();
         long shareTokenSupplyBefore = exchanger.getIntegerData("share_asset_supply");
         secondCaller.invoke(exchanger.replenishWithTwoTokens(1), Amount.of(amountTokenABefore - stakingFee, tokenA), Amount.of(amountTokenBBefore, tokenB));
 

@@ -62,8 +62,8 @@ public class SwopfiFlatTest {
                 () -> exchanger6 = new FlatDApp(100_00000000L, governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
                 () -> exchanger7 = new FlatDApp(100_00000000L, governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
                 () -> firstCaller.sponsorFee(tokenB, minSponsoredAssetFee),
-                () -> firstCaller.transfer(secondCaller, tokenA, 10000000_00000000L),
-                () -> firstCaller.transfer(secondCaller, tokenB, 10000000_00000000L));
+                () -> firstCaller.transfer(secondCaller, 10000000_00000000L, tokenA),
+                () -> firstCaller.transfer(secondCaller, 10000000_00000000L, tokenB));
     }
 
     Stream<Arguments> fundProvider() {
@@ -85,7 +85,7 @@ public class SwopfiFlatTest {
 
         int digitsInShareToken = (aDecimal + bDecimal) / 2;
         firstCaller.invoke(exchanger.init(), i -> i
-                .payments(Amount.of(fundAmountA, tokenA), Amount.of(fundAmountB, tokenB))
+                .payment(fundAmountA, tokenA).payment(fundAmountB, tokenB)
                 .additionalFee(1_00000000L));
         node().waitNBlocks(1);
         long shareTokenSupply = (long) (((BigDecimal.valueOf(Math.pow(fundAmountA / Math.pow(10, aDecimal), 0.5)).setScale(aDecimal, RoundingMode.HALF_DOWN).movePointRight(aDecimal).doubleValue() *
