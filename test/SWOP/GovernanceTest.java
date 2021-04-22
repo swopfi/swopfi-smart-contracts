@@ -36,6 +36,7 @@ public class GovernanceTest {
     static final String kBasePeriod = "base_period";
     static final String kStartHeight = "start_height";
     static final String kPeriodLength = "period_length";
+    static final String kDurationFullVotePower = "duration_full_vote_power";
     static Account pool, firstCaller, secondCaller, airdropCaller, farming;
     static VotingDApp voting;
     static GovernanceDApp governance;
@@ -60,18 +61,13 @@ public class GovernanceTest {
                             .to(airdropCaller, Long.MAX_VALUE / 3)),
                 () -> farming.writeData(d -> d.string("SWOP_id", SWOP.toString())),
                 () -> voting = new VotingDApp(votingPK, WAVES.amount(1000), governancePK.address()),
-                () -> governance = new GovernanceDApp(governancePK, WAVES.amount(1000), farming.publicKey(), votingPK.address()),
-                () -> governance.writeData(d -> d.data(
-                        IntegerEntry.as(kBasePeriod, 0),
-                        IntegerEntry.as(kPeriodLength, 10102_000000000L),
-                        IntegerEntry.as(kStartHeight, 0)
-                )),
-                () -> voting.writeData(d -> d.data(
-                        IntegerEntry.as(kBasePeriod, 0),
-                        IntegerEntry.as(kPeriodLength, 10102_000000000L),
-                        IntegerEntry.as(kStartHeight, 0)
-                ))
+                () -> governance = new GovernanceDApp(governancePK, WAVES.amount(1000), farming.publicKey(), votingPK.address())
         );
+        voting.writeData(d -> d
+                .integer(kBasePeriod, 0)
+                .integer(kPeriodLength, 10102_000000000L)
+                .integer(kStartHeight, 0)
+                .integer(kDurationFullVotePower, 1443));
     }
 
     static Stream<Arguments> lockSWOPProvider() {

@@ -37,6 +37,10 @@ public class VotingLiteTest {
     static final String kUserTotalVoteSWOP = "_user_total_SWOP_vote";
     static final String kPoolVoteSWOP = "_vote_SWOP";
     static final String kTotalVoteSWOP = "total_vote_SWOP";
+    static final String kBasePeriod = "base_period";
+    static final String kStartHeight = "start_height";
+    static final String kPeriodLength = "period_length";
+    static final String kDurationFullVotePower = "duration_full_vote_power";
     static final String firstPool = "3P5N94Qdb8SqJuy56p1btfzz1zACpPbqs6x";
     static final String secondPool = "3PA26XNQfUzwNQHhSEbtKzRfYFvAcgj2Nfw";
     static final String thirdPool = "3PLZSEaGDLht8GGK8rDfbY8zraHcXYHeiwP";
@@ -66,20 +70,27 @@ public class VotingLiteTest {
                 () -> firstCaller.transfer(governance, Long.MAX_VALUE, swopId),
                 () -> farming.writeData(d -> d.string("SWOP_id", swopId.toString()))
         );
-        governance.writeData(d -> d.data(
-                IntegerEntry.as(firstPool + keyRewardPoolFractionCurrent, 10_000000000L),
-                IntegerEntry.as(firstPool + keyRewardPoolFractionPrevious, 10_000000000L),
-                IntegerEntry.as(secondPool + keyRewardPoolFractionCurrent, 20_000000000L),
-                IntegerEntry.as(secondPool + keyRewardPoolFractionPrevious, 20_000000000L),
-                IntegerEntry.as(thirdPool + keyRewardPoolFractionCurrent, 30_000000000L),
-                IntegerEntry.as(thirdPool + keyRewardPoolFractionPrevious, 30_000000000L),
-                IntegerEntry.as(fourthPool + keyRewardPoolFractionCurrent, 15_000000000L),
-                IntegerEntry.as(fourthPool + keyRewardPoolFractionPrevious, 15_000000000L),
-                IntegerEntry.as(fifthPool + keyRewardPoolFractionCurrent, 25_000000000L),
-                IntegerEntry.as(fifthPool + keyRewardPoolFractionPrevious, 25_000000000L),
-                IntegerEntry.as(keyRewardUpdateHeight, node().getHeight()),
-                IntegerEntry.as(firstCaller.address().toString() + "_SWOP_amount", firstCallerInitAmount + 1),
-                IntegerEntry.as(secondCaller.address().toString() + "_SWOP_amount", secondCallerInitAmount + 1)));
+        async(
+                () -> governance.writeData(d -> d
+                        .integer(firstPool + keyRewardPoolFractionCurrent, 10_000000000L)
+                        .integer(firstPool + keyRewardPoolFractionPrevious, 10_000000000L)
+                        .integer(secondPool + keyRewardPoolFractionCurrent, 20_000000000L)
+                        .integer(secondPool + keyRewardPoolFractionPrevious, 20_000000000L)
+                        .integer(thirdPool + keyRewardPoolFractionCurrent, 30_000000000L)
+                        .integer(thirdPool + keyRewardPoolFractionPrevious, 30_000000000L)
+                        .integer(fourthPool + keyRewardPoolFractionCurrent, 15_000000000L)
+                        .integer(fourthPool + keyRewardPoolFractionPrevious, 15_000000000L)
+                        .integer(fifthPool + keyRewardPoolFractionCurrent, 25_000000000L)
+                        .integer(fifthPool + keyRewardPoolFractionPrevious, 25_000000000L)
+                        .integer(keyRewardUpdateHeight, node().getHeight())
+                        .integer(firstCaller.address().toString() + "_SWOP_amount", firstCallerInitAmount + 1)
+                        .integer(secondCaller.address().toString() + "_SWOP_amount", secondCallerInitAmount + 1)),
+                () -> voting.writeData(d -> d
+                        .integer(kBasePeriod, 0)
+                        .integer(kPeriodLength, 10102_000000000L)
+                        .integer(kStartHeight, 0)
+                        .integer(kDurationFullVotePower, 1443))
+        );
     }
 
     static Stream<Arguments> voteProvider() {
