@@ -16,7 +16,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.stream.Stream;
 
-import static im.mak.paddle.Async.async;
+import static im.mak.paddle.util.Async.async;
 import static im.mak.paddle.Node.node;
 import static im.mak.paddle.util.Script.fromFile;
 import static org.apache.commons.lang3.StringUtils.substringBefore;
@@ -45,10 +45,10 @@ public class OracleTest {
                 .to(pool3.address(), 10_00000000));
 
         async(
-                () -> oracle.setScript(s -> s.script(ORACLE_SCRIPT)),
-                () -> pool1.setScript(s -> s.script(CPMM_POOL_SCRIPT)),
-                () -> pool2.setScript(s -> s.script(CPMM_POOL_SCRIPT)),
-                () -> pool3.setScript(s -> s.script(CPMM_POOL_SCRIPT))
+                () -> oracle.setScript(ORACLE_SCRIPT),
+                () -> pool1.setScript(CPMM_POOL_SCRIPT),
+                () -> pool2.setScript(CPMM_POOL_SCRIPT),
+                () -> pool3.setScript(CPMM_POOL_SCRIPT)
         );
     }
 

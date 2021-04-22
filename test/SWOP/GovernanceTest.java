@@ -19,7 +19,7 @@ import java.util.stream.Stream;
 
 import com.wavesplatform.crypto.base.Base58;
 
-import static im.mak.paddle.Async.async;
+import static im.mak.paddle.util.Async.async;
 import static im.mak.paddle.Node.node;
 import static im.mak.paddle.util.Script.fromFile;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -60,7 +60,7 @@ public class GovernanceTest {
     @BeforeAll
     void before() {
         async(
-                () -> governanceDapp.setScript(s -> s.script(dAppScript)),
+                () -> governanceDapp.setScript(dAppScript),
                 () -> votingDapp.setScript(s -> s.script(votingScript)),
                 () -> {
                     swopId = firstCaller.issue(a -> a.quantity(Long.MAX_VALUE).name("SWOP").decimals(shareAssetDecimals)).tx().assetId();

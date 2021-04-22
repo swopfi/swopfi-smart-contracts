@@ -40,7 +40,7 @@
     <dependency>
         <groupId>im.mak</groupId>
         <artifactId>paddle</artifactId>
-        <version>1.0.0-rc3</version>
+        <version>1.0.0-rc4</version>
     </dependency>
     <dependency>
         <groupId>org.junit.jupiter</groupId>

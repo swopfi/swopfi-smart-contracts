@@ -17,7 +17,7 @@ import java.math.BigInteger;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Stream;
 
-import static im.mak.paddle.Async.async;
+import static im.mak.paddle.util.Async.async;
 import static im.mak.paddle.Node.node;
 import static im.mak.paddle.util.Script.fromFile;
 import static org.assertj.core.api.Assertions.*;
@@ -76,7 +76,7 @@ class FarmingTest {
     @BeforeAll
     void before() {
         async(
-                () -> farmingDApp.setScript(s -> s.script(dAppScript)),
+                () -> farmingDApp.setScript(dAppScript),
                 () -> {
                     shareAssetId1 = firstCaller.issue(a -> a.quantity(Long.MAX_VALUE).name("sBTC_WAVES").decimals(shareAssetDecimals)).tx().assetId();
                     firstCaller.transfer(t -> t.amount(Amount.of(Long.MAX_VALUE / 2, shareAssetId1)).to(secondCaller));

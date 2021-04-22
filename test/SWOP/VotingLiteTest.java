@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static im.mak.paddle.Async.async;
+import static im.mak.paddle.util.Async.async;
 import static im.mak.paddle.Node.node;
 import static im.mak.paddle.util.Script.fromFile;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -63,7 +63,7 @@ public class VotingLiteTest {
     @BeforeAll
     void before() {
         async(
-                () -> voting.setScript(s -> s.script(votingScript)),
+                () -> voting.setScript(votingScript),
                 () -> governance.writeData(d -> d.data(
                         IntegerEntry.as(firstPool + keyRewardPoolFractionCurrent, 10_000000000L),
                         IntegerEntry.as(firstPool + keyRewardPoolFractionPrevious, 10_000000000L),
@@ -83,7 +83,7 @@ public class VotingLiteTest {
                     firstCaller.transfer(t -> t.amount(Long.MAX_VALUE, swopId).to(governance));
                     farming.writeData(d -> d.string("SWOP_id", swopId.toString()));
                 });
-        governance.setScript(s -> s.script(governanceScript));
+        governance.setScript(governanceScript);
     }
 
     Stream<Arguments> voteProvider() {
