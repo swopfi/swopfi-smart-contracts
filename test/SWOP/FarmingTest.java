@@ -5,8 +5,6 @@ import dapps.FarmingDApp;
 import im.mak.paddle.Account;
 import com.wavesplatform.transactions.common.AssetId;
 import com.wavesplatform.transactions.data.IntegerEntry;
-import com.wavesplatform.transactions.invocation.IntegerArg;
-import com.wavesplatform.transactions.invocation.StringArg;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -23,55 +21,51 @@ import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 @TestMethodOrder(MethodOrderer.Alphanumeric.class)
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class FarmingTest {
-    private AssetId swopId;
-    private AssetId shareAssetId1;
-    private AssetId shareAssetId2;
-    private int startFarmingHeight;
-    private final int shareAssetDecimals = 6;
-    private final long initSWOPAmount = 100000000000000L;
+    final long initSWOPAmount = 100000000000000L;
     long firstReward = 5000000000L;
     long secondReward = 5000000000L;
     int previousReward = 0;
     long scaleValue = (long) Math.pow(10, shareAssetDecimals);
-    private final String keyShareTokensLocked = "%s_total_share_tokens_locked";
-    private final String keyRewardPoolFractionCurrent = "%s_current_pool_fraction_reward";
-    private final String keyRewardPoolFractionPrevious = "%s_previous_pool_fraction_reward";
-    private final String keyTotalRewardPerBlockCurrent = "total_reward_per_block_current";
-    private final String keyTotalRewardPerBlockPrevious = "total_reward_per_block_previous";
-    private final Long totalRewardPerBlockCurrent = 189751395L;
-    private final Long totalRewardPerBlockPrevious = 189751395L;
-    private final Long totalVoteShare = 10000000000L;
-    private final String keyRewardUpdateHeight = "reward_update_height";
-    private final String keyLastInterest = "%s_last_interest";
-    private final String keyLastInterestHeight = "%s_last_interest_height";
-    private final String keyUserShareTokensLocked = "%s_%s_share_tokens_locked";
-    private final String keyUserLastInterest = "%s_%s_last_interest";
-    private final String keyUserSWOPClaimedAmount = "_SWOP_claimed_amount";
-    private final String keyUserSWOPLastClaimedAmount = "_SWOP_last_claimed_amount";
-    private final String keyAvailableSWOP = "%s_%s_available_SWOP";
-    private final String keyFarmingStartHeight = "farming_start_height";
-    private Account pool1, pool2, firstCaller, secondCaller, votingDApp, earlyLP;
-    private FarmingDApp farming;
+    final String keyShareTokensLocked = "%s_total_share_tokens_locked";
+    final String keyRewardPoolFractionCurrent = "%s_current_pool_fraction_reward";
+    final String keyRewardPoolFractionPrevious = "%s_previous_pool_fraction_reward";
+    final String keyTotalRewardPerBlockCurrent = "total_reward_per_block_current";
+    final String keyTotalRewardPerBlockPrevious = "total_reward_per_block_previous";
+    final Long totalRewardPerBlockCurrent = 189751395L;
+    final Long totalRewardPerBlockPrevious = 189751395L;
+    final Long totalVoteShare = 10000000000L;
+    final String keyRewardUpdateHeight = "reward_update_height";
+    final String keyLastInterest = "%s_last_interest";
+    final String keyLastInterestHeight = "%s_last_interest_height";
+    final String keyUserShareTokensLocked = "%s_%s_share_tokens_locked";
+    final String keyUserLastInterest = "%s_%s_last_interest";
+    final String keyUserSWOPClaimedAmount = "_SWOP_claimed_amount";
+    final String keyUserSWOPLastClaimedAmount = "_SWOP_last_claimed_amount";
+    final String keyAvailableSWOP = "%s_%s_available_SWOP";
+    final String keyFarmingStartHeight = "farming_start_height";
+
+    static final int shareAssetDecimals = 6;
+    static Account pool1, pool2, firstCaller, secondCaller, votingDApp, earlyLP;
+    static FarmingDApp farming;
+    static AssetId shareAssetId1, shareAssetId2;
+    static AssetId swopId;
 
     @BeforeAll
-    void before() {
+    static void before() {
         async(
                 () -> pool1 = new Account(WAVES.amount(1000)),
                 () -> pool2 = new Account(WAVES.amount(1000)),
-                () -> {
-                    firstCaller = new Account(WAVES.amount(1000));
-                    async(
-                            () -> shareAssetId1 = firstCaller.issue(a -> a
-                                    .quantity(Long.MAX_VALUE).name("sBTC_WAVES").decimals(shareAssetDecimals)).tx().assetId(),
-                            () -> shareAssetId2 = firstCaller.issue(a -> a
-                                    .quantity(Long.MAX_VALUE).name("sUSDT_USDN").decimals(shareAssetDecimals)).tx().assetId()
-                    );
-                },
+                () -> firstCaller = new Account(WAVES.amount(1000)),
                 () -> secondCaller = new Account(WAVES.amount(1000)),
                 () -> earlyLP = new Account(WAVES.amount(1000)),
                 () -> votingDApp = new Account(WAVES.amount(1000))
+        );
+        async(
+                () -> shareAssetId1 = firstCaller.issue(a -> a
+                        .quantity(Long.MAX_VALUE).name("sBTC_WAVES").decimals(shareAssetDecimals)).tx().assetId(),
+                () -> shareAssetId2 = firstCaller.issue(a -> a
+                        .quantity(Long.MAX_VALUE).name("sUSDT_USDN").decimals(shareAssetDecimals)).tx().assetId()
         );
         async(
                 () -> firstCaller.transfer(secondCaller, Long.MAX_VALUE / 2, shareAssetId1),
@@ -89,7 +83,7 @@ class FarmingTest {
         assertThat(farming.getAssetBalance(swopId)).isEqualTo(initSWOPAmount);
     }
 
-    Stream<Arguments> poolProvider() {
+    static Stream<Arguments> poolProvider() {
         return Stream.of(
                 Arguments.of(pool1),
                 Arguments.of(pool2));
@@ -151,7 +145,7 @@ class FarmingTest {
                 () -> assertThat(farmingDapp.getIntegerData(String.format("%s_%s_available_SWOP", poolAddress, secondCaller.address()))).isEqualTo(0));
     }*/
 
-    Stream<Arguments> lockShareProvider() {
+    static Stream<Arguments> lockShareProvider() {
         return Stream.of(
                 Arguments.of(pool1, 1),
                 Arguments.of(pool2, 1),
@@ -173,7 +167,6 @@ class FarmingTest {
         String poolAddress = pool.address().toString();
         AssetId shareAssetId = pool.address().equals(pool1.address()) ? shareAssetId1 : shareAssetId2;
 
-        node().waitForHeight(startFarmingHeight);
         firstCaller.invoke(farming.lockShareTokens(pool), Amount.of(1, shareAssetId));
         node().waitNBlocks(1);
 
@@ -224,7 +217,7 @@ class FarmingTest {
                 IntegerEntry.as(String.format(keyShareTokensLocked, poolAddress), sTokensLockedBeforeSecond + lockShareAmount));
     }
 
-    Stream<Arguments> withdrawShareProvider() {
+    static Stream<Arguments> withdrawShareProvider() {
         return Stream.of(
                 Arguments.of(pool1, 1),
                 Arguments.of(pool2, 1),

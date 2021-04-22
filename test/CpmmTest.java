@@ -28,30 +28,37 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.MethodOrderer.Alphanumeric;
 
 @TestMethodOrder(Alphanumeric.class)
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class SwopfiTest {
+class CpmmTest {
 
-    private CpmmDApp exchanger1, exchanger2, exchanger3, exchanger4, exchanger5, exchanger6, exchanger7, exchanger8;
-    private final int aDecimal = 8;
-    private final int bDecimal = 6;
-    private final int commission = 3000;
-    private final int commissionGovernance = 1200;
-    private final int commissionScaleDelimiter = 1000000;
-    private final int slippageToleranceDelimiter = 1000;
-    private final int scaleValue8 = 100000000;
-    private final String version = "1.0.0";
-    private final Address governance = Address.as("3MP9d7iovdAZtsPeRcq97skdsQH5MPEsfgm");
-    private final int minSponsoredAssetFee = 30000;
-    private final long stakingFee = 9 * minSponsoredAssetFee;
-    private final Account firstCaller = new Account(WAVES.amount(1000));
-    private final Account secondCaller = new Account(WAVES.amount(1000));
-    private final Account stakingAcc = new Account(WAVES.amount(1000));
-    private final AssetId tokenA = firstCaller.issue(a -> a.quantity(Long.MAX_VALUE).name("tokenA").decimals(aDecimal)).tx().assetId();
-    private final AssetId tokenB = firstCaller.issue(a -> a.quantity(Long.MAX_VALUE).name("tokenB").decimals(bDecimal)).tx().assetId();
+    final int commission = 3000;
+    final int commissionGovernance = 1200;
+    final int commissionScaleDelimiter = 1000000;
+    final int slippageToleranceDelimiter = 1000;
+    final int scaleValue8 = 100000000;
+    final String version = "1.0.0";
+    final long stakingFee = 9 * minSponsoredAssetFee;
+
+    static final int aDecimal = 8;
+    static final int bDecimal = 6;
+    static final int minSponsoredAssetFee = 30000;
+    static final Address governance = Address.as("3MP9d7iovdAZtsPeRcq97skdsQH5MPEsfgm");
+    static CpmmDApp exchanger1, exchanger2, exchanger3, exchanger4, exchanger5, exchanger6, exchanger7, exchanger8;
+    static Account firstCaller, secondCaller, stakingAcc;
+    static AssetId tokenA, tokenB;
 
     @BeforeAll
-    void before() {
+    static void before() {
         async(
+                () -> firstCaller = new Account(WAVES.amount(1000)),
+                () -> secondCaller = new Account(WAVES.amount(1000)),
+                () -> stakingAcc = new Account(WAVES.amount(1000))
+        );
+        async(
+                () -> tokenA = firstCaller.issue(a -> a.quantity(Long.MAX_VALUE).name("tokenA").decimals(aDecimal)).tx().assetId(),
+                () -> tokenB = firstCaller.issue(a -> a.quantity(Long.MAX_VALUE).name("tokenB").decimals(bDecimal)).tx().assetId()
+        );
+        async(
+                () -> firstCaller.sponsorFee(tokenB, minSponsoredAssetFee),
                 () -> exchanger1 = new CpmmDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
                 () -> exchanger2 = new CpmmDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
                 () -> exchanger3 = new CpmmDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
@@ -59,11 +66,11 @@ class SwopfiTest {
                 () -> exchanger5 = new CpmmDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
                 () -> exchanger6 = new CpmmDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
                 () -> exchanger7 = new CpmmDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
-                () -> exchanger8 = new CpmmDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
-                () -> firstCaller.sponsorFee(tokenB, minSponsoredAssetFee));
+                () -> exchanger8 = new CpmmDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey())
+        );
     }
 
-    Stream<Arguments> fundProvider() {
+    static Stream<Arguments> fundProvider() {
         return Stream.of(
                 Arguments.of(exchanger1, 1, 1),
                 Arguments.of(exchanger2, 10, 80),
@@ -112,7 +119,7 @@ class SwopfiTest {
         stakingAcc.writeData(d -> d.integer(String.format("rpd_balance_%s_%s", tokenB, exchanger.address()), 100));
     }
 
-    Stream<Arguments> aExchangerProvider() {
+    static Stream<Arguments> aExchangerProvider() {
         return Stream.of(
                 Arguments.of(exchanger2, ThreadLocalRandom.current().nextLong(10000L, 1_00000000L)),
                 Arguments.of(exchanger2, ThreadLocalRandom.current().nextLong(10000L, 1_00000000L)),
@@ -167,7 +174,7 @@ class SwopfiTest {
 
     }
 
-    Stream<Arguments> bExchangerProvider() {
+    static Stream<Arguments> bExchangerProvider() {
         return Stream.of(
                 Arguments.of(exchanger2, ThreadLocalRandom.current().nextLong(10000L, 1_00000000L)),
                 Arguments.of(exchanger2, ThreadLocalRandom.current().nextLong(10000L, 1_00000000L)),
@@ -220,7 +227,7 @@ class SwopfiTest {
                 () -> assertThat(firstCaller.getAssetBalance(tokenB)).isEqualTo(callerBalanceB - tokenReceiveAmount));
     }
 
-    Stream<Arguments> replenishByTwiceProvider() {
+    static Stream<Arguments> replenishByTwiceProvider() {
         return Stream.of(
                 Arguments.of(exchanger4),
                 Arguments.of(exchanger5),
@@ -270,7 +277,7 @@ class SwopfiTest {
                 () -> assertThat(secondCaller.getAssetBalance(shareTokenId)).isEqualTo(shareTokenToPay));
     }
 
-    Stream<Arguments> withdrawByTwiceProvider() {
+    static Stream<Arguments> withdrawByTwiceProvider() {
         return Stream.of(
                 Arguments.of(exchanger4),
                 Arguments.of(exchanger5),
@@ -320,7 +327,7 @@ class SwopfiTest {
                 () -> assertThat(secondCaller.getAssetBalance(tokenB)).isEqualTo(secondCallerAmountB + tokensToPayB - stakingFee));
     }
 
-    Stream<Arguments> replenishProvider() {
+    static Stream<Arguments> replenishProvider() {
         return Stream.of(
                 Arguments.of(exchanger4, 1L, 1), Arguments.of(exchanger4, 100000L, 5), Arguments.of(exchanger4, 26189L, 10),
                 Arguments.of(exchanger5, 50000L, 5), Arguments.of(exchanger5, 100L, 10), Arguments.of(exchanger5, 457382L, 20),

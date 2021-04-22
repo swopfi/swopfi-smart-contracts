@@ -27,41 +27,37 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 
 @TestMethodOrder(MethodOrderer.Alphanumeric.class)
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class VotingLiteTest {
-    private final long firstCallerInitAmount = 1000_00000000L;
-    private final long secondCallerInitAmount = 1000_00000000L;
-    private final String keyRewardPoolFractionCurrent = "_current_pool_fraction_reward";
-    private final String keyRewardPoolFractionPrevious = "_previous_pool_fraction_reward";
-    private final String keyRewardUpdateHeight = "reward_update_height";
-    private final String kUserPoolVoteSWOP = "_vote";
-    private final String kUserTotalVoteSWOP = "_user_total_SWOP_vote";
-    private final String kPoolVoteSWOP = "_vote_SWOP";
-    private final String kTotalVoteSWOP = "total_vote_SWOP";
-    private final String firstPool = "3P5N94Qdb8SqJuy56p1btfzz1zACpPbqs6x";
-    private final String secondPool = "3PA26XNQfUzwNQHhSEbtKzRfYFvAcgj2Nfw";
-    private final String thirdPool = "3PLZSEaGDLht8GGK8rDfbY8zraHcXYHeiwP";
-    private final String fourthPool = "3P4D2zZJubRPbFTurHpCNS9HbFaNiw6mf7D";
-    private final String fifthPool = "3PPRh8DHaVTPqiv1Mes5amXq3Dujg7wSjZm";
-    private AssetId swopId;
-
-    private Account firstCaller, secondCaller, farming;
-    private VotingDApp voting;
-    private GovernanceDApp governance;
+    static final long firstCallerInitAmount = 1000_00000000L;
+    static final long secondCallerInitAmount = 1000_00000000L;
+    static final String keyRewardPoolFractionCurrent = "_current_pool_fraction_reward";
+    static final String keyRewardPoolFractionPrevious = "_previous_pool_fraction_reward";
+    static final String keyRewardUpdateHeight = "reward_update_height";
+    static final String kUserPoolVoteSWOP = "_vote";
+    static final String kUserTotalVoteSWOP = "_user_total_SWOP_vote";
+    static final String kPoolVoteSWOP = "_vote_SWOP";
+    static final String kTotalVoteSWOP = "total_vote_SWOP";
+    static final String firstPool = "3P5N94Qdb8SqJuy56p1btfzz1zACpPbqs6x";
+    static final String secondPool = "3PA26XNQfUzwNQHhSEbtKzRfYFvAcgj2Nfw";
+    static final String thirdPool = "3PLZSEaGDLht8GGK8rDfbY8zraHcXYHeiwP";
+    static final String fourthPool = "3P4D2zZJubRPbFTurHpCNS9HbFaNiw6mf7D";
+    static final String fifthPool = "3PPRh8DHaVTPqiv1Mes5amXq3Dujg7wSjZm";
+    static Account firstCaller, secondCaller, farming;
+    static VotingDApp voting;
+    static GovernanceDApp governance;
+    static AssetId swopId;
 
     @BeforeAll
-    void before() {
+    static void before() {
         PrivateKey votingPK = PrivateKey.fromSeed(Crypto.getRandomSeedBytes());
         PrivateKey governancePK = PrivateKey.fromSeed(Crypto.getRandomSeedBytes());
 
         async(
-                () -> {
-                    firstCaller = new Account(WAVES.amount(1000));
-                    swopId = firstCaller.issue(a -> a.quantity(Long.MAX_VALUE).name("SWOP").decimals(8)).tx().assetId();
-                },
+                () -> firstCaller = new Account(WAVES.amount(1000)),
                 () -> secondCaller = new Account(WAVES.amount(1000)),
                 () -> farming = new Account(WAVES.amount(1000))
         );
+        swopId = firstCaller.issue(a -> a.quantity(Long.MAX_VALUE).name("SWOP").decimals(8)).tx().assetId();
         async(
                 () -> voting = new VotingDApp(votingPK, WAVES.amount(100), governancePK.address()),
                 () -> governance = new GovernanceDApp(governancePK, WAVES.amount(1000), farming.publicKey(), votingPK.address())
@@ -86,7 +82,7 @@ public class VotingLiteTest {
                 IntegerEntry.as(secondCaller.address().toString() + "_SWOP_amount", secondCallerInitAmount + 1)));
     }
 
-    Stream<Arguments> voteProvider() {
+    static Stream<Arguments> voteProvider() {
         return Stream.of(
                 Arguments.of(singletonList(firstPool), singletonList(1_00000000L), 1_00000000L),
                 Arguments.of(singletonList(secondPool), singletonList(10_00000000L), 11_00000000L),
@@ -137,7 +133,7 @@ public class VotingLiteTest {
                 () -> assertThat(voting.getIntegerData(kTotalVoteSWOP)).isEqualTo(totalVoteBefore + sumVote));
     }
 
-    Stream<Arguments> unvoteProvider() {
+    static Stream<Arguments> unvoteProvider() {
         return Stream.of(
                 Arguments.of(singletonList(firstPool), singletonList(0L), 999_00000000L),
                 Arguments.of(singletonList(secondPool), singletonList(0L), 989_00000000L),
@@ -160,7 +156,7 @@ public class VotingLiteTest {
                 () -> assertThat(voting.getIntegerData(secondCaller.address().toString() + kUserTotalVoteSWOP)).isEqualTo(expectedTotal));
     }
 
-    Stream<Arguments> changeVoteProvider() {
+    static Stream<Arguments> changeVoteProvider() {
         return Stream.of(
                 Arguments.of(singletonList(firstPool), singletonList(400_00000000L), 400_00000000L),
                 Arguments.of(singletonList(secondPool), singletonList(580_00000000L), 980_00000000L),

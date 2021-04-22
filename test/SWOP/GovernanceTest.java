@@ -10,7 +10,6 @@ import com.wavesplatform.transactions.data.IntegerEntry;
 import im.mak.paddle.token.Asset;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer;
-import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -27,37 +26,34 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 @TestMethodOrder(MethodOrderer.Alphanumeric.class)
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class GovernanceTest {
-    private final long scaleValue = (long) Math.pow(10, 8);
+    final long scaleValue = (long) Math.pow(10, 8);
     String keyLastInterest = "last_interest";
     String keyUserLastInterest = "_last_interest";
     String keyUserSWOPAmount = "_SWOP_amount";
     String keyTotalSWOPAmount = "total_SWOP_amount";
-    private final String kBasePeriod = "base_period";
-    private final String kStartHeight = "start_height";
-    private final String kPeriodLength = "period_length";
-    private Account pool, firstCaller, secondCaller, airdropCaller, farming;
-    private VotingDApp voting;
-    private GovernanceDApp governance;
-    private Asset SWOP;
+
+    static final String kBasePeriod = "base_period";
+    static final String kStartHeight = "start_height";
+    static final String kPeriodLength = "period_length";
+    static Account pool, firstCaller, secondCaller, airdropCaller, farming;
+    static VotingDApp voting;
+    static GovernanceDApp governance;
+    static Asset SWOP;
 
     @BeforeAll
-    void before() {
+    static void before() {
         PrivateKey votingPK = PrivateKey.fromSeed(Crypto.getRandomSeedBytes());
         PrivateKey governancePK = PrivateKey.fromSeed(Crypto.getRandomSeedBytes());
 
         async(
                 () -> pool = new Account(WAVES.amount(1000)),
-                () -> {
-                    firstCaller = new Account(WAVES.amount(1000));
-                    SWOP = Asset.as(firstCaller.issue(a -> a
-                            .quantity(Long.MAX_VALUE).name("SWOP").decimals(6)).tx().assetId());
-                },
+                () -> firstCaller = new Account(WAVES.amount(1000)),
                 () -> secondCaller = new Account(WAVES.amount(1000)),
                 () -> airdropCaller = new Account(WAVES.amount(1000)),
                 () -> farming = new Account(WAVES.amount(1000))
         );
+        SWOP = Asset.as(firstCaller.issue(a -> a.quantity(Long.MAX_VALUE).name("SWOP").decimals(6)).tx().assetId());
         async(
                 () -> firstCaller.massTransfer(t -> t.assetId(SWOP)
                             .to(secondCaller, Long.MAX_VALUE / 3)
@@ -66,19 +62,19 @@ public class GovernanceTest {
                 () -> voting = new VotingDApp(votingPK, WAVES.amount(1000), governancePK.address()),
                 () -> governance = new GovernanceDApp(governancePK, WAVES.amount(1000), farming.publicKey(), votingPK.address()),
                 () -> governance.writeData(d -> d.data(
-                        IntegerEntry.as(kBasePeriod, 0_000000000L),
+                        IntegerEntry.as(kBasePeriod, 0),
                         IntegerEntry.as(kPeriodLength, 10102_000000000L),
-                        IntegerEntry.as(kStartHeight, 0_000000000L)
+                        IntegerEntry.as(kStartHeight, 0)
                 )),
                 () -> voting.writeData(d -> d.data(
-                        IntegerEntry.as(kBasePeriod, 0_000000000L),
+                        IntegerEntry.as(kBasePeriod, 0),
                         IntegerEntry.as(kPeriodLength, 10102_000000000L),
-                        IntegerEntry.as(kStartHeight, 0_000000000L)
+                        IntegerEntry.as(kStartHeight, 0)
                 ))
         );
     }
 
-    Stream<Arguments> lockSWOPProvider() {
+    static Stream<Arguments> lockSWOPProvider() {
         long firstRange = ThreadLocalRandom.current().nextLong(100L, 1000L);
         long secondRange = ThreadLocalRandom.current().nextLong(1000L, 100000L);
         long thirdRange = ThreadLocalRandom.current().nextLong(100000L, 100000000L);
@@ -130,7 +126,7 @@ public class GovernanceTest {
                 () -> assertThat(secondCaller.getAssetBalance(SWOP)).isEqualTo(user2SWOPBalance - user2LockAmount));
     }
 
-    Stream<Arguments> lockAndAirdropProvider() {
+    static Stream<Arguments> lockAndAirdropProvider() {
 
         return Stream.of(
                 Arguments.of(100, 100, 100000),
@@ -255,7 +251,7 @@ public class GovernanceTest {
                 () -> assertThat(secondCaller.getAssetBalance(SWOP)).isEqualTo(user2SWOPBalance - user2LockAmount));
     }
 
-    Stream<Arguments> withdrawSWOPProvider() {
+    static Stream<Arguments> withdrawSWOPProvider() {
         return Stream.of(
                 Arguments.of(1, 1),
                 Arguments.of(1000, 50000),

@@ -7,7 +7,6 @@ import com.wavesplatform.transactions.common.AssetId;
 import com.wavesplatform.transactions.data.BooleanEntry;
 import com.wavesplatform.transactions.data.IntegerEntry;
 import com.wavesplatform.transactions.data.StringEntry;
-import com.wavesplatform.transactions.invocation.IntegerArg;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -22,6 +21,7 @@ import java.util.stream.Stream;
 
 import ch.obermuhlner.math.big.BigDecimalMath;
 
+import static im.mak.paddle.token.Waves.WAVES;
 import static im.mak.paddle.util.Async.async;
 import static im.mak.paddle.Node.node;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -29,44 +29,51 @@ import static org.assertj.core.api.Assertions.within;
 import static org.junit.jupiter.api.Assertions.*;
 
 @TestMethodOrder(MethodOrderer.Alphanumeric.class)
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public class SwopfiFlatTest {
-    private FlatDApp exchanger1, exchanger2, exchanger3, exchanger4, exchanger5, exchanger6, exchanger7;
-    private final int aDecimal = 6;
-    private final int bDecimal = 6;
-    private final int commission = 500;
-    private final int commissionGovernance = 200;
-    private final int commissionScaleDelimiter = 1000000;
-    private final int scaleValue8 = 100000000;
-    private final double alpha = 0.5;
-    private final double betta = 0.46;
-    private final String version = "2.0.0";
-    private AssetId shareTokenId;
-    private final Address governance = Address.as("3MP9d7iovdAZtsPeRcq97skdsQH5MPEsfgm");
-    private final int minSponsoredAssetFee = 30000;
-    private final long stakingFee = 9 * minSponsoredAssetFee;
-    private final Account firstCaller = new Account(1000_00000000L);
-    private final Account secondCaller = new Account(1000_00000000L);
-    private final Account stakingAcc = new Account(1000_00000000L);
-    private final AssetId tokenA = firstCaller.issue(a -> a.quantity(Long.MAX_VALUE).name("tokenA").decimals(aDecimal)).tx().assetId();
-    private final AssetId tokenB = firstCaller.issue(a -> a.quantity(Long.MAX_VALUE).name("tokenB").decimals(bDecimal)).tx().assetId();
-    
+public class FlatTest {
+    final int commission = 500;
+    final int commissionGovernance = 200;
+    final int commissionScaleDelimiter = 1000000;
+    final int scaleValue8 = 100000000;
+    final double alpha = 0.5;
+    final double betta = 0.46;
+    final String version = "2.0.0";
+    final long stakingFee = 9 * minSponsoredAssetFee;
+
+    static final int minSponsoredAssetFee = 30000;
+    static final int aDecimal = 6;
+    static final int bDecimal = 6;
+    static final Address governance = Address.as("3MP9d7iovdAZtsPeRcq97skdsQH5MPEsfgm");
+    static FlatDApp exchanger1, exchanger2, exchanger3, exchanger4, exchanger5, exchanger6, exchanger7;
+    static Account firstCaller, secondCaller, stakingAcc;
+    static AssetId tokenA, tokenB;
+    static AssetId shareTokenId;
+
     @BeforeAll
-    void before() {
+    static void before() {
         async(
-                () -> exchanger1 = new FlatDApp(100_00000000L, governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
-                () -> exchanger2 = new FlatDApp(100_00000000L, governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
-                () -> exchanger3 = new FlatDApp(100_00000000L, governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
-                () -> exchanger4 = new FlatDApp(100_00000000L, governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
-                () -> exchanger5 = new FlatDApp(100_00000000L, governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
-                () -> exchanger6 = new FlatDApp(100_00000000L, governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
-                () -> exchanger7 = new FlatDApp(100_00000000L, governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
-                () -> firstCaller.sponsorFee(tokenB, minSponsoredAssetFee),
+                () -> firstCaller = new Account(WAVES.amount(1000)),
+                () -> secondCaller = new Account(WAVES.amount(1000)),
+                () -> stakingAcc = new Account(WAVES.amount(1000))
+        );
+        async(
+                () -> tokenA = firstCaller.issue(a -> a.quantity(Long.MAX_VALUE).name("tokenA").decimals(aDecimal)).tx().assetId(),
+                () -> tokenB = firstCaller.issue(a -> a.quantity(Long.MAX_VALUE).name("tokenB").decimals(bDecimal)).tx().assetId()
+        );
+        async(
                 () -> firstCaller.transfer(secondCaller, 10000000_00000000L, tokenA),
-                () -> firstCaller.transfer(secondCaller, 10000000_00000000L, tokenB));
+                () -> firstCaller.transfer(secondCaller, 10000000_00000000L, tokenB),
+                () -> firstCaller.sponsorFee(tokenB, minSponsoredAssetFee),
+                () -> exchanger1 = new FlatDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
+                () -> exchanger2 = new FlatDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
+                () -> exchanger3 = new FlatDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
+                () -> exchanger4 = new FlatDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
+                () -> exchanger5 = new FlatDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
+                () -> exchanger6 = new FlatDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
+                () -> exchanger7 = new FlatDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey())
+        );
     }
 
-    Stream<Arguments> fundProvider() {
+    static Stream<Arguments> fundProvider() {
         return Stream.of(
                 Arguments.of(exchanger1, 1, 1),
                 Arguments.of(exchanger2, 80, 80),
@@ -111,7 +118,7 @@ public class SwopfiFlatTest {
                 () -> assertThat(firstCaller.getAssetBalance(shareTokenId)).isEqualTo(shareTokenSupply));
     }
 
-    Stream<Arguments> aExchangeProvider() {
+    static Stream<Arguments> aExchangeProvider() {
         return Stream.of(
                 Arguments.of(exchanger5, ThreadLocalRandom.current().nextLong(10_000000L, 100_000000L)),
                 Arguments.of(exchanger5, ThreadLocalRandom.current().nextLong(100_000000L, 10000_000000L)),
@@ -156,7 +163,7 @@ public class SwopfiFlatTest {
 
     }
 
-    Stream<Arguments> bExchangeProvider() {
+    static Stream<Arguments> bExchangeProvider() {
         return Stream.of(
                 Arguments.of(exchanger5, ThreadLocalRandom.current().nextLong(10_000000L, 100_000000L)),
                 Arguments.of(exchanger5, ThreadLocalRandom.current().nextLong(100_000000L, 10000_000000L)),
@@ -213,7 +220,7 @@ public class SwopfiFlatTest {
         ).hasMessageContaining("Only swap of 10.000000 or more tokens is allowed");
     }
 
-    Stream<Arguments> replenishOneTokenAProvider() {
+    static Stream<Arguments> replenishOneTokenAProvider() {
         return Stream.of(
                 Arguments.of(exchanger5, ThreadLocalRandom.current().nextLong(5_000000L, 10_000000L)),
                 Arguments.of(exchanger5, ThreadLocalRandom.current().nextLong(10_000000L, 100_000000L)),
@@ -268,7 +275,7 @@ public class SwopfiFlatTest {
                 () -> assertThat(firstCaller.getAssetBalance(shareTokenId)).isEqualTo(callerTokenShareBalance + shareTokenToPayAmount));
     }
 
-    Stream<Arguments> replenishOneTokenBProvider() {
+    static Stream<Arguments> replenishOneTokenBProvider() {
         return Stream.of(
                 Arguments.of(exchanger5, ThreadLocalRandom.current().nextLong(5_000000L, 10_000000L)),
                 Arguments.of(exchanger5, ThreadLocalRandom.current().nextLong(10_000000L, 100_000000L)),
@@ -322,7 +329,7 @@ public class SwopfiFlatTest {
                 () -> assertThat(firstCaller.getAssetBalance(shareTokenId)).isEqualTo(callerTokenShareBalance + shareTokenToPayAmount));
     }
 
-    Stream<Arguments> replenishByTwiceProvider() {
+    static Stream<Arguments> replenishByTwiceProvider() {
         return Stream.of(
                 Arguments.of(exchanger4),
                 Arguments.of(exchanger5),
