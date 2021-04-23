@@ -192,7 +192,7 @@ func withdrawSWOP(withdrawAmount: Int) = if !isActive then throw("DApp is inacti
     let (userNewInterest,claimAmount) = claimCalc(i.caller)
     let userVoteAmount = getUserTotalVoteAmount(i.caller)
     let userVoteAmountForNewPool = getUserTotalVoteForNewPoolAmount(i.caller)
-    let availableFund = userSWOPLocked - userVoteAmount - userVoteAmountForNewPool# ДОБАВИТь - токонеы в голосвании за пул
+    let availableFund = userSWOPLocked - userVoteAmount - userVoteAmountForNewPool # ДОБАВИТь - токонеы в голосвании за пул
     if withdrawAmount > availableFund then throw("withdrawAmount > availableFund") else
     let totalSWOPLockedNew = totalSWOPLocked + claimAmount - withdrawAmount
     let userSWOPamountNew = userSWOPLocked + claimAmount - withdrawAmount
