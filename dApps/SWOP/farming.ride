@@ -21,12 +21,44 @@ let keyUserSWOPClaimedAmount = "_SWOP_claimed_amount"
 let keyUserSWOPLastClaimedAmount = "_SWOP_last_claimed_amount"
 let keyAvailableSWOP = "_available_SWOP"
 let keyFarmingStartHeight = "farming_start_height"
+let APY = "apy"
+let keyBalancecpmmA = "A_asset_balance"
+let keyBalancecpmmB = "B_asset_balance"
+let keyAssetIdA = "A_asset_id"
+let keyAssetIdB = "B_asset_id"
+let keyFirstHarvestHeight = "_first_harvest_height"
+let keyfirstHarvestCpmm = "first_harvest"
 let governanceAddress = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
+let wallet = Address(base58'3P6J84oH51DzY6xk2mT5TheXRbrCwBMxonp')
+let votingAddress = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
+# TODO change voting
+let cpmmAddress = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
+# TODO change cpmm
+let adminIncreaseInterestAddress = Address(base58'3PPupsBVHgDXaRhyMbkTxminzAotp8AMsr6')
 let oneWeekInBlock = 10106 # 1440*7*60/59.84 where 59.84 - real block duration in seconds
 let totalVoteShare = 10000000000
 
-let SWOP = this.getStringValue(keySWOPid).fromBase58String()
+let strAssetIdA = cpmmAddress.getStringValue(keyAssetIdA)
+let strAssetIdB = cpmmAddress.getStringValue(keyAssetIdB)
+let assetIdA = if strAssetIdA == "WAVES" then unit else strAssetIdA.fromBase58String()
+let assetIdB = if strAssetIdB == "WAVES" then unit else strAssetIdB.fromBase58String()
 
+let assetNameA = match assetIdA {
+    case id: ByteVector => assetInfo(id).value().name
+    case waves: Unit => "WAVES"
+}
+let assetNameB = match assetIdB {
+    case id: ByteVector => assetInfo(id).value().name
+    case waves: Unit => "WAVES"
+}
+
+let SWOP = this.getStringValue(keySWOPid).fromBase58String()
+func isFirstHarvest(pool:Address) = pool.getBoolean(keyfirstHarvestCpmm).valueOrElse(false)
+
+func getHeightFirstHarvest(pool:String) = votingAddress.getInteger(pool + keyFirstHarvestHeight).valueOrElse(0)
+
+func getBalance(balance:String) = cpmmAddress.getInteger(balance)
+                                                .valueOrErrorMessage("No data on the key: " + balance)
 
 func getTotalShareTokenLocked(pool:String) = this.getInteger(pool + keyShareTokensLocked)
                                                 .valueOrErrorMessage("No data on the key: " + pool + keyShareTokensLocked)
@@ -152,16 +184,64 @@ func initPoolShareFarming(pool:String) = {
 }
 
 @Callable(i)
+func updatePoolInterest(pool:String) = {
+    if i.caller != wallet then
+        throw("Only the Admin itself can call this function") else
+    let (userNewInterest,currentInterest,claimAmount,userShareTokensAmount) = claimCalc(pool,adminIncreaseInterestAddress,0)
+    [
+        IntegerEntry(pool + keyLastInterest, userNewInterest)
+    ]
+}
+
+@Callable(i)
 func lockShareTokens(pool:String) = {
     let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
-        if !checkPmtAssetIdCorrect(pool,pmtAssetId) then throw("Incorrect pmtAssetId") else
-        let (userNewInterest,currentInterest,claimAmount,userShareTokensAmount) = claimCalc(pool,i.caller,pmtAmount)
+    let (userNewInterest,currentInterest,claimAmount,userShareTokensAmount) = claimCalc(pool,i.caller,pmtAmount)
         let userShareAmountNew = userShareTokensAmount+pmtAmount
         let availableFundsNew = userAvailableSWOP(pool,i.caller) + claimAmount
         let totalShareAmount = getTotalShareTokenLocked(pool)
         let totalShareAmountNew = totalShareAmount + pmtAmount
         let userClaimedAmount = getUserSWOPClaimedAmount(pool,i.caller)
         let userClaimedAmountNew = userClaimedAmount + claimAmount
+
+        if (isFirstHarvest(Address(pool.fromBase58String())) && getHeightFirstHarvest(pool) < height) then {
+            let amountOfVoting = votingAddress.getInteger(this.toString() + "_" + pool + "_user_pool_struc").valueOrElse(0)
+            if(amountOfVoting != 0) then {
+                let assetBalanceA = getBalance(keyBalancecpmmA)
+                let assetBalanceB = getBalance(keyBalancecpmmB)
+
+                let shareTokenRate = if assetNameB == "USDN" then
+                        (2 *  assetBalanceB)/totalShareAmount
+                    else if assetNameA == "SWOP" then
+                        (2 *  assetBalanceB)/totalShareAmount
+                        # change to (2 * {B_asset_balance} * ((A_asset_balance_swop-usdn / 10^Decimals_A) / (B_asset_balance_swop-usdn / 10^Decimals_B)) / [Количество выпущенных share-токенов в этой паре])
+                    else if assetNameA == "WAVES" then
+                        (2 *  assetBalanceB)/totalShareAmount
+                        # (2 * {B_asset_balance} * ((A_asset_balance_waves-usdn / 10^Decimals_A) / (B_asset_balance_waves-usdn / 10^Decimals_B)) / [Количество выпущенных share-токенов в этой паре])
+                    else
+                        0
+                let shareToken = amountOfVoting
+                if (shareToken > 0) then {
+                    if (shareToken == pmtAmount) then {
+                        [
+                            IntegerEntry(pool + "_" + i.caller.toString() + keyUserLastInterest, userNewInterest),
+                            IntegerEntry(pool + "_" + i.caller.toString() + keyUserShareTokensLocked, userShareAmountNew),
+                            IntegerEntry(pool + keyLastInterest, currentInterest),
+                            IntegerEntry(pool + keyLastInterestHeight, height),
+                            IntegerEntry(pool + keyShareTokensLocked,shareToken),
+                            IntegerEntry(pool + "_" + i.caller.toString() + keyUserSWOPClaimedAmount, userClaimedAmountNew),
+                            IntegerEntry(pool + "_" + i.caller.toString() + keyUserSWOPLastClaimedAmount, claimAmount),
+                            IntegerEntry(pool + "_" + i.caller.toString() + keyAvailableSWOP, availableFundsNew)
+                        ]
+                    } else
+                        throw()
+                } else
+                    throw()
+            } else {
+                throw()
+            }
+        }
+        else if !checkPmtAssetIdCorrect(pool,pmtAssetId) then throw("Incorrect pmtAssetId") else
         [
             IntegerEntry(pool + "_" + i.caller.toString() + keyUserLastInterest, userNewInterest),
             IntegerEntry(pool + "_" + i.caller.toString() + keyUserShareTokensLocked, userShareAmountNew),
@@ -178,13 +258,14 @@ func lockShareTokens(pool:String) = {
 func withdrawShareTokens(pool:String,shareTokensWithdrawAmount:Int) = {
     let shareTokensId =  pool.addressFromString().value().getStringValue("share_asset_id").fromBase58String()
         let (userNewInterest,currentInterest,claimAmount,userShareTokensAmount) = claimCalc(pool,i.caller,1)
-        if shareTokensWithdrawAmount > userShareTokensAmount then throw("Withdraw amount more then user locked amount") else
         let userShareAmountNew = userShareTokensAmount-shareTokensWithdrawAmount
         let availableFundsNew = userAvailableSWOP(pool,i.caller) + claimAmount
         let totalShareAmount = getTotalShareTokenLocked(pool)
         let totalShareAmountNew = totalShareAmount - shareTokensWithdrawAmount
         let userClaimedAmount = getUserSWOPClaimedAmount(pool,i.caller)
         let userClaimedAmountNew = userClaimedAmount + claimAmount
+
+        if shareTokensWithdrawAmount > userShareTokensAmount then throw("Withdraw amount more then user locked amount") else
         [
             IntegerEntry(pool + "_" + i.caller.toString() + keyUserLastInterest, userNewInterest),
             IntegerEntry(pool + "_" + i.caller.toString() + keyUserShareTokensLocked, userShareAmountNew),

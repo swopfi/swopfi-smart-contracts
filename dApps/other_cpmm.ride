@@ -16,6 +16,15 @@ let keyShareAssetSupply = "share_asset_supply"
 let keyCommission = "commission"
 let keyCommissionScaleDelimiter = "commission_scale_delimiter"
 let keyCause = "shutdown_cause"
+let firstHarvest = "first_harvest"
+
+# период через воутинг контракт (Дима) старт, высота через ферст харвест. Записать ферст харвест хайт (10102) - тут хранить
+# let basePeriod = this.getInteger(kBasePeriod).valueOrErrorMessage("Empty kBasePeriod") # 0
+# let startHeight = this.getInteger(kStartHeight).valueOrErrorMessage("Empty kStartHeight")
+# let periodLength =  this.getInteger(kPeriodLength).valueOrErrorMessage("Empty kPeriodLength")  # 10102
+# let durationFullVotePower = this.getInteger(kDurationFullVotePower).valueOrErrorMessage("Empty kDurationFullVotePower") # 1443, 1 days in block after voting start
+# let minVotePower = this.getInteger(kMinVotePower).valueOrErrorMessage("Empty kMinVotePower") # 10000000, minVoteCoeff/scale8 between 0 and 1 - voting power if vote at the end of voting period
+# let currPeriod = basePeriod + (height-startHeight)/periodLength
 
 let adminPubKey1 = base58'DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA'
 let adminPubKey2 = base58'E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7'
@@ -85,6 +94,16 @@ func getAssetInfo(assetId: ByteVector|Unit) = match assetId {
     case waves: Unit => ("WAVES", "WAVES", 8)
 }
 
+func getAssetInfoFromString(assetStr: String) = {
+    if assetStr == "WAVES" then ("WAVES", "WAVES", 8)
+    else {
+        let stringId = assetStr
+        let id = assetStr.fromBase58String()
+        let info = assetInfo(id).valueOrErrorMessage("Asset " + stringId + " doesn't exist")
+        (stringId, info.name, info.decimals)
+    }
+}
+
 func suspend(cause: String) = [
     BooleanEntry(keyActive, false),
     StringEntry(keyCause, cause)
@@ -150,15 +169,15 @@ func init() = {
 }
 
 @Callable(i)
-func initWithInitRatio(amtAssetA: Int, amtAssetB: Int) = {
-    let pmtAssetIdA = i.payments[0].assetId
-    let pmtAssetIdB = i.payments[1].assetId
-    let (pmtStrAssetIdA, pmtAssetNameA, pmtDecimalsA) = getAssetInfo(pmtAssetIdA)
-    let (pmtStrAssetIdB, pmtAssetNameB, pmtDecimalsB) = getAssetInfo(pmtAssetIdB)
+func initWithInitRatio(amtAssetA: Int, amtAssetB: Int, strAssetIdA: String, strAssetIdB: String) = {
+    # let pmtAssetIdA = i.payments[0].assetId
+    # let pmtAssetIdB = i.payments[1].assetId
+    let (pmtStrAssetIdA, pmtAssetNameA, pmtDecimalsA) = getAssetInfoFromString(strAssetIdA)
+    let (pmtStrAssetIdB, pmtAssetNameB, pmtDecimalsB) = getAssetInfoFromString(strAssetIdB)
 
     if this.getBoolean(keyActive).isDefined() then
         throw("DApp is already active")
-    else if pmtAssetIdA == pmtAssetIdB then
+    else if strAssetIdA == strAssetIdB then
         throw("Assets must be different")
     else {
         let shareName = "s" + pmtAssetNameA.take(7) + "_" + pmtAssetNameB.take(7)
@@ -171,6 +190,7 @@ func initWithInitRatio(amtAssetA: Int, amtAssetB: Int) = {
         [
             StringEntry(keyVersion, version),
             BooleanEntry(keyActive, true),
+            BooleanEntry(firstHarvest, true),
             StringEntry(keyAssetIdA, pmtStrAssetIdA),
             StringEntry(keyAssetIdB, pmtStrAssetIdB),
             IntegerEntry(keyBalanceInitA, amtAssetA),
