@@ -151,6 +151,24 @@ func claimCalc(pool:String,caller:Address,pmtAmount:Int) = {
     (userNewInterest,currentInterest,claimAmount,userShareTokensAmount)
 }
 
+func calculateProtocolReward(pool:String) ={	
+    let (lastInterestHeight,lastInterest) = getLastInterestInfo(pool)	
+    let (currentRewardPerBlock,rewardUpdateHeight,previousRewardPerBlock) = rewardInfo(pool)	
+    let shareTokenLocked = getTotalShareTokenLocked(pool)	
+    if shareTokenLocked == 0 then 0 else # this condition true only for the first call	
+    if height < rewardUpdateHeight then # in case of updating reward info at gov dApp	
+        let reward = previousRewardPerBlock*(height-lastInterestHeight)	
+        reward	
+    else	
+        if (lastInterestHeight > rewardUpdateHeight) then	
+            let reward = currentRewardPerBlock*(height-lastInterestHeight)	
+            reward	
+        else # in case if reward updated we need update interest	
+            let rewardAfterLastInterestBeforeReawardUpdate = previousRewardPerBlock*(rewardUpdateHeight-lastInterestHeight)	
+            let reward = currentRewardPerBlock*(height-rewardUpdateHeight)	
+            reward + rewardAfterLastInterestBeforeReawardUpdate	
+}
+
 func checkPmtAssetIdCorrect(pool:String,pmtAssetId:ByteVector|Unit) = {
    let poolShareAssetId = pool.addressFromString().value().getStringValue("share_asset_id").fromBase58String()
    if pmtAssetId == poolShareAssetId then true else false
@@ -172,15 +190,17 @@ func init(earlyLP:String) = {
     ]
 }
 
-@Callable(i)
-func initPoolShareFarming(pool:String) = {
-    if i.caller != this then
-        throw("Only the DApp itself can call this function") else
-    let (currentReward,rewardUpdateHeight,previousRewardPerBlock) = rewardInfo(pool)
-    [
-        IntegerEntry(pool + keyShareTokensLocked, 0),
-        IntegerEntry(pool + keyLastInterest, 0)
-    ]
+@Callable(i)	
+func initPoolShareFarming(pool:String) = {	
+    if i.caller != this then	
+        throw("Only the DApp itself can call this function") else	
+    let (currentReward,rewardUpdateHeight,previousRewardPerBlock) = rewardInfo(pool)	
+    [	
+        IntegerEntry(pool + keyShareTokensLocked, 0),	
+        IntegerEntry(pool + keyLastInterest, 0),	
+        IntegerEntry(pool + keyLastInterestHeight,height)	
+        	
+    ]	
 }
 
 @Callable(i)
@@ -196,7 +216,8 @@ func updatePoolInterest(pool:String) = {
 @Callable(i)
 func lockShareTokens(pool:String) = {
     let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
-    let (userNewInterest,currentInterest,claimAmount,userShareTokensAmount) = claimCalc(pool,i.caller,pmtAmount)
+    if !checkPmtAssetIdCorrect(pool,pmtAssetId) then throw("Incorrect pmtAssetId") else	
+        let (userNewInterest,currentInterest,claimAmount,userShareTokensAmount) = claimCalc(pool,i.caller,pmtAmount)
         let userShareAmountNew = userShareTokensAmount+pmtAmount
         let availableFundsNew = userAvailableSWOP(pool,i.caller) + claimAmount
         let totalShareAmount = getTotalShareTokenLocked(pool)
@@ -210,17 +231,17 @@ func lockShareTokens(pool:String) = {
                 let assetBalanceA = getBalance(keyBalancecpmmA)
                 let assetBalanceB = getBalance(keyBalancecpmmB)
 
-                let shareTokenRate = if assetNameB == "USDN" then
+                let shareTokenRate = if assetNameB == "USDN" then 
                         (2 *  assetBalanceB)/totalShareAmount
-                    else if assetNameA == "SWOP" then
+                    else if assetNameA == "SWOP" then 
                         (2 *  assetBalanceB)/totalShareAmount
                         # change to (2 * {B_asset_balance} * ((A_asset_balance_swop-usdn / 10^Decimals_A) / (B_asset_balance_swop-usdn / 10^Decimals_B)) / [Количество выпущенных share-токенов в этой паре])
-                    else if assetNameA == "WAVES" then
+                    else if assetNameA == "WAVES" then 
                         (2 *  assetBalanceB)/totalShareAmount
                         # (2 * {B_asset_balance} * ((A_asset_balance_waves-usdn / 10^Decimals_A) / (B_asset_balance_waves-usdn / 10^Decimals_B)) / [Количество выпущенных share-токенов в этой паре])
-                    else
+                    else 
                         0
-                let shareToken = amountOfVoting
+                let shareToken = amountOfVoting 
                 if (shareToken > 0) then {
                     if (shareToken == pmtAmount) then {
                         [
@@ -241,17 +262,26 @@ func lockShareTokens(pool:String) = {
                 throw()
             }
         }
+        # 	        if totalShareAmount == 0 then # only first call	
+            
+        #     baseEntry ++ 
+        # else 	
+        #     baseEntry
         else if !checkPmtAssetIdCorrect(pool,pmtAssetId) then throw("Incorrect pmtAssetId") else
-        [
-            IntegerEntry(pool + "_" + i.caller.toString() + keyUserLastInterest, userNewInterest),
-            IntegerEntry(pool + "_" + i.caller.toString() + keyUserShareTokensLocked, userShareAmountNew),
-            IntegerEntry(pool + keyLastInterest, currentInterest),
-            IntegerEntry(pool + keyLastInterestHeight, height),
-            IntegerEntry(pool + keyShareTokensLocked,totalShareAmountNew),
-            IntegerEntry(pool + "_" + i.caller.toString() + keyUserSWOPClaimedAmount, userClaimedAmountNew),
-            IntegerEntry(pool + "_" + i.caller.toString() + keyUserSWOPLastClaimedAmount, claimAmount),
-            IntegerEntry(pool + "_" + i.caller.toString() + keyAvailableSWOP, availableFundsNew)
-        ]
+        {
+            let protocolReward = calculateProtocolReward(pool)	
+            [
+                IntegerEntry(pool + "_" + i.caller.toString() + keyUserLastInterest, userNewInterest),
+                IntegerEntry(pool + "_" + i.caller.toString() + keyUserShareTokensLocked, userShareAmountNew),
+                IntegerEntry(pool + keyLastInterest, currentInterest),
+                IntegerEntry(pool + keyLastInterestHeight, height),
+                IntegerEntry(pool + keyShareTokensLocked,totalShareAmountNew),
+                IntegerEntry(pool + "_" + i.caller.toString() + keyUserSWOPClaimedAmount, userClaimedAmountNew),
+                IntegerEntry(pool + "_" + i.caller.toString() + keyUserSWOPLastClaimedAmount, claimAmount),
+                IntegerEntry(pool + "_" + i.caller.toString() + keyAvailableSWOP, availableFundsNew),
+                ScriptTransfer(wallet, protocolReward, SWOP)
+            ]
+        }
 }
 
 @Callable(i)
