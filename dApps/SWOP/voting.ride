@@ -126,8 +126,8 @@ func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = 
     if userPoolVoteSWOPnew < 0 then throw("New userPoolVoteSWOPnew < 0") else
 
     #entry for FirstHarvest
-    let previousTotalVotesSWOPperiod = this.getStringValue(kPreviousTotalVoteSWOP).split("_")[1].parseIntValue()
-    let previousTotalVotesSWOPentry = if previousTotalVotesSWOPperiod != currPeriod then
+    let previousTotalVoteSWOPperiod = this.getStringValue(kPreviousTotalVoteSWOP).split("_")[1].parseIntValue()
+    let previousTotalVoteSWOPentry = if previousTotalVoteSWOPperiod != currPeriod then
         let previousTotalVoteSWOPstruc = userTotalVoteSWOP.toString() + "_" + (currPeriod-1).toString()
        [StringEntry(kPreviousTotalVoteSWOP, previousTotalVoteSWOPstruc)]
     else 
@@ -172,7 +172,7 @@ func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = 
             StringEntry(kTotalStruc, totalStrucNew)
         ] 
 
-        userPoolEntry ++ userTotalEntry ++ poolEntry ++ totalEntry ++ calcDeleteEntry(i.caller.toString(),poolAddress, userPoolVoteSWOPnew) ++ previousTotalVotesSWOPentry 
+        userPoolEntry ++ userTotalEntry ++ poolEntry ++ totalEntry ++ calcDeleteEntry(i.caller.toString(),poolAddress, userPoolVoteSWOPnew) ++ previousTotalVoteSWOPentry 
 
     else # if user remove swop from voting
         let removePoolVote = -poolVoteDiffSWOP
@@ -218,7 +218,7 @@ func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = 
         ] 
         let allNewValues = [currPeriod,userPoolFreezeSWOPnew,userPoolActiveVoteSWOPnew,userPoolFreezeSWOPnew,userUnvotedNew,userUnvotedPeriodNew,poolVoteSWOPnew,poolActiveSWOPnew,totalVoteSWOPnew,totalActiveSWOPnew]
         if allNewValues.min() < 0 then throw("One or more values are negative") else
-        userPoolEntry ++ userTotalEntry ++ poolEntry ++ totalEntry ++ calcDeleteEntry(i.caller.toString(),poolAddress, userPoolVoteSWOPnew) ++ previousTotalVotesSWOPentry
+        userPoolEntry ++ userTotalEntry ++ poolEntry ++ totalEntry ++ calcDeleteEntry(i.caller.toString(),poolAddress, userPoolVoteSWOPnew) ++ previousTotalVoteSWOPentry
 }
 
 @Verifier(tx)
