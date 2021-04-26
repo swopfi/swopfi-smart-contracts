@@ -68,8 +68,6 @@ func calcDeleteEntry(caller: String,poolAddress: String, userPoolVoteSWOPnew: In
     .deleteIfExists(kTotalVoteSWOP)
 }
 
-
-
 @Callable(i)
 func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = {
     if poolAddressesL.size() > 1 || poolsVoteSWOPNewL.size() > 1 
@@ -221,8 +219,6 @@ func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = 
         let allNewValues = [currPeriod,userPoolFreezeSWOPnew,userPoolActiveVoteSWOPnew,userPoolFreezeSWOPnew,userUnvotedNew,userUnvotedPeriodNew,poolVoteSWOPnew,poolActiveSWOPnew,totalVoteSWOPnew,totalActiveSWOPnew]
         if allNewValues.min() < 0 then throw("One or more values are negative") else
         userPoolEntry ++ userTotalEntry ++ poolEntry ++ totalEntry ++ calcDeleteEntry(i.caller.toString(),poolAddress, userPoolVoteSWOPnew) ++ previousTotalVotesSWOPentry
-        # this logic needed for FirstHarvest
-
 }
 
 @Verifier(tx)
