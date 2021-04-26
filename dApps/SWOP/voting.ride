@@ -18,6 +18,8 @@ let kPoolStruc = "_pool_struc"
 let kTotalVoteSWOP = "total_vote_SWOP"
 let kTotalStruc = "total_struc"
 
+let kPreviousTotalVoteSWOP = "previous_total_vote_SWOP"
+
 let kStartHeight = "start_height"
 let kBasePeriod = "base_period"
 let kPeriodLength = "period_length"
@@ -65,6 +67,8 @@ func calcDeleteEntry(caller: String,poolAddress: String, userPoolVoteSWOPnew: In
     .deleteIfExists(poolAddress + kPoolVoteSWOP)
     .deleteIfExists(kTotalVoteSWOP)
 }
+
+
 
 @Callable(i)
 func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = {
@@ -123,6 +127,14 @@ func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = 
     if userTotalVoteSWOPnew < 0 then throw("New userTotalVoteSWOPnew < 0") else
     if userPoolVoteSWOPnew < 0 then throw("New userPoolVoteSWOPnew < 0") else
 
+    #entry for FirstHarvest
+    let previousTotalVotesSWOPperiod = this.getStringValue(kPreviousTotalVoteSWOP).split("_")[1].parseIntValue()
+    let previousTotalVotesSWOPentry = if previousTotalVotesSWOPperiod != currPeriod then
+        let previousTotalVoteSWOPstruc = userTotalVoteSWOP.toString() + "_" + (currPeriod-1).toString()
+       [StringEntry(kPreviousTotalVoteSWOP, previousTotalVoteSWOPstruc)]
+    else 
+        []
+
     if userPoolVoteSWOPnew >= userPoolVoteSWOP then # if user add swop in voting
         # entry for user pool
         let coef = votingCoef()
@@ -162,7 +174,7 @@ func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = 
             StringEntry(kTotalStruc, totalStrucNew)
         ] 
 
-        userPoolEntry ++ userTotalEntry ++ poolEntry ++ totalEntry ++ calcDeleteEntry(i.caller.toString(),poolAddress, userPoolVoteSWOPnew)
+        userPoolEntry ++ userTotalEntry ++ poolEntry ++ totalEntry ++ calcDeleteEntry(i.caller.toString(),poolAddress, userPoolVoteSWOPnew) ++ previousTotalVotesSWOPentry 
 
     else # if user remove swop from voting
         let removePoolVote = -poolVoteDiffSWOP
@@ -208,7 +220,8 @@ func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = 
         ] 
         let allNewValues = [currPeriod,userPoolFreezeSWOPnew,userPoolActiveVoteSWOPnew,userPoolFreezeSWOPnew,userUnvotedNew,userUnvotedPeriodNew,poolVoteSWOPnew,poolActiveSWOPnew,totalVoteSWOPnew,totalActiveSWOPnew]
         if allNewValues.min() < 0 then throw("One or more values are negative") else
-        userPoolEntry ++ userTotalEntry ++ poolEntry ++ totalEntry ++ calcDeleteEntry(i.caller.toString(),poolAddress, userPoolVoteSWOPnew)
+        userPoolEntry ++ userTotalEntry ++ poolEntry ++ totalEntry ++ calcDeleteEntry(i.caller.toString(),poolAddress, userPoolVoteSWOPnew) ++ previousTotalVotesSWOPentry
+        # this logic needed for FirstHarvest
 
 }
 
