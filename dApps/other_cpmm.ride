@@ -17,6 +17,12 @@ let keyCommission = "commission"
 let keyCommissionScaleDelimiter = "commission_scale_delimiter"
 let keyCause = "shutdown_cause"
 let firstHarvest = "first_harvest"
+let kBasePeriod = "base_period"
+let kPeriodLength = "period_length"
+let kStartHeight = "start_height"
+let kFirstHarvestHeight = "first_harvest_height"
+let kDurationFullVotePower = "duration_full_vote_power"
+let kMinVotePower = "min_vote_power"
 
 # период через воутинг контракт (Дима) старт, высота через ферст харвест. Записать ферст харвест хайт (10102) - тут хранить
 # let basePeriod = this.getInteger(kBasePeriod).valueOrErrorMessage("Empty kBasePeriod") # 0
@@ -33,10 +39,22 @@ let adminPubKeyStartStop = base58'EtVkT6ed8GtbUiVVEqdmEqsp2J4qbb3rre2HFgxeVYdg'
 let adminPubKeyStaking = base58'Czn4yoAuUZCVCLJDRfskn8URfkwpknwBTZDbs1wFrY7h'
 
 let governanceAddress = Address(base58'3P6J84oH51DzY6xk2mT5TheXRbrCwBMxonp')
+let votingAddress = Address(base58'3P6J84oH51DzY6xk2mT5TheXRbrCwBMxonp')
+#change address
 let stakingAddress = Address(base58'3PNikM6yp4NqcSU8guxQtmR5onr2D4e8yTJ')
 
 let USDN = base58'DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p'
 let stakingFeeInUSDN = 9 * assetInfo(USDN).value().minSponsoredFee.value() # sponsored fee for invoke called from scripted account
+
+let basePeriod = votingAddress.getInteger(kBasePeriod).valueOrErrorMessage("Empty kBasePeriod") # 0
+let startHeight = votingAddress.getInteger(kStartHeight).valueOrErrorMessage("Empty kStartHeight")
+let periodLength =  votingAddress.getInteger(kPeriodLength).valueOrErrorMessage("Empty kPeriodLength")  # 10102
+let durationFullVotePower = votingAddress.getInteger(kDurationFullVotePower).valueOrErrorMessage("Empty kDurationFullVotePower") # 1443, 1 days in block after voting start
+let minVotePower = votingAddress.getInteger(kMinVotePower).valueOrErrorMessage("Empty kMinVotePower") # 10000000, minVoteCoeff/scale8 between 0 and 1 - voting power if vote at the end of voting period
+
+let govAddr = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
+
+let currPeriod = basePeriod + (height-startHeight)/periodLength + 2
 
 let isActive = this.getBooleanValue(keyActive)
 
@@ -95,7 +113,7 @@ func getAssetInfo(assetId: ByteVector|Unit) = match assetId {
 }
 
 func getAssetInfoFromString(assetStr: String) = {
-    if assetStr == "WAVES" then ("WAVES", "WAVES", 8)
+    if assetStr == "WAVES" then ("WAVES", "WAVES", 8) 
     else {
         let stringId = assetStr
         let id = assetStr.fromBase58String()
@@ -199,6 +217,7 @@ func initWithInitRatio(amtAssetA: Int, amtAssetB: Int, strAssetIdA: String, strA
             IntegerEntry(keyCommissionScaleDelimiter, commissionScaleDelimiter),
             shareIssue,
             StringEntry(keyShareAssetId, shareIssueId.toBase58String()),
+            IntegerEntry(kFirstHarvestHeight, currPeriod),
             IntegerEntry(keyShareAssetSupply, shareInitialSupply)
         ]
     }
@@ -228,6 +247,7 @@ func replenishWithTwoTokens(slippageTolerance: Int) = {
                 pow(10, 0, shareDecimals, 0, 0, HALFDOWN)
             )
 
+            # убрать tokenRatio (slippageTOlerance)
             let tokenRatio = fraction(assetInitA, scaleValue8, pmtAmountA)
                 .fraction(scaleValue3, assetInitB.fraction(scaleValue8, pmtAmountB))
 
@@ -247,7 +267,7 @@ func replenishWithTwoTokens(slippageTolerance: Int) = {
             else if !hasEnoughBalance then
                 suspend("Suspicious state. Actual balances: " + balanceA.toString() + " " + assetNameA + ", " + balanceB.toString() + " " + assetNameB
                 + ". State: " + accountBalance(assetIdA).toString() + " " + assetNameA + ", " + accountBalance(assetIdB).toString() + " " + assetNameB)
-            else
+            else 
             [
                 Reissue(shareAssetId, shareInitialSupply, true),
                 IntegerEntry(keyBalanceA, pmtAmountA),
@@ -337,7 +357,7 @@ func exchange(minAmountToReceive: Int) = {
 
     if !isActive then
         throw("DApp is inactive at this moment")
-    else if balanceA == 0 && balanceB == 0 then
+    else if balanceA == 0 && balanceB == 0 then 
         throw("Can't exchange with zero balance")
     else if minAmountToReceive <= 0 then
         throw("Minimal amount to receive must be positive. Actual: " + minAmountToReceive.toString())
