@@ -41,6 +41,8 @@ let wavesUsdnAddress = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
 let adminIncreaseInterestAddress = Address(base58'3PPupsBVHgDXaRhyMbkTxminzAotp8AMsr6')
 let oneWeekInBlock = 10106 # 1440*7*60/59.84 where 59.84 - real block duration in seconds
 let totalVoteShare = 10000000000
+let scaleValue6 = 1000000
+let scaleValue8 = 100000000
 
 func strAssetIdA(pool:Address)= pool.getStringValue(keyAssetIdA)
 func strAssetIdB(pool:Address) = pool.getStringValue(keyAssetIdB)
@@ -270,7 +272,7 @@ func lockShareTokens(pool:String) = {
         let previosTotal = previosTotalVoting[0]
         let userShareTokenLocked = userShareTokensAmount
         let userSwopVote = if currPeriod.toString() == amountOfVoting[2] then {parseInt(amountOfVoting[1]).valueOrElse(0)} else {parseInt(amountOfVoting[0]).valueOrElse(0)}
-        let swopRate = ((assetbalanceswopusdnA / 100000000) / (assetbalanceswopusdnB / 1000000))
+        let swopRate = ((assetbalanceswopusdnA / scaleValue8) / (assetbalanceswopusdnB / scaleValue6))
         let votingTotal = if currPeriod == parseInt(totalPeriod).valueOrElse(-1) then parseInt(previosTotal).valueOrElse(0) else parseInt(totalPeriod).valueOrElse(0)
         let harvestPower = SwopYearEmission / votingTotal / APY
         let protocolReward = calculateProtocolReward(pool)	
@@ -279,9 +281,9 @@ func lockShareTokens(pool:String) = {
                 let shareTokenRate = if assetNameB(Address(pool.fromBase58String())) == "USDN" then 
                         (2 *  assetBalanceB)/totalShareAmount
                     else if assetNameA(Address(pool.fromBase58String())) == "SWOP" then 
-                        (2 *  assetBalanceB * ((assetbalanceswopusdnA / 100000000) / (assetbalanceswopusdnB / 1000000)))/totalShareAmount
+                        (2 *  assetBalanceB * ((assetbalanceswopusdnB / scaleValue8) / (assetbalanceswopusdnA / scaleValue6)))/totalShareAmount
                     else if assetNameA(Address(pool.fromBase58String())) == "WAVES" then 
-                        (2 *  assetBalanceB * ((assetbalancewavesusdnA / 100000000) / (assetbalancewavesusdnB / 1000000)))/totalShareAmount
+                        (2 *  assetBalanceB * ((assetbalancewavesusdnB / scaleValue8) / (assetbalancewavesusdnA / scaleValue6)))/totalShareAmount
                     else 
                         0
                 let shareToken = (userSwopVote * swopRate * harvestPower) / shareTokenRate - userShareTokenLocked 
