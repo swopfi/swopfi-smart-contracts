@@ -16,21 +16,13 @@ let keyShareAssetSupply = "share_asset_supply"
 let keyCommission = "commission"
 let keyCommissionScaleDelimiter = "commission_scale_delimiter"
 let keyCause = "shutdown_cause"
-let firstHarvest = "first_harvest"
-let kBasePeriod = "base_period"
-let kPeriodLength = "period_length"
-let kStartHeight = "start_height"
-let kFirstHarvestHeight = "first_harvest_height"
-let kDurationFullVotePower = "duration_full_vote_power"
-let kMinVotePower = "min_vote_power"
-
-# период через воутинг контракт (Дима) старт, высота через ферст харвест. Записать ферст харвест хайт (10102) - тут хранить
-# let basePeriod = this.getInteger(kBasePeriod).valueOrErrorMessage("Empty kBasePeriod") # 0
-# let startHeight = this.getInteger(kStartHeight).valueOrErrorMessage("Empty kStartHeight")
-# let periodLength =  this.getInteger(kPeriodLength).valueOrErrorMessage("Empty kPeriodLength")  # 10102
-# let durationFullVotePower = this.getInteger(kDurationFullVotePower).valueOrErrorMessage("Empty kDurationFullVotePower") # 1443, 1 days in block after voting start
-# let minVotePower = this.getInteger(kMinVotePower).valueOrErrorMessage("Empty kMinVotePower") # 10000000, minVoteCoeff/scale8 between 0 and 1 - voting power if vote at the end of voting period
-# let currPeriod = basePeriod + (height-startHeight)/periodLength
+let keyFirstHarvest = "first_harvest"
+let keyBasePeriod = "base_period"
+let keyPeriodLength = "period_length"
+let keyStartHeight = "start_height"
+let keyFirstHarvestHeight = "first_harvest_height"
+let keyDurationFullVotePower = "duration_full_vote_power"
+let keyMinVotePower = "min_vote_power"
 
 let adminPubKey1 = base58'DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA'
 let adminPubKey2 = base58'E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7'
@@ -39,6 +31,7 @@ let adminPubKeyStartStop = base58'EtVkT6ed8GtbUiVVEqdmEqsp2J4qbb3rre2HFgxeVYdg'
 let adminPubKeyStaking = base58'Czn4yoAuUZCVCLJDRfskn8URfkwpknwBTZDbs1wFrY7h'
 
 let governanceAddress = Address(base58'3P6J84oH51DzY6xk2mT5TheXRbrCwBMxonp')
+let govAddr = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
 let votingAddress = Address(base58'3P6J84oH51DzY6xk2mT5TheXRbrCwBMxonp')
 #change address
 let stakingAddress = Address(base58'3PNikM6yp4NqcSU8guxQtmR5onr2D4e8yTJ')
@@ -46,13 +39,11 @@ let stakingAddress = Address(base58'3PNikM6yp4NqcSU8guxQtmR5onr2D4e8yTJ')
 let USDN = base58'DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p'
 let stakingFeeInUSDN = 9 * assetInfo(USDN).value().minSponsoredFee.value() # sponsored fee for invoke called from scripted account
 
-let basePeriod = votingAddress.getInteger(kBasePeriod).valueOrErrorMessage("Empty kBasePeriod") # 0
-let startHeight = votingAddress.getInteger(kStartHeight).valueOrErrorMessage("Empty kStartHeight")
-let periodLength =  votingAddress.getInteger(kPeriodLength).valueOrErrorMessage("Empty kPeriodLength")  # 10102
-let durationFullVotePower = votingAddress.getInteger(kDurationFullVotePower).valueOrErrorMessage("Empty kDurationFullVotePower") # 1443, 1 days in block after voting start
-let minVotePower = votingAddress.getInteger(kMinVotePower).valueOrErrorMessage("Empty kMinVotePower") # 10000000, minVoteCoeff/scale8 between 0 and 1 - voting power if vote at the end of voting period
-
-let govAddr = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
+let basePeriod = votingAddress.getInteger(keyBasePeriod).valueOrErrorMessage("Empty kBasePeriod") # 0
+let startHeight = votingAddress.getInteger(keyStartHeight).valueOrErrorMessage("Empty kStartHeight")
+let periodLength =  votingAddress.getInteger(keyPeriodLength).valueOrErrorMessage("Empty kPeriodLength")  # 10102
+let durationFullVotePower = votingAddress.getInteger(keyDurationFullVotePower).valueOrErrorMessage("Empty kDurationFullVotePower") # 1443, 1 days in block after voting start
+let minVotePower = votingAddress.getInteger(keyMinVotePower).valueOrErrorMessage("Empty kMinVotePower") # 10000000, minVoteCoeff/scale8 between 0 and 1 - voting power if vote at the end of voting period
 
 let currPeriod = basePeriod + (height-startHeight)/periodLength + 2
 
@@ -147,7 +138,7 @@ func throwInsufficientAvailableBalances(amountA: Int, amountB: Int) = throw("Ins
     +  ". Please contact support in Telegram: https://t.me/swopfisupport")
 
 @Callable(i)
-func init() = {
+func init(firstHarvest: Boolean) = {
     let (pmtAmountA, pmtAssetIdA) = (i.payments[0].amount, i.payments[0].assetId)
     let (pmtAmountB, pmtAssetIdB) = (i.payments[1].amount, i.payments[1].assetId)
     let (pmtStrAssetIdA, pmtAssetNameA, pmtDecimalsA) = getAssetInfo(pmtAssetIdA)
@@ -169,7 +160,7 @@ func init() = {
         )
         let shareIssue = Issue(shareName, shareDescription, shareInitialSupply, shareDecimals, true)
         let shareIssueId = shareIssue.calculateAssetId()
-        [
+        let baseEntry =         [
             StringEntry(keyVersion, version),
             BooleanEntry(keyActive, true),
             StringEntry(keyAssetIdA, pmtStrAssetIdA),
@@ -183,13 +174,20 @@ func init() = {
             IntegerEntry(keyShareAssetSupply, shareInitialSupply),
             ScriptTransfer(i.caller, shareInitialSupply, shareIssueId)
         ]
+        if (firstHarvest) then {
+            baseEntry ++ [
+                BooleanEntry(keyFirstHarvest, firstHarvest),
+                IntegerEntry(keyFirstHarvestHeight, currPeriod)
+            ]
+        } else {
+            baseEntry
+        }
+
     }
 }
 
 @Callable(i)
-func initWithInitRatio(amtAssetA: Int, amtAssetB: Int, strAssetIdA: String, strAssetIdB: String) = {
-    # let pmtAssetIdA = i.payments[0].assetId
-    # let pmtAssetIdB = i.payments[1].assetId
+func initWithInitRatio(amtAssetA: Int, amtAssetB: Int, strAssetIdA: String, strAssetIdB: String, firstHarvest: Boolean) = {
     let (pmtStrAssetIdA, pmtAssetNameA, pmtDecimalsA) = getAssetInfoFromString(strAssetIdA)
     let (pmtStrAssetIdB, pmtAssetNameB, pmtDecimalsB) = getAssetInfoFromString(strAssetIdB)
 
@@ -205,21 +203,31 @@ func initWithInitRatio(amtAssetA: Int, amtAssetB: Int, strAssetIdA: String, strA
         let shareInitialSupply = 0
         let shareIssue = Issue(shareName, shareDescription, shareInitialSupply, shareDecimals, true)
         let shareIssueId = shareIssue.calculateAssetId()
-        [
+        let baseEntry =         [
             StringEntry(keyVersion, version),
             BooleanEntry(keyActive, true),
-            BooleanEntry(firstHarvest, true),
             StringEntry(keyAssetIdA, pmtStrAssetIdA),
             StringEntry(keyAssetIdB, pmtStrAssetIdB),
             IntegerEntry(keyBalanceInitA, amtAssetA),
             IntegerEntry(keyBalanceInitB, amtAssetB),
+            IntegerEntry(keyBalanceA, 0),
+            IntegerEntry(keyBalanceB, 0),
             IntegerEntry(keyCommission, commission),
             IntegerEntry(keyCommissionScaleDelimiter, commissionScaleDelimiter),
             shareIssue,
             StringEntry(keyShareAssetId, shareIssueId.toBase58String()),
-            IntegerEntry(kFirstHarvestHeight, currPeriod),
+            IntegerEntry(keyFirstHarvestHeight, currPeriod),
             IntegerEntry(keyShareAssetSupply, shareInitialSupply)
         ]
+
+        if (firstHarvest) then {
+            baseEntry ++ [
+                BooleanEntry(keyFirstHarvest, firstHarvest),
+                IntegerEntry(keyFirstHarvestHeight, currPeriod)
+            ]
+        } else {
+            baseEntry
+        }
     }
 }
 
@@ -247,10 +255,6 @@ func replenishWithTwoTokens(slippageTolerance: Int) = {
                 pow(10, 0, shareDecimals, 0, 0, HALFDOWN)
             )
 
-            # убрать tokenRatio (slippageTOlerance)
-            let tokenRatio = fraction(assetInitA, scaleValue8, pmtAmountA)
-                .fraction(scaleValue3, assetInitB.fraction(scaleValue8, pmtAmountB))
-
             if !isActive then
                 throw("DApp is inactive at this moment")
             else if slippageTolerance < 0 || slippageTolerance > slippageToleranceDelimiter then
@@ -259,9 +263,6 @@ func replenishWithTwoTokens(slippageTolerance: Int) = {
                 throw("Two attached assets expected")
             else if pmtAssetIdA != assetIdA || pmtAssetIdB != assetIdB then
                 throw("Incorrect assets attached. Expected: " + strAssetIdA + " and " + strAssetIdB)
-            else if tokenRatio < (scaleValue3 * (slippageToleranceDelimiter - slippageTolerance)) / slippageToleranceDelimiter
-                    || tokenRatio > (scaleValue3 * (slippageToleranceDelimiter + slippageTolerance)) / slippageToleranceDelimiter then
-                throw("Incorrect assets amount: amounts must have the contract ratio")
             else if shareInitialSupply == 0 then
                 throw("Too small amount to replenish")
             else if !hasEnoughBalance then
