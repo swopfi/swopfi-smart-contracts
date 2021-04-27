@@ -38,16 +38,14 @@ let swopUsdnAddress = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
 # TODO change swopUsdnAddress
 let wavesUsdnAddress = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
 # TODO change vowavesUsdnAddressting
-let cpmmAddress = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
-# TODO change cpmm
 let adminIncreaseInterestAddress = Address(base58'3PPupsBVHgDXaRhyMbkTxminzAotp8AMsr6')
 let oneWeekInBlock = 10106 # 1440*7*60/59.84 where 59.84 - real block duration in seconds
 let totalVoteShare = 10000000000
 
-let strAssetIdA = cpmmAddress.getStringValue(keyAssetIdA)
-let strAssetIdB = cpmmAddress.getStringValue(keyAssetIdB)
-let assetIdA = if strAssetIdA == "WAVES" then unit else strAssetIdA.fromBase58String()
-let assetIdB = if strAssetIdB == "WAVES" then unit else strAssetIdB.fromBase58String()
+func strAssetIdA(pool:Address)= pool.getStringValue(keyAssetIdA)
+func strAssetIdB(pool:Address) = pool.getStringValue(keyAssetIdB)
+func assetIdA(pool:Address) = if strAssetIdA(pool) == "WAVES" then unit else strAssetIdA(pool).fromBase58String()
+func assetIdB(pool:Address) = if strAssetIdB(pool) == "WAVES" then unit else strAssetIdB(pool).fromBase58String()
 let kBasePeriod = "base_period"
 let kPeriodLength = "period_length"
 let kStartHeight = "start_height"
@@ -66,11 +64,11 @@ let currPeriod = basePeriod + (height-startHeight)/periodLength
 let APY = this.getIntegerValue(keyAPY)
 let SwopYearEmission = this.getIntegerValue(keySwopYearEmission)
 
-let assetNameA = match assetIdA {
+func assetNameA(pool:Address)  = match assetIdA(pool) {
     case id: ByteVector => assetInfo(id).value().name
     case waves: Unit => "WAVES"
 }
-let assetNameB = match assetIdB {
+func assetNameB(pool:Address)  = match assetIdB(pool) {
     case id: ByteVector => assetInfo(id).value().name
     case waves: Unit => "WAVES"
 }
@@ -80,8 +78,11 @@ func isFirstHarvest(pool:Address) = pool.getBoolean(keyfirstHarvestCpmm).valueOr
 
 func getHeightFirstHarvest(pool:Address) = pool.getInteger(keyFirstHarvestHeight).valueOrElse(0)
 
-func getBalance(balance:String) = cpmmAddress.getInteger(balance)
-                                                .valueOrErrorMessage("No data on the key: " + balance)
+func getBalanceA(pool:Address) = pool.getInteger(keyBalancecpmmA)
+                                                .valueOrErrorMessage("No data on the key: " + keyBalancecpmmA)
+
+func getBalanceB(pool:Address) = pool.getInteger(keyBalancecpmmB)
+                                                .valueOrErrorMessage("No data on the key: " + keyBalancecpmmB)
 
 func getTotalShareTokenLocked(pool:String) = this.getInteger(pool + keyShareTokensLocked)
                                                 .valueOrErrorMessage("No data on the key: " + pool + keyShareTokensLocked)
@@ -274,13 +275,12 @@ func lockShareTokens(pool:String) = {
         let harvestPower = SwopYearEmission / votingTotal / APY
         let protocolReward = calculateProtocolReward(pool)	
             if(parseInt(amountOfVoting[1]) != 0) then {
-                let assetBalanceA = getBalance(keyBalancecpmmA)
-                let assetBalanceB = getBalance(keyBalancecpmmB)
-                let shareTokenRate = if assetNameB == "USDN" then 
+                let assetBalanceB = getBalanceB(Address(pool.fromBase58String()))
+                let shareTokenRate = if assetNameB(Address(pool.fromBase58String())) == "USDN" then 
                         (2 *  assetBalanceB)/totalShareAmount
-                    else if assetNameA == "SWOP" then 
+                    else if assetNameA(Address(pool.fromBase58String())) == "SWOP" then 
                         (2 *  assetBalanceB * ((assetbalanceswopusdnA / 100000000) / (assetbalanceswopusdnB / 1000000)))/totalShareAmount
-                    else if assetNameA == "WAVES" then 
+                    else if assetNameA(Address(pool.fromBase58String())) == "WAVES" then 
                         (2 *  assetBalanceB * ((assetbalancewavesusdnA / 100000000) / (assetbalancewavesusdnB / 1000000)))/totalShareAmount
                     else 
                         0
