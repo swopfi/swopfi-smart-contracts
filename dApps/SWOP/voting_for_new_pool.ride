@@ -60,6 +60,28 @@ func isCallerInGovernance(user: Address) = {
     else false
 }
 
+func getActivePool(voting: Int) = {
+    let heightOfVoting = this.getInteger(voting.toString() + keyHeightOfPool).valueOrElse(0)
+    let statusOfVoting = this.getBoolean(voting.toString() + keyStatusOfVoting).valueOrElse(true)
+    let currentHeight = height
+    if (voting < 0) then
+        (0)
+    else if (!statusOfVoting) then
+        (0)
+    else if (heightOfVoting > currentHeight) then {
+        (1)
+    } else
+        (0)
+}
+
+func getActiveVotingPoolAmount(voting: Int) = {
+    getActivePool(voting) + 
+    getActivePool(voting-1) + 
+    getActivePool(voting-2) + 
+    getActivePool(voting-3) + 
+    getActivePool(voting-4)
+}
+
 func suspend(cause: String) = [
     BooleanEntry(keyActive, false),
     StringEntry(keyCause, cause)
@@ -93,6 +115,7 @@ func init() = {
 func initVotingForNewPool(assetA: String, assetB: String) = {
     let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
     let (poolAssetIdA, poolAssetIdB) = (getAssetInfoFromString(assetA), getAssetInfoFromString(assetB))
+    let newNumberOfVoting = getActiveVotingPoolAmount(amountOfVoting)
     
     if !isActive then
         throw("DApp is inactive at this moment")
@@ -104,7 +127,7 @@ func initVotingForNewPool(assetA: String, assetB: String) = {
         throw("You must use a SWOP token")
     else if (pmtAmount != comissionForInitalizationOfVoting) then
         throw("You need to attach 10 SWOP tokens")
-    else if (numberOfVoting > maxAmountOfVoting) then
+    else if (newNumberOfVoting > maxAmountOfVoting) then
         throw("Too many votes. Maximum quantity -" + maxAmountOfVoting.toString())
     else if !((poolAssetIdA == USDN) || (poolAssetIdB == USDN) || 
              (poolAssetIdA == unit) || (poolAssetIdB == unit) ||
@@ -116,7 +139,7 @@ func initVotingForNewPool(assetA: String, assetB: String) = {
             IntegerEntry(amountOfVoting.toString() + keyHeightOfPool, height + fiveDays),
             BooleanEntry(amountOfVoting.toString() + keyStatusOfVoting, true),
             IntegerEntry(keyAmountOfVoting, amountOfVoting + 1),
-            IntegerEntry(keyNumberOfVoting, numberOfVoting + 1),
+            IntegerEntry(keyNumberOfVoting, newNumberOfVoting + 1),
             StringEntry(assetA + kName, assetA),
             StringEntry(assetB + kName, assetB),
             ScriptTransfer(walletAddress, pmtAmount, pmtAssetId)
@@ -131,10 +154,11 @@ func voteForPool(voting: Int, yesOrNo: Boolean, voteAmt: Int) = {
     let userSWOPinGovernance = govAddr.getInteger(i.caller.toString() + kUserTotalSWOP).valueOrElse(0)
     if !isCallerInGovernance(i.caller) then
         throw("This address has 0 SWOP in Governance dApp")
-    else if (currentHeight > poolInitHeight) then
-    [ 
-        IntegerEntry(keyNumberOfVoting, numberOfVoting - 1)
-    ]
+    else if (currentHeight > poolInitHeight) then {
+        [ 
+            IntegerEntry(keyNumberOfVoting, numberOfVoting - 1)
+        ]
+    }
     else if (voteAmt < 1) then
         throw("The number of votes must be positive")
     else if voteAmt > userSWOPinGovernance then
