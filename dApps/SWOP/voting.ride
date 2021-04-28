@@ -18,7 +18,7 @@ let kPoolStruc = "_pool_struc"
 let kTotalVoteSWOP = "total_vote_SWOP"
 let kTotalStruc = "total_struc"
 
-let kPreviousTotalVoteSWOP = "previous_total_vote_SWOP"
+let kPreviousTotalVoteSWOP = "previous_total_struc"
 
 let kStartHeight = "start_height"
 let kBasePeriod = "base_period"
@@ -126,7 +126,9 @@ func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = 
     if userPoolVoteSWOPnew < 0 then throw("New userPoolVoteSWOPnew < 0") else
 
     #entry for FirstHarvest
-    let previousTotalVoteSWOPperiod = this.getStringValue(kPreviousTotalVoteSWOP).split("_")[1].parseIntValue()
+    let previousTotalVoteSWOPperiod = if this.getString(kPreviousTotalVoteSWOP).isDefined() 
+        then this.getStringValue(kPreviousTotalVoteSWOP).split("_")[1].parseIntValue()
+	    else currPeriod - 1
     let previousTotalVoteSWOPentry = if previousTotalVoteSWOPperiod != currPeriod then
         let previousTotalVoteSWOPstruc = userTotalVoteSWOP.toString() + "_" + (currPeriod-1).toString()
        [StringEntry(kPreviousTotalVoteSWOP, previousTotalVoteSWOPstruc)]
