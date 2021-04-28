@@ -22,7 +22,7 @@ let keyUserSWOPLastClaimedAmount = "_SWOP_last_claimed_amount"
 let keyAvailableSWOP = "_available_SWOP"
 let keyFarmingStartHeight = "farming_start_height"
 let keyAPY = "apy"
-let kPreviousTotalVoteSWOP = "previous_total_struc"
+let kPreviousTotalVoteSWOP = "previous_total_vote_SWOP"
 let keySwopYearEmission = "swop_year_emission"
 let keyBalancecpmmA = "A_asset_balance"
 let keyBalancecpmmB = "B_asset_balance"
@@ -41,8 +41,12 @@ let wavesUsdnAddress = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
 let adminIncreaseInterestAddress = Address(base58'3PPupsBVHgDXaRhyMbkTxminzAotp8AMsr6')
 let oneWeekInBlock = 10106 # 1440*7*60/59.84 where 59.84 - real block duration in seconds
 let totalVoteShare = 10000000000
+let scaleValue1 = 10
+let scaleValue3 = 1000
+let scaleValue5 = 100000
 let scaleValue6 = 1000000
 let scaleValue8 = 100000000
+let scaleValue11 = 100000000000
 
 func strAssetIdA(pool:Address)= pool.getStringValue(keyAssetIdA)
 func strAssetIdB(pool:Address) = pool.getStringValue(keyAssetIdB)
@@ -90,6 +94,14 @@ func getTotalShareTokenLocked(pool:String) = this.getInteger(pool + keyShareToke
                                                 .valueOrErrorMessage("No data on the key: " + pool + keyShareTokensLocked)
 
 func getShareAssetId(pool:String) = pool.addressFromString().value().getStringValue("share_asset_id").fromBase58String()
+
+func getAssetInfo(assetId: ByteVector|Unit) = match assetId {
+    case id: ByteVector =>
+        let stringId = id.toBase58String()
+        let info = assetInfo(id).valueOrErrorMessage("Asset " + stringId + " doesn't exist")
+        (stringId, info.name, info.decimals)
+    case waves: Unit => ("WAVES", "WAVES", 8)
+}
 
 # Calculate scale value for assetId1/assetId2 with 8 digits after delimiter
 
@@ -239,9 +251,11 @@ func updatePoolInterest(pool:String) = {
     ]
 }
 
+# added fraction
 @Callable(i)
 func lockShareTokens(pool:String) = {
     let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
+    let (pmtStrAssetId, pmtAssetName, pmtDecimals) = getAssetInfo(pmtAssetId)
     let (userNewInterest,currentInterest,claimAmount,userShareTokensAmount) = claimCalc(pool,i.caller,pmtAmount)
     let userShareAmountNew = userShareTokensAmount+pmtAmount
     let availableFundsNew = userAvailableSWOP(pool,i.caller) + claimAmount
@@ -260,7 +274,8 @@ func lockShareTokens(pool:String) = {
                         IntegerEntry(pool + "_" + i.caller.toString() + keyAvailableSWOP, availableFundsNew)
                     ]
 
-    if !checkPmtAssetIdCorrect(pool,pmtAssetId) then throw("Incorrect pmtAssetId") 
+    if (pmtAmount <= 0) then throw("You can't lock token")
+    else if !checkPmtAssetIdCorrect(pool,pmtAssetId) then throw("Incorrect pmtAssetId") 
     else if (isFirstHarvest(Address(pool.fromBase58String())) && getHeightFirstHarvest(Address(pool.fromBase58String())) * periodLength < height) then {
         let amountOfVoting = votingAddress.getStringValue(this.toString() + "_" + pool + "_user_pool_struc").split("_")
         let previosTotalVoting = votingAddress.getStringValue(kPreviousTotalVoteSWOP).split("_")
@@ -272,21 +287,22 @@ func lockShareTokens(pool:String) = {
         let previosTotal = previosTotalVoting[0]
         let userShareTokenLocked = userShareTokensAmount
         let userSwopVote = if currPeriod.toString() == amountOfVoting[2] then {parseInt(amountOfVoting[1]).valueOrElse(0)} else {parseInt(amountOfVoting[0]).valueOrElse(0)}
-        let swopRate = ((assetbalanceswopusdnA / scaleValue8) / (assetbalanceswopusdnB / scaleValue6))
+        let swopRate = fraction(assetbalanceswopusdnB, scaleValue5, assetbalanceswopusdnA) # ((assetbalanceswopusdnB / scaleValue6) / (assetbalanceswopusdnA / scaleValue8))
         let votingTotal = if currPeriod == parseInt(totalPeriod).valueOrElse(-1) then parseInt(previosTotal).valueOrElse(0) else parseInt(totalPeriod).valueOrElse(0)
-        let harvestPower = SwopYearEmission / votingTotal / APY
+        let harvestPower = fraction(SwopYearEmission, scaleValue3, votingTotal * APY) # SwopYearEmission / votingTotal / APY
         let protocolReward = calculateProtocolReward(pool)	
             if(parseInt(amountOfVoting[1]) != 0) then {
                 let assetBalanceB = getBalanceB(Address(pool.fromBase58String()))
                 let shareTokenRate = if assetNameB(Address(pool.fromBase58String())) == "USDN" then 
-                        (2 *  assetBalanceB)/totalShareAmount
+                        fraction((2 *  assetBalanceB),scaleValue3, totalShareAmount)
                     else if assetNameA(Address(pool.fromBase58String())) == "SWOP" then 
-                        (2 *  assetBalanceB * ((assetbalanceswopusdnB / scaleValue8) / (assetbalanceswopusdnA / scaleValue6)))/totalShareAmount
+                        fraction(2 *  assetBalanceB, assetbalanceswopusdnB, assetbalanceswopusdnA).fraction(scaleValue1, totalShareAmount) # (2 *  assetBalanceB * ((assetbalanceswopusdnB / scaleValue8) / (assetbalanceswopusdnA / scaleValue6)))/totalShareAmount
                     else if assetNameA(Address(pool.fromBase58String())) == "WAVES" then 
-                        (2 *  assetBalanceB * ((assetbalancewavesusdnB / scaleValue8) / (assetbalancewavesusdnA / scaleValue6)))/totalShareAmount
+                        fraction(2 *  assetBalanceB, assetbalancewavesusdnB, assetbalancewavesusdnA).fraction(scaleValue1, totalShareAmount)# (2 *  assetBalanceB * ((assetbalancewavesusdnB / scaleValue8) / (assetbalancewavesusdnA / scaleValue6)))/totalShareAmount
                     else 
                         0
-                let shareToken = (userSwopVote * swopRate * harvestPower) / shareTokenRate - userShareTokenLocked 
+                let shareToken = fraction(harvestPower,swopRate,shareTokenRate).fraction(userSwopVote, pow(10,0,(pmtDecimals+3),0,0,HALFUP)) - userShareTokenLocked
+                # ((userSwopVote * swopRate * harvestPower) / shareTokenRate) / pow(10,0,pmtDecimals,0,0,HALFUP) - userShareTokenLocked 
                 if (shareToken > 0) then {
                     if (shareToken <= totalShareAmountNew) then {
                         baseEntry ++ [
