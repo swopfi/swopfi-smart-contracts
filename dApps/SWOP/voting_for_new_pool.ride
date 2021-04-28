@@ -34,6 +34,7 @@ let govAddr = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
 
 let USDN = base58'DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p'
 let SWOP = base58'DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p'
+#change SWOP address
 
 let isActive = this.getBooleanValue(keyActive)
 
@@ -125,13 +126,15 @@ func initVotingForNewPool(assetA: String, assetB: String) = {
         throw("One attached assets expected")
     else if (pmtAssetId !=  SWOP) then 
         throw("You must use a SWOP token")
+    else if (assetA == "" || assetB == "") then
+        throw("Assets can't be empty")
     else if (pmtAmount != comissionForInitalizationOfVoting) then
         throw("You need to attach 10 SWOP tokens")
-    else if (newNumberOfVoting > maxAmountOfVoting) then
+    else if (newNumberOfVoting >= maxAmountOfVoting) then
         throw("Too many votes. Maximum quantity -" + maxAmountOfVoting.toString())
-    else if !((poolAssetIdA == USDN) || (poolAssetIdB == USDN) || 
-             (poolAssetIdA == unit) || (poolAssetIdB == unit) ||
-             (poolAssetIdA == SWOP) || (poolAssetIdB == SWOP)) then
+    else if !((poolAssetIdB == USDN) || 
+             (poolAssetIdA == unit) ||
+             (poolAssetIdA == SWOP)) then
         throw("One of the assets must be USDN, WAVES, SWOP")
     else {
         [
