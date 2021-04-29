@@ -31,8 +31,10 @@ let adminPubKeyStartStop = base58'AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ'
 
 let walletAddress = Address(base58'3NAGTtZz6WpupSN89NZD5rMZwwziZEg4Kx4')
 let govAddr = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
+# change to govaddress
 
 let USDN = base58'DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p'
+#change USDN address
 let SWOP = base58'DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p'
 #change SWOP address
 
@@ -53,6 +55,30 @@ let fiveDays = 1440 * maxDayOfVoting
 
 func getAssetInfoFromString(assetStr: String) = {
     if assetStr == "WAVES" then unit else assetStr.fromBase58String()
+}
+
+func getAssetInfo(assetId: ByteVector|Unit) = match assetId {
+    case id: ByteVector =>
+        if (assetInfo(id).isDefined()) then {
+            let stringId = id.toBase58String()
+            let info = assetInfo(id).valueOrErrorMessage("Asset " + stringId + " doesn't exist")
+            (stringId, info.name, info.decimals)
+        } else {
+            throw("Asset is not define")
+        }
+    case waves: Unit => ("WAVES", "WAVES", 8)
+}
+
+func isActivePoolExists(pools: String) = {
+    this.getInteger(pools).isDefined()
+}
+
+func isLastFivePoolExists(amountOfVoting: Int, assetA: String, assetB: String) = {
+    (isActivePoolExists(assetA + "_" + assetB + "_" + (amountOfVoting-1).toString() + votingId) ||
+    isActivePoolExists(assetA + "_" + assetB + "_" + (amountOfVoting-2).toString() + votingId) ||
+    isActivePoolExists(assetA + "_" + assetB + "_" + (amountOfVoting-3).toString() + votingId) ||
+    isActivePoolExists(assetA + "_" + assetB + "_" + (amountOfVoting-4).toString() + votingId) ||
+    isActivePoolExists(assetA + "_" + assetB + "_" + (amountOfVoting-5).toString() + votingId))
 }
 
 func isCallerInGovernance(user: Address) = {
@@ -117,6 +143,9 @@ func initVotingForNewPool(assetA: String, assetB: String) = {
     let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
     let (poolAssetIdA, poolAssetIdB) = (getAssetInfoFromString(assetA), getAssetInfoFromString(assetB))
     let newNumberOfVoting = getActiveVotingPoolAmount(amountOfVoting)
+    let isPoolExists = isLastFivePoolExists(amountOfVoting, assetA, assetB)
+    let (pmtStrAssetIdA, pmtAssetNameA, pmtDecimalsA) = getAssetInfo(poolAssetIdA)
+    let (pmtStrAssetIdB, pmtAssetNameB, pmtDecimalsB) = getAssetInfo(poolAssetIdB)
     
     if !isActive then
         throw("DApp is inactive at this moment")
@@ -124,6 +153,8 @@ func initVotingForNewPool(assetA: String, assetB: String) = {
         throw("Assets must be different")
     else if i.payments.size() != 1 then
         throw("One attached assets expected")
+    else if isPoolExists then
+        throw("This pool already exists")
     else if (pmtAssetId !=  SWOP) then 
         throw("You must use a SWOP token")
     else if (assetA == "" || assetB == "") then
@@ -143,8 +174,8 @@ func initVotingForNewPool(assetA: String, assetB: String) = {
             BooleanEntry(amountOfVoting.toString() + keyStatusOfVoting, true),
             IntegerEntry(keyAmountOfVoting, amountOfVoting + 1),
             IntegerEntry(keyNumberOfVoting, newNumberOfVoting + 1),
-            StringEntry(assetA + kName, assetA),
-            StringEntry(assetB + kName, assetB),
+            StringEntry(assetA + kName, pmtAssetNameA),
+            StringEntry(assetB + kName, pmtAssetNameB),
             ScriptTransfer(walletAddress, pmtAmount, pmtAssetId)
         ]
     }
@@ -155,6 +186,9 @@ func voteForPool(voting: Int, yesOrNo: Boolean, voteAmt: Int) = {
     let currentHeight = height
     let poolInitHeight = this.getIntegerValue(voting.toString() + keyHeightOfPool).valueOrErrorMessage("Empty pool height")
     let userSWOPinGovernance = govAddr.getInteger(i.caller.toString() + kUserTotalSWOP).valueOrElse(0)
+    let totalVoteUser = this.getInteger(i.caller.toString() + "_" + voting.toString() + keyYes).valueOrElse(0) +
+        this.getInteger(i.caller.toString() + "_" + voting.toString() + keyNo).valueOrElse(0) + 
+        voteAmt
     if !isCallerInGovernance(i.caller) then
         throw("This address has 0 SWOP in Governance dApp")
     else if (currentHeight > poolInitHeight) then {
@@ -164,23 +198,23 @@ func voteForPool(voting: Int, yesOrNo: Boolean, voteAmt: Int) = {
     }
     else if (voteAmt < 1) then
         throw("The number of votes must be positive")
-    else if voteAmt > userSWOPinGovernance then
+    else if totalVoteUser > userSWOPinGovernance then
         throw(this.toString() + " has " + userSWOPinGovernance.toString() +  " SWOP in governance.")
     else {
         if(yesOrNo) then {
-            let newVote = this.getInteger(voting.toString() + keyYes).valueOrElse(0) + voteAmt
-            let newVoteUser = this.getInteger(i.caller.toString() + "_" + voting.toString() + keyYes).valueOrElse(0) + voteAmt
+            let oldVoteUser = this.getInteger(i.caller.toString() + "_" + voting.toString() + keyYes).valueOrElse(0)
+            let newVote = this.getInteger(voting.toString() + keyYes).valueOrElse(0) - oldVoteUser + voteAmt
             [
                IntegerEntry(voting.toString() + keyYes, newVote),
-               IntegerEntry(i.caller.toString() + "_" + voting.toString() + keyYes, newVoteUser)
+               IntegerEntry(i.caller.toString() + "_" + voting.toString() + keyYes, voteAmt)
             ]
         }
         else {
-            let newVote = this.getInteger(voting.toString() + keyNo).valueOrElse(0) + voteAmt
-            let newVoteUser = this.getInteger(i.caller.toString() + "_" + voting.toString() + keyNo).valueOrElse(0) + voteAmt
+            let oldVoteUser = this.getInteger(i.caller.toString() + "_" + voting.toString() + keyNo).valueOrElse(0)
+            let newVote = this.getInteger(voting.toString() + keyNo).valueOrElse(0) - oldVoteUser + voteAmt
             [
                IntegerEntry(voting.toString() + keyNo, newVote),
-               IntegerEntry(i.caller.toString() + "_" + voting.toString() + keyNo, newVoteUser)
+               IntegerEntry(i.caller.toString() + "_" + voting.toString() + keyNo, voteAmt)
             ]
         }
     }
