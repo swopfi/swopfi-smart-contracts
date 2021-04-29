@@ -152,7 +152,7 @@ func initVotingForNewPool(assetA: String, assetB: String) = {
         throw("DApp is inactive at this moment")
     else if poolAssetIdA == poolAssetIdB then
         throw("Assets must be different")
-    else if ((newNumberOfVoting + 1) > maxAmountOfVoting) then
+    else if ((newNumberOfVoting + 1) >= maxAmountOfVoting) then
         throw("Too many votes. Maximum quantity -" + maxAmountOfVoting.toString())
     else if i.payments.size() != 1 then
         throw("One attached assets expected")
