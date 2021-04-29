@@ -26,6 +26,9 @@ let kPreviousTotalVoteSWOP = "previous_total_vote_SWOP"
 let keySwopYearEmission = "swop_year_emission"
 let keyBalancecpmmA = "A_asset_balance"
 let keyBalancecpmmB = "B_asset_balance"
+let kHarvestPoolActiveVoteStrucVoting = "_harvest_pool_activeVote_struc"
+let kHarvestUserPoolActiveVoteStrucVoting = "_harvest_user_pool_ActiveVote_struc"
+let keyLimitShareFirstHarvest = "share_limit_on_first_harvest"
 let keyAssetIdA = "A_asset_id"
 let keyAssetIdB = "B_asset_id"
 let keyFirstHarvestHeight = "first_harvest_height"
@@ -66,6 +69,7 @@ let durationFullVotePower = votingAddress.getInteger(kDurationFullVotePower).val
 let minVotePower = votingAddress.getInteger(kMinVotePower).valueOrErrorMessage("Empty kMinVotePower") # 10000000, minVoteCoeff/scale8 between 0 and 1 - voting power if vote at the end of voting period
 
 let currPeriod = basePeriod + (height-startHeight)/periodLength
+func getLimitToken(pool:Address) = pool.getIntegerValue(keyLimitShareFirstHarvest).valueOrElse(0)
 
 let APY = this.getIntegerValue(keyAPY)
 let SwopYearEmission = this.getIntegerValue(keySwopYearEmission)
@@ -251,7 +255,6 @@ func updatePoolInterest(pool:String) = {
     ]
 }
 
-# added fraction
 @Callable(i)
 func lockShareTokens(pool:String) = {
     let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
@@ -278,31 +281,15 @@ func lockShareTokens(pool:String) = {
     else if !checkPmtAssetIdCorrect(pool,pmtAssetId) then throw("Incorrect pmtAssetId") 
     else if (isFirstHarvest(Address(pool.fromBase58String())) && getHeightFirstHarvest(Address(pool.fromBase58String())) * periodLength < height) then {
         let amountOfVoting = votingAddress.getStringValue(this.toString() + "_" + pool + "_user_pool_struc").split("_")
-        let previosTotalVoting = votingAddress.getStringValue(kPreviousTotalVoteSWOP).split("_")
-        let assetbalanceswopusdnA = swopUsdnAddress.getIntegerValue(keyBalancecpmmA).valueOrElse(0)
-        let assetbalanceswopusdnB = swopUsdnAddress.getIntegerValue(keyBalancecpmmB).valueOrElse(0)
-        let assetbalancewavesusdnA = wavesUsdnAddress.getIntegerValue(keyBalancecpmmA).valueOrElse(0)
-        let assetbalancewavesusdnB = wavesUsdnAddress.getIntegerValue(keyBalancecpmmB).valueOrElse(0)
-        let totalPeriod = previosTotalVoting[1]
-        let previosTotal = previosTotalVoting[0]
+        let amountPoolStract = votingAddress.getStringValue(this.toString() + "_" + pool + "_pool_struc").split("_")
+        let amountActiveVoteUserPoolStract = votingAddress.getStringValue(this.toString() + "_" + pool + kHarvestUserPoolActiveVoteStrucVoting).split("_")
+        let amountPoolActiveVoteStract = votingAddress.getStringValue(pool + kHarvestPoolActiveVoteStrucVoting).split("_")
         let userShareTokenLocked = userShareTokensAmount
-        let userSwopVote = if currPeriod.toString() == amountOfVoting[2] then {parseInt(amountOfVoting[1]).valueOrElse(0)} else {parseInt(amountOfVoting[0]).valueOrElse(0)}
-        let swopRate = fraction(assetbalanceswopusdnB, scaleValue5, assetbalanceswopusdnA) # ((assetbalanceswopusdnB / scaleValue6) / (assetbalanceswopusdnA / scaleValue8))
-        let votingTotal = if currPeriod == parseInt(totalPeriod).valueOrElse(-1) then parseInt(previosTotal).valueOrElse(0) else parseInt(totalPeriod).valueOrElse(0)
-        let harvestPower = fraction(SwopYearEmission, scaleValue3, votingTotal * APY) # SwopYearEmission / votingTotal / APY
+        let userPoolActiveVote = if currPeriod.toString() == amountOfVoting[2] then {parseInt(amountActiveVoteUserPoolStract[0]).valueOrElse(0)} else {parseInt(amountOfVoting[0]).valueOrElse(0)}
+        let poolActiveVote = if currPeriod.toString() == amountPoolStract[2] then {parseInt(amountPoolActiveVoteStract[0]).valueOrElse(0)} else {parseInt(amountPoolStract[0]).valueOrElse(0)}
         let protocolReward = calculateProtocolReward(pool)	
             if(parseInt(amountOfVoting[1]) != 0) then {
-                let assetBalanceB = getBalanceB(Address(pool.fromBase58String()))
-                let shareTokenRate = if assetNameB(Address(pool.fromBase58String())) == "USDN" then 
-                        fraction((2 *  assetBalanceB),scaleValue3, totalShareAmount)
-                    else if assetNameA(Address(pool.fromBase58String())) == "SWOP" then 
-                        fraction(2 *  assetBalanceB, assetbalanceswopusdnB, assetbalanceswopusdnA).fraction(scaleValue1, totalShareAmount) # (2 *  assetBalanceB * ((assetbalanceswopusdnB / scaleValue8) / (assetbalanceswopusdnA / scaleValue6)))/totalShareAmount
-                    else if assetNameA(Address(pool.fromBase58String())) == "WAVES" then 
-                        fraction(2 *  assetBalanceB, assetbalancewavesusdnB, assetbalancewavesusdnA).fraction(scaleValue1, totalShareAmount)# (2 *  assetBalanceB * ((assetbalancewavesusdnB / scaleValue8) / (assetbalancewavesusdnA / scaleValue6)))/totalShareAmount
-                    else 
-                        0
-                let shareToken = fraction(harvestPower,swopRate,shareTokenRate).fraction(userSwopVote, pow(10,0,(pmtDecimals+3),0,0,HALFUP)) - userShareTokenLocked
-                # ((userSwopVote * swopRate * harvestPower) / shareTokenRate) / pow(10,0,pmtDecimals,0,0,HALFUP) - userShareTokenLocked 
+                let shareToken = fraction(getTotalShareTokenLocked(pool),userPoolActiveVote,poolActiveVote) - userShareTokenLocked
                 if (shareToken > 0) then {
                     if (shareToken <= totalShareAmountNew) then {
                         baseEntry ++ [
