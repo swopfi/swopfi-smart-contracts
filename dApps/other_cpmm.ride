@@ -22,6 +22,7 @@ let keyPeriodLength = "period_length"
 let keyStartHeight = "start_height"
 let keyFirstHarvestHeight = "first_harvest_height"
 let keyDurationFullVotePower = "duration_full_vote_power"
+let kShareLimit = "share_limit_on_first_harvest"
 let keyMinVotePower = "min_vote_power"
 
 let adminPubKey1 = base58'DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA'
@@ -29,6 +30,8 @@ let adminPubKey2 = base58'E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7'
 let adminPubKey3 = base58'AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ'
 let adminPubKeyStartStop = base58'EtVkT6ed8GtbUiVVEqdmEqsp2J4qbb3rre2HFgxeVYdg'
 let adminPubKeyStaking = base58'Czn4yoAuUZCVCLJDRfskn8URfkwpknwBTZDbs1wFrY7h'
+let adminPubKeyBackend = base58'Czn4yoAuUZCVCLJDRfskn8URfkwpknwBTZDbs1wFrY7h'
+# change to backendKey
 
 let governanceAddress = Address(base58'3P6J84oH51DzY6xk2mT5TheXRbrCwBMxonp')
 let govAddr = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
@@ -182,7 +185,6 @@ func init(firstHarvest: Boolean) = {
         } else {
             baseEntry
         }
-
     }
 }
 
@@ -229,6 +231,18 @@ func initWithInitRatio(amtAssetA: Int, amtAssetB: Int, strAssetIdA: String, strA
             baseEntry
         }
     }
+}
+
+@Callable(i)
+func keepLimitForFirstHarvest(shareLimit: Int) = {
+    if !isActive then
+        throw("DApp is inactive at this moment")
+    else if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyBackend].containsElement(i.callerPublicKey) then
+        throw("Only admin can call this function")
+    else
+        [   
+            IntegerEntry(kShareLimit, shareLimit)
+        ]
 }
 
 @Callable(i)
