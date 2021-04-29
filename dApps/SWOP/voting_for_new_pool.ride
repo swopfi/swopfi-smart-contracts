@@ -153,7 +153,7 @@ func initVotingForNewPool(assetA: String, assetB: String) = {
     else if poolAssetIdA == poolAssetIdB then
         throw("Assets must be different")
     else if ((newNumberOfVoting + 1) >= maxAmountOfVoting) then
-        throw("Too many votes. Maximum quantity -" + maxAmountOfVoting.toString())
+        throw("Too many votings. Maximum quantity: " + maxAmountOfVoting.toString())
     else if i.payments.size() != 1 then
         throw("One attached assets expected")
     else if isPoolExists then
