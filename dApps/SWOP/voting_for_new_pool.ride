@@ -103,7 +103,7 @@ func getActivePool(voting: Int) = {
 }
 
 func getActiveVotingPoolAmount(voting: Int) = {
-    getActivePool(voting -1) + 
+    getActivePool(voting-1) + 
     getActivePool(voting-2) + 
     getActivePool(voting-3) + 
     getActivePool(voting-4) + 
@@ -152,6 +152,8 @@ func initVotingForNewPool(assetA: String, assetB: String) = {
         throw("DApp is inactive at this moment")
     else if poolAssetIdA == poolAssetIdB then
         throw("Assets must be different")
+    else if ((newNumberOfVoting + 1) > maxAmountOfVoting) then
+        throw("Too many votes. Maximum quantity -" + maxAmountOfVoting.toString())
     else if i.payments.size() != 1 then
         throw("One attached assets expected")
     else if isPoolExists then
@@ -162,11 +164,7 @@ func initVotingForNewPool(assetA: String, assetB: String) = {
         throw("Assets can't be empty")
     else if (pmtAmount != comissionForInitalizationOfVoting) then
         throw("You need to attach 10 SWOP tokens")
-    else if (newNumberOfVoting > maxAmountOfVoting) then
-        throw("Too many votes. Maximum quantity -" + maxAmountOfVoting.toString())
-    else if !((poolAssetIdB == USDN) || 
-             (poolAssetIdA == unit) ||
-             (poolAssetIdA == SWOP)) then
+    else if !((poolAssetIdB == USDN) || (poolAssetIdA == unit) || (poolAssetIdA == SWOP)) then
         throw("One of the assets must be USDN, WAVES, SWOP")
     else {
         [
