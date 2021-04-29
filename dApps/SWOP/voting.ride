@@ -19,7 +19,7 @@ let kTotalVoteSWOP = "total_vote_SWOP"
 let kTotalStruc = "total_struc"
 
 let kHarvestPoolActiveVoteStruc = "_harvest_pool_activeVote_struc"
-let kHarvestUserPoolActiveVoteStruc = "_harvest_user_pool_ActiveVote_struc"
+let kHarvestUserPoolActiveVoteStruc = "_harvest_user_pool_activeVote_struc"
 
 let kStartHeight = "start_height"
 let kBasePeriod = "base_period"
