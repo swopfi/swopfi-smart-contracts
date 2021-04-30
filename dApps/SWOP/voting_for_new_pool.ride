@@ -185,9 +185,8 @@ func voteForPool(voting: Int, yesOrNo: Boolean, voteAmt: Int) = {
     let currentHeight = height
     let poolInitHeight = this.getIntegerValue(voting.toString() + keyHeightOfPool).valueOrErrorMessage("Empty pool height")
     let userSWOPinGovernance = govAddr.getInteger(i.caller.toString() + kUserTotalSWOP).valueOrElse(0)
-    let totalVoteUser = this.getInteger(i.caller.toString() + "_" + voting.toString() + keyYes).valueOrElse(0) +
-        this.getInteger(i.caller.toString() + "_" + voting.toString() + keyNo).valueOrElse(0) + 
-        voteAmt
+    let oldVoteUserYes = this.getInteger(i.caller.toString() + "_" + voting.toString() + keyYes).valueOrElse(0)
+    let oldVoteUserNo = this.getInteger(i.caller.toString() + "_" + voting.toString() + keyNo).valueOrElse(0)
     if !isCallerInGovernance(i.caller) then
         throw("This address has 0 SWOP in Governance dApp")
     else if (currentHeight > poolInitHeight) then {
@@ -197,24 +196,30 @@ func voteForPool(voting: Int, yesOrNo: Boolean, voteAmt: Int) = {
     }
     else if (voteAmt < 0) then
         throw("The number of votes must be positive")
-    else if totalVoteUser > userSWOPinGovernance then
-        throw(this.toString() + " has " + userSWOPinGovernance.toString() +  " SWOP in governance.")
+    else if voteAmt > userSWOPinGovernance then
+        throw(this.toString() + " has " + userSWOPinGovernance.toString() +  " SWOP in Governance dApp")
     else {
         if(yesOrNo) then {
-            let oldVoteUser = this.getInteger(i.caller.toString() + "_" + voting.toString() + keyYes).valueOrElse(0)
-            let newVote = this.getInteger(voting.toString() + keyYes).valueOrElse(0) - oldVoteUser + voteAmt
-            [
-               IntegerEntry(voting.toString() + keyYes, newVote),
-               IntegerEntry(i.caller.toString() + "_" + voting.toString() + keyYes, voteAmt)
-            ]
+            if oldVoteUserNo + voteAmt > userSWOPinGovernance then
+                throw("Total votes of address in the pool exceeds number of SWOP in Governance dApp")
+            else {
+                let newVote = this.getInteger(voting.toString() + keyYes).valueOrElse(0) - oldVoteUserYes + voteAmt
+                [
+                    IntegerEntry(voting.toString() + keyYes, newVote),
+                    IntegerEntry(i.caller.toString() + "_" + voting.toString() + keyYes, voteAmt)
+                ]
+            }
         }
         else {
-            let oldVoteUser = this.getInteger(i.caller.toString() + "_" + voting.toString() + keyNo).valueOrElse(0)
-            let newVote = this.getInteger(voting.toString() + keyNo).valueOrElse(0) - oldVoteUser + voteAmt
-            [
-               IntegerEntry(voting.toString() + keyNo, newVote),
-               IntegerEntry(i.caller.toString() + "_" + voting.toString() + keyNo, voteAmt)
-            ]
+            if oldVoteUserYes + voteAmt > userSWOPinGovernance then
+                throw("Total votes of address in the pool exceeds number of SWOP in Governance dApp")
+            else {
+                let newVote = this.getInteger(voting.toString() + keyNo).valueOrElse(0) - oldVoteUserNo + voteAmt
+                [
+                    IntegerEntry(voting.toString() + keyNo, newVote),
+                    IntegerEntry(i.caller.toString() + "_" + voting.toString() + keyNo, voteAmt)
+                ]
+            }
         }
     }
 }
