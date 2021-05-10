@@ -120,7 +120,7 @@ func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = 
         throw("This address has 0 SWOP in Governance dApp")
     else
     if userTotalVoteSWOPnew > userSWOPinGovernance then
-        throw(this.toString() + " has " + userSWOPinGovernance.toString() +  " SWOP in governance. New SWOP in voting " + userTotalVoteSWOPnew.toString())
+        throw(i.caller.toString() + " has " + userSWOPinGovernance.toString() +  " SWOP in governance. New SWOP in voting " + userTotalVoteSWOPnew.toString())
     else
 
     if userTotalVoteSWOPnew < 0 then throw("New userTotalVoteSWOPnew < 0") else
