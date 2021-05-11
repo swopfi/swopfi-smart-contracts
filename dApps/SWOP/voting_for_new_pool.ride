@@ -164,8 +164,8 @@ func initVotingForNewPool(assetA: String, assetB: String) = {
         throw("Assets can't be empty")
     else if (pmtAmount != comissionForInitalizationOfVoting) then
         throw("You need to attach 10 SWOP tokens")
-    else if !((poolAssetIdB == USDN) || (poolAssetIdA == unit) || (poolAssetIdA == SWOP)) then
-        throw("One of the assets must be USDN, WAVES, SWOP")
+    else if !((poolAssetIdB == USDN) || (poolAssetIdB == unit) || (poolAssetIdB == SWOP)) then
+        throw("assetB must be USDN, WAVES or SWOP")
     else {
         [
             IntegerEntry(assetA + "_" + assetB + "_" + amountOfVoting.toString() + votingId, amountOfVoting),
