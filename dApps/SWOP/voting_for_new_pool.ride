@@ -32,14 +32,14 @@ let adminPubKey2 = base58'E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7'
 let adminPubKey3 = base58'AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ'
 let adminPubKeyStartStop = base58'AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ'
 
-let walletAddress = Address(base58'3NAGTtZz6WpupSN89NZD5rMZwwziZEg4Kx4')
+let walletAddress = Address(base58'3P6J84oH51DzY6xk2mT5TheXRbrCwBMxonp')
 # change to wallet Address
 let govAddr = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
 # change to govaddress
 
-let USDN = base58'EFDDxNUESzMWkpnw89JitaDNwBm57LSeRm1XKSiagHRJ'
+let USDN = base58'DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p'
 #change USDN address
-let SWOP = base58'EFDDxNUESzMWkpnw89JitaDNwBm57LSeRm1XKSiagHRJ'
+let SWOP = base58'Ehie5xYpeN8op1Cctc6aGUrqx8jq3jtf1DSjXDbfm7aT'
 #change SWOP address
 
 let isActive = this.getBooleanValue(keyActive)
@@ -240,7 +240,7 @@ func voteForPool(voting: Int, yesOrNo: Boolean, voteAmt: Int) = {
         throw("This address has 0 SWOP in Governance dApp")
     else if(!statusOfVoting) then
         throw("This voting was canceled")
-    else if (currentHeight > poolInitHeight) then 
+    else if (currentHeight > poolInitHeight) then
         throw("This voting was expired")
     else if (voteAmt < 0) then
         throw("The number of votes must be positive")
