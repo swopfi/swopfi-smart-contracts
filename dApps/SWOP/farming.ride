@@ -193,22 +193,25 @@ func claimCalc(pool:String,caller:Address,pmtAmount:Int) = {
     (userNewInterest,currentInterest,claimAmount,userShareTokensAmount)
 }
 
-func calculateProtocolReward(pool:String) ={	
-    let (lastInterestHeight,lastInterest) = getLastInterestInfo(pool)	
-    let (currentRewardPerBlock,rewardUpdateHeight,previousRewardPerBlock) = rewardInfo(pool)	
-    let shareTokenLocked = getTotalShareTokenLocked(pool)	
-    if shareTokenLocked == 0 then 0 else # this condition true only for the first call	
-    if height < rewardUpdateHeight then # in case of updating reward info at gov dApp	
-        let reward = previousRewardPerBlock*(height-lastInterestHeight)	
-        reward	
-    else	
-        if (lastInterestHeight > rewardUpdateHeight) then	
-            let reward = currentRewardPerBlock*(height-lastInterestHeight)	
-            reward	
-        else # in case if reward updated we need update interest	
-            let rewardAfterLastInterestBeforeReawardUpdate = previousRewardPerBlock*(rewardUpdateHeight-lastInterestHeight)	
-            let reward = currentRewardPerBlock*(height-rewardUpdateHeight)	
-            reward + rewardAfterLastInterestBeforeReawardUpdate	
+#При пополнении стейкинга Share-токенами контракт должен проверить есть ли ещё застейканные Share-токены. Если есть, то работает как сейчас, если нет, то контрат должен рассчитать сколько SWOP-токенов начислено до этого момента и записать данное значение как доход адреса-копилки.
+func calculateProtocolReward(pool:String) ={
+    let (lastInterestHeight,lastInterest) = getLastInterestInfo(pool)
+    let (currentRewardPerBlock,rewardUpdateHeight,previousRewardPerBlock) = rewardInfo(pool)
+    let shareTokenLocked = getTotalShareTokenLocked(pool)
+    if shareTokenLocked == 0 then 0 else # this condition true only for the first call
+    # if shareTokenLocked == 0 then# this condition true only for the first call
+        if height < rewardUpdateHeight then # in case of updating reward info at gov dApp
+            let reward = previousRewardPerBlock*(height-lastInterestHeight)
+            reward
+        else
+            if (lastInterestHeight > rewardUpdateHeight) then
+                let reward = currentRewardPerBlock*(height-lastInterestHeight)
+                reward
+            else # in case if reward updated we need update interest
+                let rewardAfterLastInterestBeforeReawardUpdate = previousRewardPerBlock*(rewardUpdateHeight-lastInterestHeight)
+                let reward = currentRewardPerBlock*(height-rewardUpdateHeight)
+                reward + rewardAfterLastInterestBeforeReawardUpdate
+    # else 0
 }
 
 func checkPmtAssetIdCorrect(pool:String,pmtAssetId:ByteVector|Unit) = {
@@ -221,7 +224,7 @@ func getUserSWOPClaimedAmount(pool:String,user:Address) =  this.getInteger(pool 
 
 @Callable(i)
 func init(earlyLP:String) = {
-    if this.getString("keySWOPid").isDefined() then throw("SWOP already initialized") else
+    if this.getString(keySWOPid).isDefined() then throw("SWOP already initialized") else
     let initAmount = 100000000000000
     let SWOPissue = Issue("SWOP", "SWOP protocol token", initAmount, 8, true)
     let SWOPid = SWOPissue.calculateAssetId()
@@ -232,17 +235,18 @@ func init(earlyLP:String) = {
     ]
 }
 
-@Callable(i)	
-func initPoolShareFarming(pool:String) = {	
-    if i.caller != this then	
-        throw("Only the DApp itself can call this function") else	
-    let (currentReward,rewardUpdateHeight,previousRewardPerBlock) = rewardInfo(pool)	
-    [	
-        IntegerEntry(pool + keyShareTokensLocked, 0),	
-        IntegerEntry(pool + keyLastInterest, 0),	
-        IntegerEntry(pool + keyLastInterestHeight,height)	
-        	
-    ]	
+@Callable(i)
+func initPoolShareFarming(pool:String) = {
+    if i.caller != this then
+        throw("Only the DApp itself can call this function") else
+    let (currentReward,rewardUpdateHeight,previousRewardPerBlock) = rewardInfo(pool)
+    [
+        IntegerEntry(pool + keyShareTokensLocked, 0),
+        IntegerEntry(pool + keyLastInterest, 0),
+        IntegerEntry(pool + keyLastInterestHeight,height)
+
+    ]
+    # записать в момент обновления весов!
 }
 
 @Callable(i)
@@ -250,8 +254,11 @@ func updatePoolInterest(pool:String) = {
     if i.caller != wallet then
         throw("Only the Admin itself can call this function") else
     let (userNewInterest,currentInterest,claimAmount,userShareTokensAmount) = claimCalc(pool,adminIncreaseInterestAddress,0)
+    let (currentReward,rewardUpdateHeight,previousRewardPerBlock) = rewardInfo(pool)
     [
-        IntegerEntry(pool + keyLastInterest, userNewInterest)
+        IntegerEntry(pool + keyShareTokensLocked, 0),
+        IntegerEntry(pool + keyLastInterest, userNewInterest),
+        IntegerEntry(pool + keyLastInterestHeight,height)
     ]
 }
 
@@ -292,8 +299,9 @@ func lockShareTokens(pool:String) = {
                 let shareToken = fraction(getTotalShareTokenLocked(pool),userPoolActiveVote,poolActiveVote) - userShareTokenLocked
                 if (shareToken > 0) then {
                     if (shareToken <= totalShareAmountNew) then {
-                        baseEntry ++ [
-                            ScriptTransfer(wallet, protocolReward, SWOP)]
+                        baseEntry
+                        # ++ [
+                        #     ScriptTransfer(wallet, protocolReward, SWOP)]
                     } else
                         throw("You maximum share token is " + shareToken.toString())
                 } else
