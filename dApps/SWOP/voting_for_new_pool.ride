@@ -5,12 +5,14 @@
 let version = "1.0.0"
 let keyVersion = "version"
 let keyActive = "active"
-let keyNumberOfVoting = "number_voting"
-let keyHeightOfPool = "_height"
-let keyNo = "_no"
-let keyYes = "_yes"
+let keyNumberOfVoting = "voting_active_number"
+let keyHeightOfPool = "_finish_height"
+let keyNo = "_total_votes_no"
+let keyYes = "_total_votes_yes"
+let keyNoUser = "_vote_no"
+let keyYesUser = "_vote_yes"
 let keyStatusOfVoting = "_status"
-let keyAmountOfVoting = "amount_voting"
+let keyAmountOfVoting = "voting_id_last"
 let keyMaxAmountOfVoting = "max_amount_voting"
 let keyMaxDayOfVoting = "max_day_voting"
 let keyCommission = "commission"
@@ -18,14 +20,14 @@ let keyCommissionScaleDelimiter = "commission_scale_delimiter"
 let keyCause = "shutdown_cause"
 let keyCancelCause = "_cancel_cause"
 let kUserTotalSWOP = "_SWOP_amount"
-let kName = "_name"
-let votingId = "_votingId"
+let kName = "_asset_name"
+let votingId = "_voting"
 let periodOfVoting = "period_voting"
-let activeVoteFirst = "active_vote_first"
-let activeVoteSecond = "active_vote_second"
-let activeVoteThird = "active_vote_third"
-let activeVoteFourth = "active_vote_fourth"
-let activeVoteFifth = "active_vote_fifth"
+let activeVoteFirst = "voting_active_cell_1"
+let activeVoteSecond = "voting_active_cell_2"
+let activeVoteThird = "voting_active_cell_3"
+let activeVoteFourth = "voting_active_cell_4"
+let activeVoteFifth = "voting_active_cell_5"
 
 let adminPubKey1 = base58'DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA'
 let adminPubKey2 = base58'E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7'
@@ -252,7 +254,7 @@ func voteForPool(voting: Int, yesOrNo: Boolean, voteAmt: Int) = {
             let newVote = this.getInteger(voting.toString() + keyYes).valueOrElse(0) - oldVoteUser + voteAmt
             [
                IntegerEntry(voting.toString() + keyYes, newVote),
-               IntegerEntry(i.caller.toString() + "_" + voting.toString() + keyYes, voteAmt)
+               IntegerEntry(i.caller.toString() + "_" + voting.toString() + keyYesUser, voteAmt)
             ]
         }
         else {
@@ -260,14 +262,14 @@ func voteForPool(voting: Int, yesOrNo: Boolean, voteAmt: Int) = {
             let newVote = this.getInteger(voting.toString() + keyNo).valueOrElse(0) - oldVoteUser + voteAmt
             [
                IntegerEntry(voting.toString() + keyNo, newVote),
-               IntegerEntry(i.caller.toString() + "_" + voting.toString() + keyNo, voteAmt)
+               IntegerEntry(i.caller.toString() + "_" + voting.toString() + keyNoUser, voteAmt)
             ]
         }
     }
 }
 
 @Callable(i)
-func cancellationVoting(voting: Int, cause: String) = {
+func cancelVoting(voting: Int, cause: String) = {
     let statusOfVoting = this.getBoolean(voting.toString() + keyStatusOfVoting).valueOrElse(true)
     if !isActive then
         throw("DApp is already suspended. Cause: " + this.getString(keyCause).valueOrElse("the cause wasn't specified"))
