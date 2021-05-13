@@ -21,12 +21,15 @@ let kUserTotalSWOP = "_SWOP_amount"
 let kName = "_name"
 let votingId = "_votingId"
 let periodOfVoting = "period_voting"
-
+let activeVoteFirst = "active_vote_first"
+let activeVoteSecond = "active_vote_second"
+let activeVoteThird = "active_vote_third"
+let activeVoteFourth = "active_vote_fourth"
+let activeVoteFifth = "active_vote_fifth"
 
 let adminPubKey1 = base58'DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA'
 let adminPubKey2 = base58'E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7'
 let adminPubKey3 = base58'AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ'
-
 let adminPubKeyStartStop = base58'AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ'
 
 let walletAddress = Address(base58'3NAGTtZz6WpupSN89NZD5rMZwwziZEg4Kx4')
@@ -34,18 +37,21 @@ let walletAddress = Address(base58'3NAGTtZz6WpupSN89NZD5rMZwwziZEg4Kx4')
 let govAddr = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
 # change to govaddress
 
-let USDN = base58'DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p'
+let USDN = base58'EFDDxNUESzMWkpnw89JitaDNwBm57LSeRm1XKSiagHRJ'
 #change USDN address
-let SWOP = base58'DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p'
+let SWOP = base58'EFDDxNUESzMWkpnw89JitaDNwBm57LSeRm1XKSiagHRJ'
 #change SWOP address
 
 let isActive = this.getBooleanValue(keyActive)
-
 let numberOfVoting = this.getIntegerValue(keyNumberOfVoting)
 let amountOfVoting = this.getIntegerValue(keyAmountOfVoting)
+let firstActiveVote = this.getString(activeVoteFirst).valueOrElse("")
+let secondActiveVote = this.getString(activeVoteSecond).valueOrElse("")
+let thirdActiveVote = this.getString(activeVoteThird).valueOrElse("")
+let fourthActiveVote = this.getString(activeVoteFourth).valueOrElse("")
+let fifthActiveVote = this.getString(activeVoteFifth).valueOrElse("")
 
 let comissionForInitalizationOfVoting = 1000000000
-
 let scaleValue3 = 1000
 let scaleValue8 = 100000000
 let slippageToleranceDelimiter = 1000
@@ -53,10 +59,6 @@ let scaleValue8Digits = 8
 let maxAmountOfVoting = 5
 let maxDayOfVoting = 5
 let fiveDays = 1440 * maxDayOfVoting
-
-func getAssetInfoFromString(assetStr: String) = {
-    if assetStr == "WAVES" then unit else assetStr.fromBase58String()
-}
 
 func getAssetInfo(assetId: ByteVector|Unit) = match assetId {
     case id: ByteVector =>
@@ -70,22 +72,49 @@ func getAssetInfo(assetId: ByteVector|Unit) = match assetId {
     case waves: Unit => ("WAVES", "WAVES", 8)
 }
 
-func isActivePoolExists(pools: String) = {
-    this.getInteger(pools).isDefined()
+func isActivePoolExists(pools: String, assetA: String, assetB: String) = {
+    let poolsData = pools.split("_")
+    let isPoolDefine = this.getInteger(pools).isDefined()
+
+    if(isPoolDefine && pools != "") then {
+        let voting = poolsData[2]
+        let newPools = assetA + "_" + assetB + "_" + voting + votingId
+        let isNewPoolDefine = this.getInteger(newPools).isDefined()
+        let heightOfVoting = this.getInteger(voting+ keyHeightOfPool).valueOrElse(0)
+        let statusOfVoting = this.getBoolean(voting + keyStatusOfVoting).valueOrElse(true)
+
+        if (isNewPoolDefine) then {
+            if (heightOfVoting > height) then {
+                if (statusOfVoting) then true
+                else false
+            } else false
+        } else false
+    } else false
 }
 
-func isLastFivePoolExists(amountOfVoting: Int, assetA: String, assetB: String) = {
-    (isActivePoolExists(assetA + "_" + assetB + "_" + (amountOfVoting-1).toString() + votingId) ||
-    isActivePoolExists(assetA + "_" + assetB + "_" + (amountOfVoting-2).toString() + votingId) ||
-    isActivePoolExists(assetA + "_" + assetB + "_" + (amountOfVoting-3).toString() + votingId) ||
-    isActivePoolExists(assetA + "_" + assetB + "_" + (amountOfVoting-4).toString() + votingId) ||
-    isActivePoolExists(assetA + "_" + assetB + "_" + (amountOfVoting-5).toString() + votingId))
+func isUnactivePoolExists(poolsState: String) = {
+    let pools = this.getString(poolsState).valueOrElse("")
+    let poolsData = pools.split("_")
+    let isPoolDefine = this.getInteger(pools).isDefined()
+
+    if(isPoolDefine && pools != "") then {
+        let voting = poolsData[2]
+        let heightOfVoting = this.getInteger(voting+ keyHeightOfPool).valueOrElse(0)
+        let statusOfVoting = this.getBoolean(voting + keyStatusOfVoting).valueOrElse(true)
+
+        if (heightOfVoting > height) then {
+            if (statusOfVoting) then ""
+            else poolsState
+        } else poolsState
+    } else poolsState
 }
 
-func isCallerInGovernance(user: Address) = {
-    if govAddr.getInteger(user.toString() + kUserTotalSWOP).valueOrElse(0) > 0
-    then true
-    else false
+func isLastFiveActivePoolExists(assetA: String, assetB: String) = {
+    (isActivePoolExists(firstActiveVote, assetA, assetB) ||
+    isActivePoolExists(secondActiveVote, assetA, assetB) ||
+    isActivePoolExists(thirdActiveVote,  assetA, assetB) ||
+    isActivePoolExists(fourthActiveVote, assetA, assetB) ||
+    isActivePoolExists(fifthActiveVote, assetA, assetB))
 }
 
 func getActivePool(voting: Int) = {
@@ -102,13 +131,23 @@ func getActivePool(voting: Int) = {
         (0)
 }
 
-func getActiveVotingPoolAmount(voting: Int) = {
-    getActivePool(voting-1) + 
-    getActivePool(voting-2) + 
-    getActivePool(voting-3) + 
-    getActivePool(voting-4) + 
-    getActivePool(voting-5)
-}
+func getActiveVotingPoolAmount() = 
+    getActivePool(this.getInteger(firstActiveVote).valueOrElse(-1)) +
+    getActivePool(this.getInteger(secondActiveVote).valueOrElse(-1)) +
+    getActivePool(this.getInteger(thirdActiveVote).valueOrElse(-1)) +
+    getActivePool(this.getInteger(fourthActiveVote).valueOrElse(-1)) +
+    getActivePool(this.getInteger(fifthActiveVote).valueOrElse(-1))
+
+
+func getUnactiveVotingPool() = if isUnactivePoolExists(activeVoteFirst) != "" then activeVoteFirst
+                    else if isUnactivePoolExists(activeVoteSecond) != "" then activeVoteSecond
+                    else if isUnactivePoolExists(activeVoteThird) != "" then activeVoteThird
+                    else if isUnactivePoolExists(activeVoteFourth) != "" then activeVoteFourth
+                    else if isUnactivePoolExists(activeVoteFifth) != "" then activeVoteFifth
+                    else ""
+
+func getAssetInfoFromString(assetStr: String) = if assetStr == "WAVES" then unit else assetStr.fromBase58String()
+func isCallerInGovernance(user: Address) = if govAddr.getInteger(user.toString() + kUserTotalSWOP).valueOrElse(0) > 0 then true else false
 
 func suspend(cause: String) = [
     BooleanEntry(keyActive, false),
@@ -117,6 +156,7 @@ func suspend(cause: String) = [
 
 func throwInsufficientAvailableBalance(amount: Int, assetName: String) = throw("Insufficient DApp balance to pay "
     + amount.toString() + " " + assetName + " due to staking." +  ". Please contact support in Telegram: https://t.me/swopfisupport")
+
 
 @Callable(i)
 func init() = {
@@ -128,13 +168,19 @@ func init() = {
         let initNumberOfVoting = 0
         let initAmountOfVoting = 0
         let initKeyActive = true
+        let activeInit = ""
         [
             StringEntry(keyVersion, version),
             BooleanEntry(keyActive, initKeyActive),
             IntegerEntry(keyNumberOfVoting, initNumberOfVoting),
             IntegerEntry(keyAmountOfVoting, initAmountOfVoting),
             IntegerEntry(keyMaxAmountOfVoting, maxAmountOfVoting),
-            IntegerEntry(keyMaxDayOfVoting, maxDayOfVoting)
+            IntegerEntry(keyMaxDayOfVoting, maxDayOfVoting),
+            StringEntry(activeVoteFirst, activeInit),
+            StringEntry(activeVoteSecond, activeInit),
+            StringEntry(activeVoteThird, activeInit),
+            StringEntry(activeVoteFourth, activeInit),
+            StringEntry(activeVoteFifth, activeInit)
         ]
     }
 }
@@ -143,8 +189,9 @@ func init() = {
 func initVotingForNewPool(assetA: String, assetB: String) = {
     let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
     let (poolAssetIdA, poolAssetIdB) = (getAssetInfoFromString(assetA), getAssetInfoFromString(assetB))
-    let newNumberOfVoting = getActiveVotingPoolAmount(amountOfVoting)
-    let isPoolExists = isLastFivePoolExists(amountOfVoting, assetA, assetB)
+    let unactiveVote = getUnactiveVotingPool()
+    let newNumberOfVoting = getActiveVotingPoolAmount()
+    let isPoolExists = isLastFiveActivePoolExists(assetA, assetB)
     let (pmtStrAssetIdA, pmtAssetNameA, pmtDecimalsA) = getAssetInfo(poolAssetIdA)
     let (pmtStrAssetIdB, pmtAssetNameB, pmtDecimalsB) = getAssetInfo(poolAssetIdB)
     
@@ -152,12 +199,12 @@ func initVotingForNewPool(assetA: String, assetB: String) = {
         throw("DApp is inactive at this moment")
     else if poolAssetIdA == poolAssetIdB then
         throw("Assets must be different")
-    else if ((newNumberOfVoting + 1) >= maxAmountOfVoting) then
-        throw("Too many votings. Maximum quantity: " + maxAmountOfVoting.toString())
-    else if i.payments.size() != 1 then
-        throw("One attached assets expected")
     else if isPoolExists then
         throw("This pool already exists")
+    else if ((newNumberOfVoting + 1) > maxAmountOfVoting || unactiveVote == "") then
+        throw("Too many votes. Maximum quantity: " + maxAmountOfVoting.toString())
+    else if i.payments.size() != 1 then
+        throw("One attached assets expected")
     else if (pmtAssetId !=  SWOP) then 
         throw("You must use a SWOP token")
     else if (assetA == "" || assetB == "") then
@@ -175,6 +222,7 @@ func initVotingForNewPool(assetA: String, assetB: String) = {
             IntegerEntry(keyNumberOfVoting, newNumberOfVoting + 1),
             StringEntry(assetA + kName, pmtAssetNameA),
             StringEntry(assetB + kName, pmtAssetNameB),
+            StringEntry(unactiveVote, assetA + "_" + assetB + "_" + amountOfVoting.toString() + votingId),
             ScriptTransfer(walletAddress, pmtAmount, pmtAssetId)
         ]
     }
@@ -184,52 +232,49 @@ func initVotingForNewPool(assetA: String, assetB: String) = {
 func voteForPool(voting: Int, yesOrNo: Boolean, voteAmt: Int) = {
     let currentHeight = height
     let poolInitHeight = this.getIntegerValue(voting.toString() + keyHeightOfPool).valueOrErrorMessage("Empty pool height")
+    let statusOfVoting = this.getBoolean(voting.toString() + keyStatusOfVoting).valueOrElse(true)
     let userSWOPinGovernance = govAddr.getInteger(i.caller.toString() + kUserTotalSWOP).valueOrElse(0)
-    let oldVoteUserYes = this.getInteger(i.caller.toString() + "_" + voting.toString() + keyYes).valueOrElse(0)
-    let oldVoteUserNo = this.getInteger(i.caller.toString() + "_" + voting.toString() + keyNo).valueOrElse(0)
+    let totalVoteUser = if yesOrNo then this.getInteger(i.caller.toString() + "_" + voting.toString() + keyNo).valueOrElse(0) + voteAmt
+        else this.getInteger(i.caller.toString() + "_" + voting.toString() + keyYes).valueOrElse(0) + voteAmt
     if !isCallerInGovernance(i.caller) then
         throw("This address has 0 SWOP in Governance dApp")
-    else if (currentHeight > poolInitHeight) then {
-        [ 
-            IntegerEntry(keyNumberOfVoting, numberOfVoting - 1)
-        ]
-    }
+    else if(!statusOfVoting) then
+        throw("This voting was canceled")
+    else if (currentHeight > poolInitHeight) then 
+        throw("This voting was expired")
     else if (voteAmt < 0) then
         throw("The number of votes must be positive")
-    else if voteAmt > userSWOPinGovernance then
-        throw(this.toString() + " has " + userSWOPinGovernance.toString() +  " SWOP in Governance dApp")
+    else if totalVoteUser > userSWOPinGovernance then
+        throw(this.toString() + " has " + userSWOPinGovernance.toString() +  " SWOP in governance.")
     else {
         if(yesOrNo) then {
-            if oldVoteUserNo + voteAmt > userSWOPinGovernance then
-                throw("Total votes of address in the pool exceeds number of SWOP in Governance dApp")
-            else {
-                let newVote = this.getInteger(voting.toString() + keyYes).valueOrElse(0) - oldVoteUserYes + voteAmt
-                [
-                    IntegerEntry(voting.toString() + keyYes, newVote),
-                    IntegerEntry(i.caller.toString() + "_" + voting.toString() + keyYes, voteAmt)
-                ]
-            }
+            let oldVoteUser = this.getInteger(i.caller.toString() + "_" + voting.toString() + keyYes).valueOrElse(0)
+            let newVote = this.getInteger(voting.toString() + keyYes).valueOrElse(0) - oldVoteUser + voteAmt
+            [
+               IntegerEntry(voting.toString() + keyYes, newVote),
+               IntegerEntry(i.caller.toString() + "_" + voting.toString() + keyYes, voteAmt)
+            ]
         }
         else {
-            if oldVoteUserYes + voteAmt > userSWOPinGovernance then
-                throw("Total votes of address in the pool exceeds number of SWOP in Governance dApp")
-            else {
-                let newVote = this.getInteger(voting.toString() + keyNo).valueOrElse(0) - oldVoteUserNo + voteAmt
-                [
-                    IntegerEntry(voting.toString() + keyNo, newVote),
-                    IntegerEntry(i.caller.toString() + "_" + voting.toString() + keyNo, voteAmt)
-                ]
-            }
+            let oldVoteUser = this.getInteger(i.caller.toString() + "_" + voting.toString() + keyNo).valueOrElse(0)
+            let newVote = this.getInteger(voting.toString() + keyNo).valueOrElse(0) - oldVoteUser + voteAmt
+            [
+               IntegerEntry(voting.toString() + keyNo, newVote),
+               IntegerEntry(i.caller.toString() + "_" + voting.toString() + keyNo, voteAmt)
+            ]
         }
     }
 }
 
 @Callable(i)
 func cancellationVoting(voting: Int, cause: String) = {
+    let statusOfVoting = this.getBoolean(voting.toString() + keyStatusOfVoting).valueOrElse(true)
     if !isActive then
         throw("DApp is already suspended. Cause: " + this.getString(keyCause).valueOrElse("the cause wasn't specified"))
     else if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStartStop].containsElement(i.callerPublicKey) then
         throw("Only admin can call this function")
+    else if(!statusOfVoting) then
+        throw("Voting " + voting.toString() + " has already been stopped")
     else
     [
         IntegerEntry(keyNumberOfVoting, numberOfVoting - 1),
