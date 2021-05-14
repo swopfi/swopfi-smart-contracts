@@ -32,13 +32,4 @@ public class VotingDApp extends DApp {
                 ListArg.as(poolsVoteSWOPNew.stream().map(IntegerArg::as).collect(toList()))));
     }
 
-    public DAppCall updateWeights(List<String> previousPools, List<Long> previousRewards, List<String> currentPools, List<Long> currentRewards, int rewardUpdateHeight) {
-        return new DAppCall(address(), Function.as("updateWeights",
-                ListArg.as(previousPools.stream().map(StringArg::as).collect(toList())),
-                ListArg.as(previousRewards.stream().map(IntegerArg::as).collect(toList())),
-                ListArg.as(currentPools.stream().map(StringArg::as).collect(toList())),
-                ListArg.as(currentRewards.stream().map(IntegerArg::as).collect(toList())),
-                IntegerArg.as(rewardUpdateHeight)));
-    }
-
 }

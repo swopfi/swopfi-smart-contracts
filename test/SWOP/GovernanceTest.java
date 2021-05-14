@@ -7,8 +7,6 @@ import dapps.GovernanceDApp;
 import dapps.VotingDApp;
 import im.mak.paddle.Account;
 import com.wavesplatform.transactions.data.IntegerEntry;
-import com.wavesplatform.transactions.invocation.IntegerArg;
-import org.apache.commons.lang3.StringUtils;
 import im.mak.paddle.token.Asset;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer;
@@ -44,11 +42,6 @@ public class GovernanceTest {
     static GovernanceDApp governance;
     static Asset SWOP;
 
-    private final String votingScript = StringUtils.substringBefore(
-            fromFile("dApps/SWOP/voting.ride")
-                    .replace("3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS", governanceDapp.address().toString()),
-            "@Verifier");
-
     @BeforeAll
     static void before() {
         PrivateKey votingPK = PrivateKey.fromSeed(Crypto.getRandomSeedBytes());
@@ -76,9 +69,9 @@ public class GovernanceTest {
                 .integer(kStartHeight, 0)
                 .integer(kDurationFullVotePower, 1443));
         governance.writeData(d -> d
-                .integer(kBasePeriod, 0_000000000L)
+                .integer(kBasePeriod, 0)
                 .integer(kPeriodLength, 10102_000000000L)
-                .integer(kStartHeight, 0_000000000L));
+                .integer(kStartHeight, 0));
     }
 
     static Stream<Arguments> lockSWOPProvider() {
