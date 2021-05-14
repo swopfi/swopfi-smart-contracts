@@ -32,17 +32,13 @@ let activeVoteFifth = "voting_active_cell_5"
 let adminPubKey1 = base58'DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA'
 let adminPubKey2 = base58'E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7'
 let adminPubKey3 = base58'AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ'
-let adminPubKeyStartStop = base58'AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ'
+let adminPubKeyStartStop = base58'EtVkT6ed8GtbUiVVEqdmEqsp2J4qbb3rre2HFgxeVYdg'
 
 let walletAddress = Address(base58'3P6J84oH51DzY6xk2mT5TheXRbrCwBMxonp')
-# change to wallet Address
 let govAddr = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
-# change to govaddress
 
 let USDN = base58'DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p'
-#change USDN address
 let SWOP = base58'Ehie5xYpeN8op1Cctc6aGUrqx8jq3jtf1DSjXDbfm7aT'
-#change SWOP address
 
 let isActive = this.getBooleanValue(keyActive)
 let numberOfVoting = this.getIntegerValue(keyNumberOfVoting)
@@ -60,7 +56,7 @@ let slippageToleranceDelimiter = 1000
 let scaleValue8Digits = 8
 let maxAmountOfVoting = 5
 let maxDayOfVoting = 5
-let fiveDays = 1440 * maxDayOfVoting
+let fiveDays = 1443 * maxDayOfVoting
 
 func getAssetInfo(assetId: ByteVector|Unit) = match assetId {
     case id: ByteVector =>
@@ -69,7 +65,7 @@ func getAssetInfo(assetId: ByteVector|Unit) = match assetId {
             let info = assetInfo(id).valueOrErrorMessage("Asset " + stringId + " doesn't exist")
             (stringId, info.name, info.decimals)
         } else {
-            throw("Asset is not define")
+            throw("Asset is not defined")
         }
     case waves: Unit => ("WAVES", "WAVES", 8)
 }
@@ -204,7 +200,7 @@ func initVotingForNewPool(assetA: String, assetB: String) = {
     else if isPoolExists then
         throw("This pool already exists")
     else if ((newNumberOfVoting + 1) > maxAmountOfVoting || unactiveVote == "") then
-        throw("Too many votes. Maximum quantity: " + maxAmountOfVoting.toString())
+        throw("Too many votings. Maximum quantity: " + maxAmountOfVoting.toString())
     else if i.payments.size() != 1 then
         throw("One attached assets expected")
     else if (pmtAssetId !=  SWOP) then 
@@ -273,7 +269,7 @@ func cancelVoting(voting: Int, cause: String) = {
     let statusOfVoting = this.getBoolean(voting.toString() + keyStatusOfVoting).valueOrElse(true)
     if !isActive then
         throw("DApp is already suspended. Cause: " + this.getString(keyCause).valueOrElse("the cause wasn't specified"))
-    else if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStartStop].containsElement(i.callerPublicKey) then
+    else if ![adminPubKey1, adminPubKey2, adminPubKey3].containsElement(i.callerPublicKey) then
         throw("Only admin can call this function")
     else if(!statusOfVoting) then
         throw("Voting " + voting.toString() + " has already been stopped")
