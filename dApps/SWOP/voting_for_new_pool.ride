@@ -232,8 +232,8 @@ func voteForPool(voting: Int, yesOrNo: Boolean, voteAmt: Int) = {
     let poolInitHeight = this.getIntegerValue(voting.toString() + keyHeightOfPool).valueOrErrorMessage("Empty pool height")
     let statusOfVoting = this.getBoolean(voting.toString() + keyStatusOfVoting).valueOrElse(true)
     let userSWOPinGovernance = govAddr.getInteger(i.caller.toString() + kUserTotalSWOP).valueOrElse(0)
-    let totalVoteUser = if yesOrNo then this.getInteger(i.caller.toString() + "_" + voting.toString() + keyNo).valueOrElse(0) + voteAmt
-        else this.getInteger(i.caller.toString() + "_" + voting.toString() + keyYes).valueOrElse(0) + voteAmt
+    let totalVoteUser = if yesOrNo then this.getInteger(i.caller.toString() + "_" + voting.toString() + keyNoUser).valueOrElse(0) + voteAmt
+        else this.getInteger(i.caller.toString() + "_" + voting.toString() + keyYesUser).valueOrElse(0) + voteAmt
     if !isCallerInGovernance(i.caller) then
         throw("This address has 0 SWOP in Governance dApp")
     else if(!statusOfVoting) then
