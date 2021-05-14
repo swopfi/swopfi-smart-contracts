@@ -202,7 +202,7 @@ func initVotingForNewPool(assetA: String, assetB: String) = {
     else if ((newNumberOfVoting + 1) > maxAmountOfVoting || unactiveVote == "") then
         throw("Too many votings. Maximum quantity: " + maxAmountOfVoting.toString())
     else if i.payments.size() != 1 then
-        throw("One attached assets expected")
+        throw("One attached asset expected")
     else if (pmtAssetId !=  SWOP) then 
         throw("You must use a SWOP token")
     else if (assetA == "" || assetB == "") then
