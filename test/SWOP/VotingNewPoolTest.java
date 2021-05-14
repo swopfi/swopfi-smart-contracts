@@ -8,7 +8,7 @@ import com.wavesplatform.transactions.invocation.StringArg;
 import im.mak.paddle.exceptions.ApiError;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.*;
-import static im.mak.paddle.Async.async;
+import static im.mak.paddle.util.Async.async;
 import static im.mak.paddle.Node.node;
 import static im.mak.paddle.util.Script.fromFile;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -92,7 +92,7 @@ public class VotingNewPoolTest {
     @Test //initVotingForNewPool 1
     void addNewVoting() {
         Account votingDApp = new Account(10_00000000L);
-        votingDApp.setScript(s -> s.script(votingScript));
+        votingDApp.setScript(votingScript);
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
         long lastPoolId = 0;
         
@@ -113,7 +113,7 @@ public class VotingNewPoolTest {
     @Test //initVotingForNewPool 2,3,4,5,6
     void initVotingForNewPoolErrorPayment() {
         Account votingDApp = new Account(10_00000000L);
-        votingDApp.setScript(s -> s.script(votingScript));
+        votingDApp.setScript(votingScript);
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
         
         assertThat(assertThrows(ApiError.class, () ->
@@ -155,7 +155,7 @@ public class VotingNewPoolTest {
     @Test //initVotingForNewPool 7,8
     void createPoolWhenFiveActiveOrPoolExists() {
         Account votingDApp = new Account(10_00000000L);
-        votingDApp.setScript(s -> s.script(votingScript));
+        votingDApp.setScript(votingScript);
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
 
         async(
@@ -203,7 +203,7 @@ public class VotingNewPoolTest {
     @Test //initVotingForNewPool 9
     void addNewVotingSameAsUnactive() {
         Account votingDApp = new Account(10_00000000L);
-        votingDApp.setScript(s -> s.script(votingScript));
+        votingDApp.setScript(votingScript);
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
 
         async(
@@ -250,7 +250,7 @@ public class VotingNewPoolTest {
     @Test //initVotingForNewPool 10
     void addNewVotingWithSameAAssetAndOtherBAsset() {
         Account votingDApp = new Account(10_00000000L);
-        votingDApp.setScript(s -> s.script(votingScript));
+        votingDApp.setScript(votingScript);
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
 
        firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
@@ -276,7 +276,7 @@ public class VotingNewPoolTest {
     @Test //initVotingForNewPool 11
     void addNewVotingWhenFourUnactiveZeroActive() {
         Account votingDApp = new Account(10_00000000L);
-        votingDApp.setScript(s -> s.script(votingScript));
+        votingDApp.setScript(votingScript);
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
 
         async(
@@ -323,7 +323,7 @@ public class VotingNewPoolTest {
     @Test //initVotingForNewPool 12
     void addNewVotingWhenFourUnactiveFourActive() {
         Account votingDApp = new Account(10_00000000L);
-        votingDApp.setScript(s -> s.script(votingScript));
+        votingDApp.setScript(votingScript);
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
         
         async(
@@ -389,7 +389,7 @@ public class VotingNewPoolTest {
     @Test //initVotingForNewPool 13
     void addNewVotingWhenFiveUnactiveFourActive() {
         Account votingDApp = new Account(10_00000000L);
-        votingDApp.setScript(s -> s.script(votingScript));
+        votingDApp.setScript(votingScript);
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
         
         async(
@@ -459,7 +459,7 @@ public class VotingNewPoolTest {
     @Test //initVotingForNewPool 14
     void NoneNetworkAsset() {
         Account votingDApp = new Account(10_00000000L);
-        votingDApp.setScript(s -> s.script(votingScript));
+        votingDApp.setScript(votingScript);
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
 
         assertThat(assertThrows(ApiError.class, () ->
@@ -473,7 +473,7 @@ public class VotingNewPoolTest {
     @Test //initVotingForNewPool 15
     void NotRealAsset() {
         Account votingDApp = new Account(10_00000000L);
-        votingDApp.setScript(s -> s.script(votingScript));
+        votingDApp.setScript(votingScript);
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
 
         assertThat(assertThrows(ApiError.class, () ->
@@ -488,7 +488,7 @@ public class VotingNewPoolTest {
     @Test //initVotingForNewPool 16
     void EmptyAsset() {
         Account votingDApp = new Account(10_00000000L);
-        votingDApp.setScript(s -> s.script(votingScript));
+        votingDApp.setScript(votingScript);
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
 
         assertThat(assertThrows(ApiError.class, () ->
@@ -502,7 +502,7 @@ public class VotingNewPoolTest {
     @Test //initVotingForNewPool 17
     void NewPoolWithWaves() {
         Account votingDApp = new Account(10_00000000L);
-        votingDApp.setScript(s -> s.script(votingScript));
+        votingDApp.setScript(votingScript);
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
 
         long lastPoolId = 0;
@@ -523,7 +523,7 @@ public class VotingNewPoolTest {
     @Test //initVotingForNewPool 18
     void NewPoolWithWavesUsdnPair() {
         Account votingDApp = new Account(10_00000000L);
-        votingDApp.setScript(s -> s.script(votingScript));
+        votingDApp.setScript(votingScript);
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
 
         long lastPoolId = 0;
@@ -544,7 +544,7 @@ public class VotingNewPoolTest {
     @Test //initVotingForNewPool 19
     void NewPoolBAssetOther() {
         Account votingDApp = new Account(10_00000000L);
-        votingDApp.setScript(s -> s.script(votingScript));
+        votingDApp.setScript(votingScript);
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
 
         assertThat(assertThrows(ApiError.class, () ->
@@ -558,7 +558,7 @@ public class VotingNewPoolTest {
     @Test //initVotingForNewPool 20
     void NewPoolAAssetWavesBAssetOther() {
         Account votingDApp = new Account(10_00000000L);
-        votingDApp.setScript(s -> s.script(votingScript));
+        votingDApp.setScript(votingScript);
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
 
         assertThat(assertThrows(ApiError.class, () ->
@@ -572,7 +572,7 @@ public class VotingNewPoolTest {
     @Test //initVotingForNewPool 21
     void NewPoolAAssetSWOPBAssetOther() {
         Account votingDApp = new Account(10_00000000L);
-        votingDApp.setScript(s -> s.script(votingScript));
+        votingDApp.setScript(votingScript);
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
 
         assertThat(assertThrows(ApiError.class, () ->
@@ -586,7 +586,7 @@ public class VotingNewPoolTest {
     @Test //initVotingForNewPool 22
     void NewPoolAAssetUSDNBAssetOther() {
         Account votingDApp = new Account(10_00000000L);
-        votingDApp.setScript(s -> s.script(votingScript));
+        votingDApp.setScript(votingScript);
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
 
         assertThat(assertThrows(ApiError.class, () ->
@@ -600,7 +600,7 @@ public class VotingNewPoolTest {
     @Test //initVotingForNewPool 23
     void NewDuplicatePoolWithAssetsVotedAfterFiveNotActive() {
         Account votingDApp = new Account(10_00000000L);
-        votingDApp.setScript(s -> s.script(votingScript));
+        votingDApp.setScript(votingScript);
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
 
         async(
@@ -651,7 +651,7 @@ public class VotingNewPoolTest {
     @Test //initVotingForNewPool 24
     void NewPoolWhenFiveActive() {
         Account votingDApp = new Account(10_00000000L);
-        votingDApp.setScript(s -> s.script(votingScript));
+        votingDApp.setScript(votingScript);
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
 
         async(
@@ -696,7 +696,7 @@ public class VotingNewPoolTest {
     @Test //initVotingForNewPool 25
     void NewPoolWhenLastCanceled() {
         Account votingDApp = new Account(10_00000000L);
-        votingDApp.setScript(s -> s.script(votingScript));
+        votingDApp.setScript(votingScript);
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
 
         async(
@@ -744,7 +744,7 @@ public class VotingNewPoolTest {
     @Test //initVotingForNewPool 26
     void addDuplicatePoolAfterCancel() {
         Account votingDApp = new Account(10_00000000L);
-        votingDApp.setScript(s -> s.script(votingScript));
+        votingDApp.setScript(votingScript);
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
 
         async(
@@ -792,7 +792,7 @@ public class VotingNewPoolTest {
     @Test //initVotingForNewPool 27
     void addVotingWithSameAssets() {
         Account votingDApp = new Account(10_00000000L);
-        votingDApp.setScript(s -> s.script(votingScript));
+        votingDApp.setScript(votingScript);
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
 
         assertThat(assertThrows(ApiError.class, () ->
