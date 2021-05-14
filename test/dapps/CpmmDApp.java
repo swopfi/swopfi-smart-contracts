@@ -4,6 +4,7 @@ import com.wavesplatform.crypto.base.Base58;
 import com.wavesplatform.transactions.account.Address;
 import com.wavesplatform.transactions.account.PublicKey;
 import com.wavesplatform.transactions.common.AssetId;
+import com.wavesplatform.transactions.invocation.BooleanArg;
 import com.wavesplatform.transactions.invocation.Function;
 import com.wavesplatform.transactions.invocation.IntegerArg;
 import im.mak.paddle.dapp.DApp;
@@ -25,8 +26,8 @@ public class CpmmDApp extends DApp {
                 .replace("Czn4yoAuUZCVCLJDRfskn8URfkwpknwBTZDbs1wFrY7h", admin.toString()));
     }
 
-    public DAppCall init() {
-        return new DAppCall(address(), Function.as("init"));
+    public DAppCall init(boolean isFirstHarvestPool) {
+        return new DAppCall(address(), Function.as("init", BooleanArg.as(isFirstHarvestPool)));
     }
 
     public DAppCall replenishWithTwoTokens(long slippageTolerance) {
