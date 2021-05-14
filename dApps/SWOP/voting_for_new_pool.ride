@@ -246,7 +246,7 @@ func voteForPool(voting: Int, yesOrNo: Boolean, voteAmt: Int) = {
         throw(this.toString() + " has " + userSWOPinGovernance.toString() +  " SWOP in governance.")
     else {
         if(yesOrNo) then {
-            let oldVoteUser = this.getInteger(i.caller.toString() + "_" + voting.toString() + keyYes).valueOrElse(0)
+            let oldVoteUser = this.getInteger(i.caller.toString() + "_" + voting.toString() + keyYesUser).valueOrElse(0)
             let newVote = this.getInteger(voting.toString() + keyYes).valueOrElse(0) - oldVoteUser + voteAmt
             [
                IntegerEntry(voting.toString() + keyYes, newVote),
@@ -254,7 +254,7 @@ func voteForPool(voting: Int, yesOrNo: Boolean, voteAmt: Int) = {
             ]
         }
         else {
-            let oldVoteUser = this.getInteger(i.caller.toString() + "_" + voting.toString() + keyNo).valueOrElse(0)
+            let oldVoteUser = this.getInteger(i.caller.toString() + "_" + voting.toString() + keyNoUser).valueOrElse(0)
             let newVote = this.getInteger(voting.toString() + keyNo).valueOrElse(0) - oldVoteUser + voteAmt
             [
                IntegerEntry(voting.toString() + keyNo, newVote),
