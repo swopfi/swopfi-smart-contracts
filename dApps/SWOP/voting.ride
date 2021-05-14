@@ -18,6 +18,9 @@ let kPoolStruc = "_pool_struc"
 let kTotalVoteSWOP = "total_vote_SWOP"
 let kTotalStruc = "total_struc"
 
+let kHarvestPoolActiveVoteStruc = "_harvest_pool_activeVote_struc"
+let kHarvestUserPoolActiveVoteStruc = "_harvest_user_pool_activeVote_struc"
+
 let kStartHeight = "start_height"
 let kBasePeriod = "base_period"
 let kPeriodLength = "period_length"
@@ -123,6 +126,26 @@ func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = 
     if userTotalVoteSWOPnew < 0 then throw("New userTotalVoteSWOPnew < 0") else
     if userPoolVoteSWOPnew < 0 then throw("New userPoolVoteSWOPnew < 0") else
 
+    #entry for FirstHarvest
+    # we save only info for one voting period: pool active vote power and users active vote power
+    # user's share for harvest period = user_pool_active_vote/pool_active_vote in first voting
+    let harvestPoolActiveVotePeriod = if this.getString(kHarvestPoolActiveVoteStruc).isDefined()
+	    then this.getStringValue(kHarvestPoolActiveVoteStruc).split("_")[1].parseIntValue()
+	    else currPeriod
+    let harvestPoolActiveVoteStrucEntry = if harvestPoolActiveVotePeriod == currPeriod then
+        let harvestPoolActiveVoteStruc = poolActiveSWOP.toString() + "_" + currPeriod.toString()
+       [StringEntry(poolAddress + kHarvestPoolActiveVoteStruc, harvestPoolActiveVoteStruc)]
+    else
+        []
+    let harvestUserPoolActiveVotePeriod = if this.getString(kHarvestUserPoolActiveVoteStruc).isDefined()
+	    then this.getStringValue(kHarvestUserPoolActiveVoteStruc).split("_")[1].parseIntValue()
+	    else currPeriod
+    let harvestUserPoolActiveVoteStrucEntry = if harvestUserPoolActiveVotePeriod == currPeriod then
+        let harvestUserPoolActiveVoteStruc =  poolActiveSWOP.toString() + "_" + currPeriod.toString()
+       [StringEntry(i.caller.toString() + "_" + poolAddress + kHarvestUserPoolActiveVoteStruc, harvestUserPoolActiveVoteStruc)]
+    else
+        []
+
     if userPoolVoteSWOPnew >= userPoolVoteSWOP then # if user add swop in voting
         # entry for user pool
         let coef = votingCoef()
@@ -163,6 +186,7 @@ func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = 
         ] 
 
         userPoolEntry ++ userTotalEntry ++ poolEntry ++ totalEntry ++ calcDeleteEntry(i.caller.toString(),poolAddress, userPoolVoteSWOPnew)
+        ++ harvestPoolActiveVoteStrucEntry ++ harvestUserPoolActiveVoteStrucEntry
 
     else # if user remove swop from voting
         let removePoolVote = -poolVoteDiffSWOP
@@ -209,7 +233,7 @@ func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = 
         let allNewValues = [currPeriod,userPoolFreezeSWOPnew,userPoolActiveVoteSWOPnew,userPoolFreezeSWOPnew,userUnvotedNew,userUnvotedPeriodNew,poolVoteSWOPnew,poolActiveSWOPnew,totalVoteSWOPnew,totalActiveSWOPnew]
         if allNewValues.min() < 0 then throw("One or more values are negative") else
         userPoolEntry ++ userTotalEntry ++ poolEntry ++ totalEntry ++ calcDeleteEntry(i.caller.toString(),poolAddress, userPoolVoteSWOPnew)
-
+        ++ harvestPoolActiveVoteStrucEntry ++ harvestUserPoolActiveVoteStrucEntry
 }
 
 @Verifier(tx)

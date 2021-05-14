@@ -90,7 +90,7 @@ class CpmmTest {
 
         int digitsInShareToken = (aDecimal + bDecimal) / 2;
 
-        firstCaller.invoke(exchanger.init(), i -> i
+        firstCaller.invoke(exchanger.init(false), i -> i
                 .payment(fundAmountA, tokenA).payment(fundAmountB, tokenB).additionalFee(WAVES.amount(1)));
         node().waitNBlocks(1);
 

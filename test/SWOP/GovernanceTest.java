@@ -57,8 +57,8 @@ public class GovernanceTest {
         SWOP = Asset.as(firstCaller.issue(a -> a.quantity(Long.MAX_VALUE).name("SWOP").decimals(6)).tx().assetId());
         async(
                 () -> firstCaller.massTransfer(t -> t.assetId(SWOP)
-                            .to(secondCaller, Long.MAX_VALUE / 3)
-                            .to(airdropCaller, Long.MAX_VALUE / 3)),
+                        .to(secondCaller, Long.MAX_VALUE / 3)
+                        .to(airdropCaller, Long.MAX_VALUE / 3)),
                 () -> farming.writeData(d -> d.string("SWOP_id", SWOP.toString())),
                 () -> voting = new VotingDApp(votingPK, WAVES.amount(1000), governancePK.address()),
                 () -> governance = new GovernanceDApp(governancePK, WAVES.amount(1000), farming.publicKey(), votingPK.address())
@@ -68,6 +68,10 @@ public class GovernanceTest {
                 .integer(kPeriodLength, 10102_000000000L)
                 .integer(kStartHeight, 0)
                 .integer(kDurationFullVotePower, 1443));
+        governance.writeData(d -> d
+                .integer(kBasePeriod, 0)
+                .integer(kPeriodLength, 10102_000000000L)
+                .integer(kStartHeight, 0));
     }
 
     static Stream<Arguments> lockSWOPProvider() {
@@ -295,5 +299,4 @@ public class GovernanceTest {
                 .multiply(BigInteger.valueOf(scaleValue))
                 .divide(BigInteger.valueOf(totalSWOPAmount)).longValue();
     }
-
 }

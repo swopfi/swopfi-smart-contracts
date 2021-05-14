@@ -2,8 +2,6 @@ package dapps;
 
 import com.wavesplatform.transactions.account.Address;
 import com.wavesplatform.transactions.account.PrivateKey;
-import com.wavesplatform.transactions.account.PublicKey;
-import com.wavesplatform.transactions.common.AssetId;
 import com.wavesplatform.transactions.invocation.Function;
 import com.wavesplatform.transactions.invocation.IntegerArg;
 import com.wavesplatform.transactions.invocation.ListArg;
@@ -17,9 +15,9 @@ import java.util.List;
 import static im.mak.paddle.util.Script.fromFile;
 import static java.util.stream.Collectors.toList;
 
-public class VotingDApp extends DApp {
+public class VotingNewPoolDApp extends DApp {
 
-    public VotingDApp(PrivateKey pk, long initialBalance, Address governance) {
+    public VotingNewPoolDApp(PrivateKey pk, long initialBalance, Address governance) {
         super(pk, initialBalance, StringUtils.substringBefore(
                 fromFile("dApps/SWOP/voting.ride")
                         .replace("3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS", governance.toString()),

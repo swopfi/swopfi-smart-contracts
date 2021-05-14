@@ -1,0 +1,311 @@
+{-# STDLIB_VERSION 4 #-}
+{-# CONTENT_TYPE DAPP #-}
+{-# SCRIPT_TYPE ACCOUNT #-}
+
+let version = "1.0.0"
+let keyVersion = "version"
+let keyActive = "active"
+let keyNumberOfVoting = "voting_active_number"
+let keyHeightOfPool = "_finish_height"
+let keyNo = "_total_votes_no"
+let keyYes = "_total_votes_yes"
+let keyNoUser = "_vote_no"
+let keyYesUser = "_vote_yes"
+let keyStatusOfVoting = "_status"
+let keyAmountOfVoting = "voting_id_last"
+let keyMaxAmountOfVoting = "max_amount_voting"
+let keyMaxDayOfVoting = "max_day_voting"
+let keyCommission = "commission"
+let keyCommissionScaleDelimiter = "commission_scale_delimiter"
+let keyCause = "shutdown_cause"
+let keyCancelCause = "_cancel_cause"
+let kUserTotalSWOP = "_SWOP_amount"
+let kName = "_asset_name"
+let votingId = "_voting"
+let periodOfVoting = "period_voting"
+let activeVoteFirst = "voting_active_cell_1"
+let activeVoteSecond = "voting_active_cell_2"
+let activeVoteThird = "voting_active_cell_3"
+let activeVoteFourth = "voting_active_cell_4"
+let activeVoteFifth = "voting_active_cell_5"
+
+let adminPubKey1 = base58'DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA'
+let adminPubKey2 = base58'E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7'
+let adminPubKey3 = base58'AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ'
+let adminPubKeyStartStop = base58'EtVkT6ed8GtbUiVVEqdmEqsp2J4qbb3rre2HFgxeVYdg'
+
+let walletAddress = Address(base58'3P6J84oH51DzY6xk2mT5TheXRbrCwBMxonp')
+let govAddr = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
+
+let USDN = base58'DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p'
+let SWOP = base58'Ehie5xYpeN8op1Cctc6aGUrqx8jq3jtf1DSjXDbfm7aT'
+
+let isActive = this.getBooleanValue(keyActive)
+let numberOfVoting = this.getIntegerValue(keyNumberOfVoting)
+let amountOfVoting = this.getIntegerValue(keyAmountOfVoting)
+let firstActiveVote = this.getString(activeVoteFirst).valueOrElse("")
+let secondActiveVote = this.getString(activeVoteSecond).valueOrElse("")
+let thirdActiveVote = this.getString(activeVoteThird).valueOrElse("")
+let fourthActiveVote = this.getString(activeVoteFourth).valueOrElse("")
+let fifthActiveVote = this.getString(activeVoteFifth).valueOrElse("")
+
+let comissionForInitalizationOfVoting = 1000000000
+let scaleValue3 = 1000
+let scaleValue8 = 100000000
+let slippageToleranceDelimiter = 1000
+let scaleValue8Digits = 8
+let maxAmountOfVoting = 5
+let maxDayOfVoting = 5
+let fiveDays = 1443 * maxDayOfVoting
+
+func getAssetInfo(assetId: ByteVector|Unit) = match assetId {
+    case id: ByteVector =>
+        if (assetInfo(id).isDefined()) then {
+            let stringId = id.toBase58String()
+            let info = assetInfo(id).valueOrErrorMessage("Asset " + stringId + " doesn't exist")
+            (stringId, info.name, info.decimals)
+        } else {
+            throw("Asset is not defined")
+        }
+    case waves: Unit => ("WAVES", "WAVES", 8)
+}
+
+func isActivePoolExists(pools: String, assetA: String, assetB: String) = {
+    let poolsData = pools.split("_")
+    let isPoolDefine = this.getInteger(pools).isDefined()
+
+    if(isPoolDefine && pools != "") then {
+        let voting = poolsData[2]
+        let newPools = assetA + "_" + assetB + "_" + voting + votingId
+        let isNewPoolDefine = this.getInteger(newPools).isDefined()
+        let heightOfVoting = this.getInteger(voting+ keyHeightOfPool).valueOrElse(0)
+        let statusOfVoting = this.getBoolean(voting + keyStatusOfVoting).valueOrElse(true)
+
+        if (isNewPoolDefine) then {
+            if (heightOfVoting > height) then {
+                if (statusOfVoting) then true
+                else false
+            } else false
+        } else false
+    } else false
+}
+
+func isUnactivePoolExists(poolsState: String) = {
+    let pools = this.getString(poolsState).valueOrElse("")
+    let poolsData = pools.split("_")
+    let isPoolDefine = this.getInteger(pools).isDefined()
+
+    if(isPoolDefine && pools != "") then {
+        let voting = poolsData[2]
+        let heightOfVoting = this.getInteger(voting+ keyHeightOfPool).valueOrElse(0)
+        let statusOfVoting = this.getBoolean(voting + keyStatusOfVoting).valueOrElse(true)
+
+        if (heightOfVoting > height) then {
+            if (statusOfVoting) then ""
+            else poolsState
+        } else poolsState
+    } else poolsState
+}
+
+func isLastFiveActivePoolExists(assetA: String, assetB: String) = {
+    (isActivePoolExists(firstActiveVote, assetA, assetB) ||
+    isActivePoolExists(secondActiveVote, assetA, assetB) ||
+    isActivePoolExists(thirdActiveVote,  assetA, assetB) ||
+    isActivePoolExists(fourthActiveVote, assetA, assetB) ||
+    isActivePoolExists(fifthActiveVote, assetA, assetB))
+}
+
+func getActivePool(voting: Int) = {
+    let heightOfVoting = this.getInteger(voting.toString() + keyHeightOfPool).valueOrElse(0)
+    let statusOfVoting = this.getBoolean(voting.toString() + keyStatusOfVoting).valueOrElse(true)
+    let currentHeight = height
+    if (voting < 0) then
+        (0)
+    else if (!statusOfVoting) then
+        (0)
+    else if (heightOfVoting > currentHeight) then {
+        (1)
+    } else
+        (0)
+}
+
+func getActiveVotingPoolAmount() = 
+    getActivePool(this.getInteger(firstActiveVote).valueOrElse(-1)) +
+    getActivePool(this.getInteger(secondActiveVote).valueOrElse(-1)) +
+    getActivePool(this.getInteger(thirdActiveVote).valueOrElse(-1)) +
+    getActivePool(this.getInteger(fourthActiveVote).valueOrElse(-1)) +
+    getActivePool(this.getInteger(fifthActiveVote).valueOrElse(-1))
+
+
+func getUnactiveVotingPool() = if isUnactivePoolExists(activeVoteFirst) != "" then activeVoteFirst
+                    else if isUnactivePoolExists(activeVoteSecond) != "" then activeVoteSecond
+                    else if isUnactivePoolExists(activeVoteThird) != "" then activeVoteThird
+                    else if isUnactivePoolExists(activeVoteFourth) != "" then activeVoteFourth
+                    else if isUnactivePoolExists(activeVoteFifth) != "" then activeVoteFifth
+                    else ""
+
+func getAssetInfoFromString(assetStr: String) = if assetStr == "WAVES" then unit else assetStr.fromBase58String()
+func isCallerInGovernance(user: Address) = if govAddr.getInteger(user.toString() + kUserTotalSWOP).valueOrElse(0) > 0 then true else false
+
+func suspend(cause: String) = [
+    BooleanEntry(keyActive, false),
+    StringEntry(keyCause, cause)
+]
+
+func throwInsufficientAvailableBalance(amount: Int, assetName: String) = throw("Insufficient DApp balance to pay "
+    + amount.toString() + " " + assetName + " due to staking." +  ". Please contact support in Telegram: https://t.me/swopfisupport")
+
+
+@Callable(i)
+func init() = {
+    if i.caller != this then
+        throw("Only the DApp itself can call this function")
+    else if this.getBoolean(keyActive).isDefined() then
+        throw("DApp is already active")
+    else {
+        let initNumberOfVoting = 0
+        let initAmountOfVoting = 0
+        let initKeyActive = true
+        let activeInit = ""
+        [
+            StringEntry(keyVersion, version),
+            BooleanEntry(keyActive, initKeyActive),
+            IntegerEntry(keyNumberOfVoting, initNumberOfVoting),
+            IntegerEntry(keyAmountOfVoting, initAmountOfVoting),
+            IntegerEntry(keyMaxAmountOfVoting, maxAmountOfVoting),
+            IntegerEntry(keyMaxDayOfVoting, maxDayOfVoting),
+            StringEntry(activeVoteFirst, activeInit),
+            StringEntry(activeVoteSecond, activeInit),
+            StringEntry(activeVoteThird, activeInit),
+            StringEntry(activeVoteFourth, activeInit),
+            StringEntry(activeVoteFifth, activeInit)
+        ]
+    }
+}
+
+@Callable(i)
+func initVotingForNewPool(assetA: String, assetB: String) = {
+    let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
+    let (poolAssetIdA, poolAssetIdB) = (getAssetInfoFromString(assetA), getAssetInfoFromString(assetB))
+    let unactiveVote = getUnactiveVotingPool()
+    let newNumberOfVoting = getActiveVotingPoolAmount()
+    let isPoolExists = isLastFiveActivePoolExists(assetA, assetB)
+    let (pmtStrAssetIdA, pmtAssetNameA, pmtDecimalsA) = getAssetInfo(poolAssetIdA)
+    let (pmtStrAssetIdB, pmtAssetNameB, pmtDecimalsB) = getAssetInfo(poolAssetIdB)
+    
+    if !isActive then
+        throw("DApp is inactive at this moment")
+    else if poolAssetIdA == poolAssetIdB then
+        throw("Assets must be different")
+    else if isPoolExists then
+        throw("This pool already exists")
+    else if ((newNumberOfVoting + 1) > maxAmountOfVoting || unactiveVote == "") then
+        throw("Too many votings. Maximum quantity: " + maxAmountOfVoting.toString())
+    else if i.payments.size() != 1 then
+        throw("One attached asset expected")
+    else if (pmtAssetId !=  SWOP) then 
+        throw("You must use a SWOP token")
+    else if (assetA == "" || assetB == "") then
+        throw("Assets can't be empty")
+    else if (pmtAmount != comissionForInitalizationOfVoting) then
+        throw("You need to attach 10 SWOP tokens")
+    else if !((poolAssetIdB == USDN) || (poolAssetIdB == unit) || (poolAssetIdB == SWOP)) then
+        throw("assetB must be USDN, WAVES or SWOP")
+    else {
+        [
+            IntegerEntry(assetA + "_" + assetB + "_" + amountOfVoting.toString() + votingId, amountOfVoting),
+            IntegerEntry(amountOfVoting.toString() + keyHeightOfPool, height + fiveDays),
+            BooleanEntry(amountOfVoting.toString() + keyStatusOfVoting, true),
+            IntegerEntry(keyAmountOfVoting, amountOfVoting + 1),
+            IntegerEntry(keyNumberOfVoting, newNumberOfVoting + 1),
+            StringEntry(assetA + kName, pmtAssetNameA),
+            StringEntry(assetB + kName, pmtAssetNameB),
+            StringEntry(unactiveVote, assetA + "_" + assetB + "_" + amountOfVoting.toString() + votingId),
+            ScriptTransfer(walletAddress, pmtAmount, pmtAssetId)
+        ]
+    }
+}
+
+@Callable(i)
+func voteForPool(voting: Int, yesOrNo: Boolean, voteAmt: Int) = {
+    let currentHeight = height
+    let poolInitHeight = this.getIntegerValue(voting.toString() + keyHeightOfPool).valueOrErrorMessage("Empty pool height")
+    let statusOfVoting = this.getBoolean(voting.toString() + keyStatusOfVoting).valueOrElse(true)
+    let userSWOPinGovernance = govAddr.getInteger(i.caller.toString() + kUserTotalSWOP).valueOrElse(0)
+    let totalVoteUser = if yesOrNo then this.getInteger(i.caller.toString() + "_" + voting.toString() + keyNoUser).valueOrElse(0) + voteAmt
+        else this.getInteger(i.caller.toString() + "_" + voting.toString() + keyYesUser).valueOrElse(0) + voteAmt
+    if !isCallerInGovernance(i.caller) then
+        throw("This address has 0 SWOP in Governance dApp")
+    else if(!statusOfVoting) then
+        throw("This voting was canceled")
+    else if (currentHeight > poolInitHeight) then
+        throw("This voting was expired")
+    else if (voteAmt < 0) then
+        throw("The number of votes must be positive")
+    else if totalVoteUser > userSWOPinGovernance then
+        throw(this.toString() + " has " + userSWOPinGovernance.toString() +  " SWOP in governance.")
+    else {
+        if(yesOrNo) then {
+            let oldVoteUser = this.getInteger(i.caller.toString() + "_" + voting.toString() + keyYesUser).valueOrElse(0)
+            let newVote = this.getInteger(voting.toString() + keyYes).valueOrElse(0) - oldVoteUser + voteAmt
+            [
+               IntegerEntry(voting.toString() + keyYes, newVote),
+               IntegerEntry(i.caller.toString() + "_" + voting.toString() + keyYesUser, voteAmt)
+            ]
+        }
+        else {
+            let oldVoteUser = this.getInteger(i.caller.toString() + "_" + voting.toString() + keyNoUser).valueOrElse(0)
+            let newVote = this.getInteger(voting.toString() + keyNo).valueOrElse(0) - oldVoteUser + voteAmt
+            [
+               IntegerEntry(voting.toString() + keyNo, newVote),
+               IntegerEntry(i.caller.toString() + "_" + voting.toString() + keyNoUser, voteAmt)
+            ]
+        }
+    }
+}
+
+@Callable(i)
+func cancelVoting(voting: Int, cause: String) = {
+    let statusOfVoting = this.getBoolean(voting.toString() + keyStatusOfVoting).valueOrElse(true)
+    if !isActive then
+        throw("DApp is already suspended. Cause: " + this.getString(keyCause).valueOrElse("the cause wasn't specified"))
+    else if ![adminPubKey1, adminPubKey2, adminPubKey3].containsElement(i.callerPublicKey) then
+        throw("Only admin can call this function")
+    else if(!statusOfVoting) then
+        throw("Voting " + voting.toString() + " has already been stopped")
+    else
+    [
+        IntegerEntry(keyNumberOfVoting, numberOfVoting - 1),
+        BooleanEntry(voting.toString() + keyStatusOfVoting, false),
+        StringEntry(voting.toString() + keyCancelCause, cause)
+    ]
+}
+
+@Callable(i)
+func shutdown() =
+    if !isActive then
+        throw("DApp is already suspended. Cause: " + this.getString(keyCause).valueOrElse("the cause wasn't specified"))
+    else if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStartStop].containsElement(i.callerPublicKey) then
+        throw("Only admin can call this function")
+    else
+        suspend("Paused by admin")
+
+@Callable(i)
+func activate() =
+    if isActive then
+        throw("DApp is already active")
+    else if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStartStop].containsElement(i.callerPublicKey) then
+        throw("Only admin can call this function")
+    else [
+        BooleanEntry(keyActive, true),
+        DeleteEntry(keyCause)
+    ]
+
+
+@Verifier(tx)
+func verify() = {
+    let adminPubKey1Signed = if sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1) then 1 else 0
+    let adminPubKey2Signed = if sigVerify(tx.bodyBytes, tx.proofs[1], adminPubKey2) then 1 else 0
+    let adminPubKey3Signed = if sigVerify(tx.bodyBytes, tx.proofs[2], adminPubKey3) then 1 else 0
+    adminPubKey1Signed + adminPubKey2Signed + adminPubKey3Signed >= 2
+}
