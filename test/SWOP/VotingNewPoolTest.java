@@ -1,28 +1,16 @@
 package SWOP;
 
 import com.wavesplatform.transactions.common.AssetId;
-import com.wavesplatform.transactions.data.BooleanEntry;
-import com.wavesplatform.transactions.data.DataEntry;
 import com.wavesplatform.transactions.invocation.IntegerArg;
 import im.mak.paddle.Account;
 import com.wavesplatform.transactions.data.IntegerEntry;
-import com.wavesplatform.transactions.data.StringEntry;
 import com.wavesplatform.transactions.invocation.StringArg;
 import im.mak.paddle.exceptions.ApiError;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.*;
-import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
-
-import java.util.List;
-import java.util.stream.Stream;
-
 import static im.mak.paddle.Async.async;
 import static im.mak.paddle.Node.node;
 import static im.mak.paddle.util.Script.fromFile;
-import static org.apache.commons.lang3.StringUtils.substringBefore;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -107,11 +95,13 @@ public class VotingNewPoolTest {
         votingDApp.setScript(s -> s.script(votingScript));
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
         long lastPoolId = 0;
+        
         int height = firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                 StringArg.as(firstAssetId.toString()),
                 StringArg.as(usdnId.toString())
         ).payment(10_00000000L, swopId)).height();
-        assertAll("state after init poll",
+        
+        assertAll("state after init pool",
                 () -> assertThat(votingDApp.getIntegerData(firstAssetId.toString() + "_" + usdnId.toString() + "_" + lastPoolId +"_voting")).isEqualTo(lastPoolId),
                 () -> assertThat(votingDApp.getBooleanData(lastPoolId + "_status")).isEqualTo(true),
                 () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * 5),
@@ -125,43 +115,49 @@ public class VotingNewPoolTest {
         Account votingDApp = new Account(10_00000000L);
         votingDApp.setScript(s -> s.script(votingScript));
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
+        
         assertThat(assertThrows(ApiError.class, () ->
                 firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(firstAssetId.toString()),
                         StringArg.as(usdnId.toString())
                 ).payment(10_00000001L, swopId)))
         ).hasMessageContaining("You need to attach 10 SWOP tokens");
+        
         assertThat(assertThrows(ApiError.class, () ->
                 firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(firstAssetId.toString()),
                         StringArg.as(swopId.toString())
                 ).payment(9_99999999L, swopId)))
         ).hasMessageContaining("You need to attach 10 SWOP tokens");
+        
         assertThat(assertThrows(ApiError.class, () ->
                 firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(secondAssetId.toString()),
                         StringArg.as("WAVES")
                 ).payment(10_00000000L, AssetId.WAVES)))
         ).hasMessageContaining("You must use a SWOP token");
+        
         assertThat(assertThrows(ApiError.class, () ->
                 firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(secondAssetId.toString()),
                         StringArg.as(usdnId.toString())
                 ).payment(10_00000000L, swopId).payment(1_00000000L, AssetId.WAVES)))
-        ).hasMessageContaining("One attached assets expected");
+        ).hasMessageContaining("One attached asset expected");
+        
         assertThat(assertThrows(ApiError.class, () ->
                 firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(firstAssetId.toString()),
                         StringArg.as(usdnId.toString())
                 )))
-        ).hasMessageContaining("One attached assets expected");
+        ).hasMessageContaining("One attached asset expected");
     }
 
     @Test //initVotingForNewPool 7,8
-    void createPoolWhenFiveActiveOrPollExists() {
+    void createPoolWhenFiveActiveOrPoolExists() {
         Account votingDApp = new Account(10_00000000L);
         votingDApp.setScript(s -> s.script(votingScript));
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
+
         async(
                 () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(firstAssetId.toString()),
@@ -184,15 +180,18 @@ public class VotingNewPoolTest {
                         StringArg.as(swopId.toString())
                 ).payment(10_00000000L, swopId))
         );
+        
         assertThat(assertThrows(ApiError.class, () ->
                 firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(secondAssetId.toString()),
                         StringArg.as(swopId.toString())
                 ).payment(10_00000000L, swopId)))
         ).hasMessageContaining("Too many votings. Maximum quantity: 5");
+        
         votingDApp.writeData(d -> d.data(
                 IntegerEntry.as("4_finish_height", node().getHeight() - 1)
         ));
+        
         assertThat(assertThrows(ApiError.class, () ->
                 firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(firstAssetId.toString()),
@@ -206,6 +205,7 @@ public class VotingNewPoolTest {
         Account votingDApp = new Account(10_00000000L);
         votingDApp.setScript(s -> s.script(votingScript));
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
+
         async(
                 () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(firstAssetId.toString()),
@@ -231,12 +231,14 @@ public class VotingNewPoolTest {
         votingDApp.writeData(d -> d.data(
                 IntegerEntry.as("4_finish_height", node().getHeight() - 1)
         ));
+        
         long lastPoolId = votingDApp.getIntegerData("voting_id_last");
         int height = firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                 StringArg.as(firstAssetId.toString()),
                 StringArg.as(swopId.toString())
         ).payment(10_00000000L, swopId)).height();
-        assertAll("state after init poll",
+        
+        assertAll("state after init pool",
                 () -> assertThat(votingDApp.getIntegerData(firstAssetId.toString() + "_" + swopId.toString() + "_" + lastPoolId +"_voting")).isEqualTo(lastPoolId),
                 () -> assertThat(votingDApp.getBooleanData(lastPoolId + "_status")).isEqualTo(true),
                 () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * 5),
@@ -250,16 +252,19 @@ public class VotingNewPoolTest {
         Account votingDApp = new Account(10_00000000L);
         votingDApp.setScript(s -> s.script(votingScript));
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
+
        firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                 StringArg.as(firstAssetId.toString()),
                 StringArg.as("WAVES")
         ).payment(10_00000000L, swopId));
+       
         long lastPoolId = votingDApp.getIntegerData("voting_id_last");
         int height = firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                 StringArg.as(firstAssetId.toString()),
                 StringArg.as(usdnId.toString())
         ).payment(10_00000000L, swopId)).height();
-        assertAll("state after init poll",
+        
+        assertAll("state after init pool",
                 () -> assertThat(votingDApp.getIntegerData(firstAssetId.toString() + "_" + usdnId.toString() + "_" + lastPoolId +"_voting")).isEqualTo(lastPoolId),
                 () -> assertThat(votingDApp.getBooleanData(lastPoolId + "_status")).isEqualTo(true),
                 () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * 5),
@@ -273,6 +278,7 @@ public class VotingNewPoolTest {
         Account votingDApp = new Account(10_00000000L);
         votingDApp.setScript(s -> s.script(votingScript));
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
+
         async(
                 () ->  firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(firstAssetId.toString()),
@@ -297,12 +303,14 @@ public class VotingNewPoolTest {
                 IntegerEntry.as("2_finish_height", node().getHeight() - 1),
                 IntegerEntry.as("3_finish_height", node().getHeight() - 1)
         ));
+        
         long lastPoolId = votingDApp.getIntegerData("voting_id_last");
         int height = firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                 StringArg.as(firstAssetId.toString()),
                 StringArg.as(usdnId.toString())
         ).payment(10_00000000L, swopId)).height();
-        assertAll("state after init poll",
+        
+        assertAll("state after init pool",
                 () -> assertThat(votingDApp.getIntegerData(firstAssetId.toString() + "_" + usdnId.toString() + "_" + lastPoolId +"_voting")).isEqualTo(lastPoolId),
                 () -> assertThat(votingDApp.getBooleanData(lastPoolId + "_status")).isEqualTo(true),
                 () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * 5),
@@ -317,6 +325,7 @@ public class VotingNewPoolTest {
         Account votingDApp = new Account(10_00000000L);
         votingDApp.setScript(s -> s.script(votingScript));
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
+        
         async(
                 () ->  firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(firstAssetId.toString()),
@@ -346,6 +355,7 @@ public class VotingNewPoolTest {
                 IntegerEntry.as("2_finish_height", node().getHeight() - 1),
                 IntegerEntry.as("3_finish_height", node().getHeight() - 1)
         ));
+        
         async(
                 () ->  firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(thirdAssetId.toString()),
@@ -360,12 +370,14 @@ public class VotingNewPoolTest {
                         StringArg.as(swopId.toString())
                 ).payment(10_00000000L, swopId))
         );
+        
         long lastPoolId = votingDApp.getIntegerData("voting_id_last");
         int height = firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                 StringArg.as(fourthAssetId.toString()),
                 StringArg.as(usdnId.toString())
         ).payment(10_00000000L, swopId)).height();
-        assertAll("state after init poll",
+        
+        assertAll("state after init pool",
                 () -> assertThat(votingDApp.getIntegerData(fourthAssetId.toString() + "_" + usdnId.toString() + "_" + lastPoolId +"_voting")).isEqualTo(lastPoolId),
                 () -> assertThat(votingDApp.getBooleanData(lastPoolId + "_status")).isEqualTo(true),
                 () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * 5),
@@ -379,6 +391,7 @@ public class VotingNewPoolTest {
         Account votingDApp = new Account(10_00000000L);
         votingDApp.setScript(s -> s.script(votingScript));
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
+        
         async(
                 () ->  firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(firstAssetId.toString()),
@@ -429,12 +442,12 @@ public class VotingNewPoolTest {
         );
 
         long lastPoolId = votingDApp.getIntegerData("voting_id_last");
-
         int height = firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                 StringArg.as(fourthAssetId.toString()),
                 StringArg.as(swopId.toString())
         ).payment(10_00000000L, swopId)).height();
-        assertAll("state after init poll",
+
+        assertAll("state after init pool",
                 () -> assertThat(votingDApp.getIntegerData(fourthAssetId.toString() + "_" + swopId.toString() + "_" + lastPoolId +"_voting")).isEqualTo(lastPoolId),
                 () -> assertThat(votingDApp.getBooleanData(lastPoolId + "_status")).isEqualTo(true),
                 () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * 5),
@@ -448,6 +461,7 @@ public class VotingNewPoolTest {
         Account votingDApp = new Account(10_00000000L);
         votingDApp.setScript(s -> s.script(votingScript));
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
+
         assertThat(assertThrows(ApiError.class, () ->
                 firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as("2HAJrwa8q4SxBx9cHYaBTQdBjdk5wwqdof7ccpAx2uhZ"),
@@ -461,6 +475,7 @@ public class VotingNewPoolTest {
         Account votingDApp = new Account(10_00000000L);
         votingDApp.setScript(s -> s.script(votingScript));
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
+
         assertThat(assertThrows(ApiError.class, () ->
                 firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as("2HAJrwa8q4SxBx9cHYaBTQdBjdk5wwqdof7ccpAx2uhZawefawfaw"),
@@ -475,6 +490,7 @@ public class VotingNewPoolTest {
         Account votingDApp = new Account(10_00000000L);
         votingDApp.setScript(s -> s.script(votingScript));
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
+
         assertThat(assertThrows(ApiError.class, () ->
                 firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(""),
@@ -487,13 +503,15 @@ public class VotingNewPoolTest {
     void NewPoolWithWaves() {
         Account votingDApp = new Account(10_00000000L);
         votingDApp.setScript(s -> s.script(votingScript));
-        long lastPoolId = 0;
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
+
+        long lastPoolId = 0;
         int height = firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                 StringArg.as(firstAssetId.toString()),
                 StringArg.as("WAVES")
         ).payment(10_00000000L, swopId)).height();
-        assertAll("state after init poll",
+
+        assertAll("state after init pool",
                 () -> assertThat(votingDApp.getIntegerData(firstAssetId.toString() + "_WAVES_" + lastPoolId +"_voting")).isEqualTo(lastPoolId),
                 () -> assertThat(votingDApp.getBooleanData(lastPoolId + "_status")).isEqualTo(true),
                 () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * 5),
@@ -506,13 +524,15 @@ public class VotingNewPoolTest {
     void NewPoolWithWavesUsdnPair() {
         Account votingDApp = new Account(10_00000000L);
         votingDApp.setScript(s -> s.script(votingScript));
-        long lastPoolId = 0;
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
+
+        long lastPoolId = 0;
         int height = firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                 StringArg.as("WAVES"),
                 StringArg.as(usdnId.toString())
         ).payment(10_00000000L, swopId)).height();
-        assertAll("state after init poll",
+
+        assertAll("state after init pool",
                 () -> assertThat(votingDApp.getIntegerData("WAVES_" + usdnId.toString() + "_" + lastPoolId +"_voting")).isEqualTo(lastPoolId),
                 () -> assertThat(votingDApp.getBooleanData(lastPoolId + "_status")).isEqualTo(true),
                 () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * 5),
@@ -526,6 +546,7 @@ public class VotingNewPoolTest {
         Account votingDApp = new Account(10_00000000L);
         votingDApp.setScript(s -> s.script(votingScript));
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
+
         assertThat(assertThrows(ApiError.class, () ->
                 firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(firstAssetId.toString()),
@@ -539,6 +560,7 @@ public class VotingNewPoolTest {
         Account votingDApp = new Account(10_00000000L);
         votingDApp.setScript(s -> s.script(votingScript));
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
+
         assertThat(assertThrows(ApiError.class, () ->
                 firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as("WAVES"),
@@ -552,6 +574,7 @@ public class VotingNewPoolTest {
         Account votingDApp = new Account(10_00000000L);
         votingDApp.setScript(s -> s.script(votingScript));
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
+
         assertThat(assertThrows(ApiError.class, () ->
                 firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(swopId.toString()),
@@ -565,6 +588,7 @@ public class VotingNewPoolTest {
         Account votingDApp = new Account(10_00000000L);
         votingDApp.setScript(s -> s.script(votingScript));
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
+
         assertThat(assertThrows(ApiError.class, () ->
                 firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(usdnId.toString()),
@@ -578,6 +602,7 @@ public class VotingNewPoolTest {
         Account votingDApp = new Account(10_00000000L);
         votingDApp.setScript(s -> s.script(votingScript));
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
+
         async(
                 () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(firstAssetId.toString()),
@@ -613,7 +638,8 @@ public class VotingNewPoolTest {
                 StringArg.as(firstAssetId.toString()),
                 StringArg.as("WAVES")
         ).payment(10_00000000L, swopId)).height();
-        assertAll("state after init poll",
+
+        assertAll("state after init pool",
                 () -> assertThat(votingDApp.getIntegerData(firstAssetId.toString() + "_WAVES_" + lastPoolId +"_voting")).isEqualTo(lastPoolId),
                 () -> assertThat(votingDApp.getBooleanData(lastPoolId + "_status")).isEqualTo(true),
                 () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * 5),
@@ -627,6 +653,7 @@ public class VotingNewPoolTest {
         Account votingDApp = new Account(10_00000000L);
         votingDApp.setScript(s -> s.script(votingScript));
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
+
         async(
                 () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(firstAssetId.toString()),
@@ -656,6 +683,7 @@ public class VotingNewPoolTest {
                 StringArg.as("WAVES"),
                 StringArg.as(swopId.toString())
         ).payment(10_00000000L, swopId));
+
         assertThat(assertThrows(ApiError.class, () ->
                 firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(secondAssetId.toString()),
@@ -670,6 +698,7 @@ public class VotingNewPoolTest {
         Account votingDApp = new Account(10_00000000L);
         votingDApp.setScript(s -> s.script(votingScript));
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
+
         async(
                 () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(firstAssetId.toString()),
@@ -696,12 +725,14 @@ public class VotingNewPoolTest {
                 IntegerArg.as(4),
                 StringArg.as("because I can")
         ));
+
         long lastPoolId = votingDApp.getIntegerData("voting_id_last");
         int height = firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                 StringArg.as(secondAssetId.toString()),
                 StringArg.as(swopId.toString())
         ).payment(10_00000000L, swopId)).height();
-        assertAll("state after init poll",
+
+        assertAll("state after init pool",
                 () -> assertThat(votingDApp.getIntegerData(secondAssetId.toString() + "_" + swopId.toString() + "_" + lastPoolId +"_voting")).isEqualTo(lastPoolId),
                 () -> assertThat(votingDApp.getBooleanData(lastPoolId + "_status")).isEqualTo(true),
                 () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * 5),
@@ -715,6 +746,7 @@ public class VotingNewPoolTest {
         Account votingDApp = new Account(10_00000000L);
         votingDApp.setScript(s -> s.script(votingScript));
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
+
         async(
                 () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(firstAssetId.toString()),
@@ -741,12 +773,14 @@ public class VotingNewPoolTest {
                 IntegerArg.as(4),
                 StringArg.as("because I can")
         ));
+
         long lastPoolId = votingDApp.getIntegerData("voting_id_last");
         int height = firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                 StringArg.as(firstAssetId.toString()),
                 StringArg.as(swopId.toString())
         ).payment(10_00000000L, swopId)).height();
-        assertAll("state after init poll",
+
+        assertAll("state after init pool",
                 () -> assertThat(votingDApp.getIntegerData(firstAssetId.toString() + "_" + swopId.toString() + "_" + lastPoolId +"_voting")).isEqualTo(lastPoolId),
                 () -> assertThat(votingDApp.getBooleanData(lastPoolId + "_status")).isEqualTo(true),
                 () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * 5),
@@ -760,6 +794,7 @@ public class VotingNewPoolTest {
         Account votingDApp = new Account(10_00000000L);
         votingDApp.setScript(s -> s.script(votingScript));
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
+
         assertThat(assertThrows(ApiError.class, () ->
                 firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as("WAVES"),
