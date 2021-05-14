@@ -9,7 +9,6 @@ let adminPubKeyStartStop = base58'EtVkT6ed8GtbUiVVEqdmEqsp2J4qbb3rre2HFgxeVYdg'
 let adminPubKeyWallet = base58'GTY8yEJ2S4heRompxyvbJoBN1Td5BM5Pp4JgVbj9tmCw'
 
 # SWOP voting: keys and function | start
-# let keyUserTotalSWOP = "_total_SWOP"
 let keyActive = "active"
 let keyCause = "shutdown_cause"
 let keyLastInterest = "last_interest"
@@ -18,7 +17,7 @@ let keyUserSWOPLocked = "_SWOP_amount"
 let keyUserGetBackHeight = "_getBackHeight"
 let keyTotalSWOPLocked = "total_SWOP_amount"
 let kUserTotalVoteSWOP = "_user_total_SWOP_vote"
-let keyUserVoteOptionAmount = "_SWOP_option_amount"
+let keyUserVoteOptionAmount = "_SWOP_option_amount" 
 let keyTotalVoteOptionAmount = "total_SWOP_option_amount"
 let keyUserSWOPClaimedAmount = "_SWOP_claimed_amount"
 let keyUserSWOPLastClaimedAmount = "_SWOP_last_claimed_amount"
@@ -46,8 +45,7 @@ let isActive = this.getBoolean(keyActive).valueOrElse(true)
 
 let farmingSWOPAddress = Address(base58'3P73HDkPqG15nLXevjCbmXtazHYTZbpPoPw')
 let votingLiteContract = Address(base58'3PQZWxShKGRgBN1qoJw6B4s9YWS9FneZTPg')
-let votingForNewPool = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
-#TODO change to voting contract
+let votingForNewPool = Address(base58'3PHgHf5C4WvHJucSHrjoVnMFsP1EhWffVLt')
 
 let keySWOPid = "SWOP_id"
 let SWOP = farmingSWOPAddress.getStringValue(keySWOPid).fromBase58String()
@@ -58,6 +56,7 @@ let kStartHeight = "start_height"
 let kBasePeriod = "base_period"
 let kPeriodLength = "period_length"
 let kUserTotalStruc = "_user_total_struc"
+
 let basePeriod = votingLiteContract.getInteger(kBasePeriod).valueOrErrorMessage("Empty kBasePeriod at voting contract")
 let startHeight = votingLiteContract.getInteger(kStartHeight) .valueOrErrorMessage("Empty kStartHeight at voting contract")
 let periodLength =  votingLiteContract.getInteger(kPeriodLength).valueOrErrorMessage("Empty kPeriodLength at voting contract")
@@ -66,6 +65,7 @@ let secondActiveVote = votingForNewPool.getString(activeVoteSecond).valueOrElse(
 let thirdActiveVote = votingForNewPool.getString(activeVoteThird).valueOrElse("")
 let fourthActiveVote = votingForNewPool.getString(activeVoteFourth).valueOrElse("")
 let fifthActiveVote = votingForNewPool.getString(activeVoteFifth).valueOrElse("")
+
 let currVotingPeriod = basePeriod + (height-startHeight)/periodLength
 
 func suspend(cause: String) = [
@@ -228,7 +228,8 @@ func withdrawSWOP(withdrawAmount: Int) = if !isActive then throw("DApp is inacti
     let (userVoteAmount,userUnvoteAmount) = getUserVoteInfo(i.caller)
     let userVoteAmountForNewPool = getUserTotalVoteForNewPoolAmount(i.caller)
     if userUnvoteAmount < 0 || userVoteAmount < 0 || userVoteAmountForNewPool < 0 then throw("userUnvoteAmount < 0 || userVoteAmount < 0 || userVoteAmountForNewPool < 0") else
-    let availableToUnstake = userSWOPLocked -  userUnvoteAmount - max([userVoteAmountForNewPool,userVoteAmount])
+    let availableToUnstake = userSWOPLocked - userUnvoteAmount - max([userVoteAmountForNewPool,userVoteAmount])
+
     if withdrawAmount > availableToUnstake then throw("withdrawAmount > availableToUnstake") else
     let totalSWOPLockedNew = totalSWOPLocked + claimAmount - withdrawAmount
     let userSWOPamountNew = userSWOPLocked + claimAmount - withdrawAmount
@@ -265,7 +266,7 @@ func claimAndStakeSWOP() = if !isActive then throw("DApp is inactive at this mom
     let userSWOPLocked = getUserSWOPLocked(i.caller)
     let lastInterest = getLastInterestInfo()
     let (userNewInterest,claimAmount) = claimCalc(i.caller)
-    let userSWOPLockedNew = userSWOPLocked + claimAmount
+    let userSWOPLockedNew = userSWOPLocked + claimAmount 
     let totalSWOPLockedNew = totalSWOPLocked + claimAmount
     let userClaimedAmount = getUserSWOPClaimedAmount(i.caller)
     let userClaimedAmountNew = userClaimedAmount + claimAmount
@@ -284,7 +285,7 @@ func updateWeights(previousPools: List[String],previousRewards: List[Int],curren
      if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStartStop, adminPubKeyWallet].containsElement(i.callerPublicKey) then
         throw("Only admin can call this function")
     else
-
+    
     func sum(a:Int, b:Int) = a + b
 
     func PreviousRewardEntry(accumulated: List[IntegerEntry], pool: String) = {
@@ -300,9 +301,9 @@ func updateWeights(previousPools: List[String],previousRewards: List[Int],curren
     let sumRewardPrevious = FOLD<20>(previousRewards, 0, sum)
     let sumRewardCurrent =  FOLD<20>(currentRewards, 0, sum)
 
-    if rewardUpdateHeight < height then
-        throw("rewardUpdateHeight < height") else
-    if sumRewardPrevious != totalVoteShare || sumRewardCurrent != totalVoteShare then
+    if rewardUpdateHeight < height then 
+        throw("rewardUpdateHeight < height") else 
+    if sumRewardPrevious != totalVoteShare || sumRewardCurrent != totalVoteShare then 
         throw("sumRewardPrevious != totalVoteShare or sumRewardCurrent != totalVoteShare")  else
 
     let previousRewardEntryNew = FOLD<20>(previousPools, [], PreviousRewardEntry)

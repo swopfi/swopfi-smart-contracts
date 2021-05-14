@@ -1,9 +1,11 @@
 package SWOP;
 
+import com.wavesplatform.crypto.Crypto;
+import com.wavesplatform.transactions.account.PrivateKey;
+import dapps.OracleDApp;
 import im.mak.paddle.Account;
 import com.wavesplatform.transactions.data.IntegerEntry;
 import com.wavesplatform.transactions.data.StringEntry;
-import com.wavesplatform.transactions.invocation.StringArg;
 import im.mak.paddle.exceptions.ApiError;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
@@ -16,129 +18,108 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.stream.Stream;
 
-import static im.mak.paddle.Async.async;
+import static im.mak.paddle.token.Waves.WAVES;
+import static im.mak.paddle.util.Async.async;
 import static im.mak.paddle.Node.node;
-import static im.mak.paddle.util.Script.fromFile;
-import static org.apache.commons.lang3.StringUtils.substringBefore;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @TestMethodOrder(OrderAnnotation.class)
 public class OracleTest {
 
-    static final String ORACLE_SCRIPT = substringBefore(fromFile("dApps/SWOP/oracle.ride"), "@Verifier");
-    static final String CPMM_POOL_SCRIPT = fromFile("dApps/other_cpmm.ride");
-
-    static Account user = new Account(),
-            oracle = new Account(),
-            pool1 = new Account(),
-            pool2 = new Account(),
-            pool3 = new Account();
+    static Account user;
+    static OracleDApp oracle;
+    static String pool1, pool2, pool3;
 
     @BeforeAll
     static void before() {
-        node().faucet().massTransfer(mt -> mt
-                .to(user.address(), 10_00000000)
-                .to(oracle.address(), 10_00000000)
-                .to(pool1.address(), 10_00000000)
-                .to(pool2.address(), 10_00000000)
-                .to(pool3.address(), 10_00000000));
-
         async(
-                () -> oracle.setScript(s -> s.script(ORACLE_SCRIPT)),
-                () -> pool1.setScript(s -> s.script(CPMM_POOL_SCRIPT)),
-                () -> pool2.setScript(s -> s.script(CPMM_POOL_SCRIPT)),
-                () -> pool3.setScript(s -> s.script(CPMM_POOL_SCRIPT))
+                () -> user = new Account(WAVES.amount(10)),
+                () -> oracle = new OracleDApp(WAVES.amount(10))
         );
+        pool1 = PrivateKey.fromSeed(Crypto.getRandomSeedBytes()).address().toString();
+        pool2 = PrivateKey.fromSeed(Crypto.getRandomSeedBytes()).address().toString();
+        pool3 = PrivateKey.fromSeed(Crypto.getRandomSeedBytes()).address().toString();
     }
 
     @Test @Order(0)
     void canAddPool() {
-        oracle.invoke(i -> i.function("addPool",
-                StringArg.as(pool1.address().toString()), StringArg.as("A_B")));
+        oracle.invoke(oracle.addPool(pool1, "A_B"));
 
         assertThat(oracle.getData()).containsExactlyInAnyOrder(
-                IntegerEntry.as("index_" + pool1.address(), 0),
-                StringEntry.as("pool_" + pool1.address(), "A_B"),
-                StringEntry.as("pools", pool1.address().toString())
+                IntegerEntry.as("index_" + pool1, 0),
+                StringEntry.as("pool_" + pool1, "A_B"),
+                StringEntry.as("pools", pool1)
         );
     }
 
     @Test @Order(10)
     void canAddPoolWithTheSameName() {
-        oracle.invoke(i -> i.function("addPool",
-                StringArg.as(pool2.address().toString()), StringArg.as("A_B")));
+        oracle.invoke(oracle.addPool(pool2, "A_B"));
 
         assertThat(oracle.getData()).containsExactlyInAnyOrder(
-                IntegerEntry.as("index_" + pool1.address(), 0),
-                StringEntry.as("pool_" + pool1.address(), "A_B"),
-                IntegerEntry.as("index_" + pool2.address(), 1),
-                StringEntry.as("pool_" + pool2.address(), "A_B"),
-                StringEntry.as("pools", pool1.address() + "," + pool2.address())
+                IntegerEntry.as("index_" + pool1, 0),
+                StringEntry.as("pool_" + pool1, "A_B"),
+                IntegerEntry.as("index_" + pool2, 1),
+                StringEntry.as("pool_" + pool2, "A_B"),
+                StringEntry.as("pools", pool1 + "," + pool2)
         );
     }
 
     @Test @Order(20)
     void canRenamePool() {
-        oracle.invoke(i -> i.function("renamePool",
-                StringArg.as(pool2.address().toString()), StringArg.as("B_C")));
+        oracle.invoke(oracle.renamePool(pool2, "B_C"));
 
         assertThat(oracle.getData()).containsExactlyInAnyOrder(
-                IntegerEntry.as("index_" + pool1.address(), 0),
-                StringEntry.as("pool_" + pool1.address(), "A_B"),
-                IntegerEntry.as("index_" + pool2.address(), 1),
-                StringEntry.as("pool_" + pool2.address(), "B_C"),
-                StringEntry.as("pools", pool1.address() + "," + pool2.address())
+                IntegerEntry.as("index_" + pool1, 0),
+                StringEntry.as("pool_" + pool1, "A_B"),
+                IntegerEntry.as("index_" + pool2, 1),
+                StringEntry.as("pool_" + pool2, "B_C"),
+                StringEntry.as("pools", pool1 + "," + pool2)
         );
     }
 
     @Test @Order(30)
     void cantAddAlreadyAddedPool() {
         assertThat(assertThrows(ApiError.class, () ->
-                oracle.invoke(i -> i.function("addPool",
-                        StringArg.as(pool1.address().toString()), StringArg.as("A_B"))))
-        ).hasMessageContaining("Pool with address \"" + pool1.address() + "\" is already defined with name \"A_B\"");
+                oracle.invoke(oracle.addPool(pool1, "A_B")))
+        ).hasMessageContaining("Pool with address \"" + pool1 + "\" is already defined with name \"A_B\"");
 
         assertThat(assertThrows(ApiError.class, () ->
-                oracle.invoke(i -> i.function("addPool",
-                        StringArg.as(pool2.address().toString()), StringArg.as("A_B"))))
-        ).hasMessageContaining("Pool with address \"" + pool2.address() + "\" is already defined with name \"B_C\"");
+                oracle.invoke(oracle.addPool(pool2, "A_B")))
+        ).hasMessageContaining("Pool with address \"" + pool2 + "\" is already defined with name \"B_C\"");
     }
 
     @Test @Order(40)
     void cantRenameNonexistentPool() {
         assertThat(assertThrows(ApiError.class, () ->
-                oracle.invoke(i -> i.function("renamePool",
-                        StringArg.as(pool3.address().toString()), StringArg.as("A_C"))))
-        ).hasMessageContaining("Pool with address \"" + pool3.address() + "\" has not yet been added");
+                oracle.invoke(oracle.renamePool(pool3, "A_C")))
+        ).hasMessageContaining("Pool with address \"" + pool3 + "\" has not yet been added");
     }
 
     @Test @Order(50)
     void canAddAnotherPoolAfterRenaming() {
-        oracle.invoke(i -> i.function("addPool",
-                StringArg.as(pool3.address().toString()), StringArg.as("A_C")));
+        oracle.invoke(oracle.addPool(pool3, "A_C"));
 
         assertThat(oracle.getData()).containsExactlyInAnyOrder(
-                IntegerEntry.as("index_" + pool1.address(), 0),
-                StringEntry.as("pool_" + pool1.address(), "A_B"),
-                IntegerEntry.as("index_" + pool2.address(), 1),
-                StringEntry.as("pool_" + pool2.address(), "B_C"),
-                IntegerEntry.as("index_" + pool3.address(), 2),
-                StringEntry.as("pool_" + pool3.address(), "A_C"),
-                StringEntry.as("pools", pool1.address() + "," + pool2.address() + "," + pool3.address())
+                IntegerEntry.as("index_" + pool1, 0),
+                StringEntry.as("pool_" + pool1, "A_B"),
+                IntegerEntry.as("index_" + pool2, 1),
+                StringEntry.as("pool_" + pool2, "B_C"),
+                IntegerEntry.as("index_" + pool3, 2),
+                StringEntry.as("pool_" + pool3, "A_C"),
+                StringEntry.as("pools", pool1 + "," + pool2 + "," + pool3)
         );
     }
 
     @Test @Order(60)
     void onlyOracleItselfCanAddAndRenamePools() {
         assertThat(assertThrows(ApiError.class, () ->
-                user.invoke(i -> i.dApp(oracle)
-                        .function("addPool", StringArg.as(pool1.address().toString()), StringArg.as("A_B"))))
+                user.invoke(oracle.addPool(pool1, "A_B")))
         ).hasMessageContaining("Only the Oracle itself can invoke this function");
 
         assertThat(assertThrows(ApiError.class, () ->
-                user.invoke(i -> i.dApp(oracle)
-                        .function("addPool", StringArg.as(pool1.address().toString()), StringArg.as("A_B"))))
+                user.invoke(oracle.addPool(pool1, "A_B")))
         ).hasMessageContaining("Only the Oracle itself can invoke this function");
     }
 
@@ -154,8 +135,7 @@ public class OracleTest {
     @MethodSource("invalidPoolAddresses")
     void cantAddPoolWithInvalidAddress(String invalidAddress) {
         assertThat(assertThrows(ApiError.class, () ->
-                oracle.invoke(i -> i.function("addPool",
-                        StringArg.as(invalidAddress), StringArg.as("A_B"))))
+                oracle.invoke(oracle.addPool(invalidAddress, "A_B")))
         ).hasMessageContaining("Can't parse \"" + invalidAddress + "\" as address");
     }
 
@@ -172,13 +152,11 @@ public class OracleTest {
         String expectedErrorMessage = "Pool name must consist of two asset names separated by an underscore character";
 
         assertThat(assertThrows(ApiError.class, () ->
-                oracle.invoke(i -> i.function("addPool",
-                        StringArg.as(user.address().toString()), StringArg.as(invalidName))))
+                oracle.invoke(oracle.addPool(user.address().toString(), invalidName)))
         ).hasMessageContaining(expectedErrorMessage);
 
         assertThat(assertThrows(ApiError.class, () ->
-                oracle.invoke(i -> i.function("renamePool",
-                        StringArg.as(pool1.address().toString()), StringArg.as(invalidName))))
+                oracle.invoke(oracle.renamePool(pool1, invalidName)))
         ).hasMessageContaining(expectedErrorMessage);
     }
 

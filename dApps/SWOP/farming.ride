@@ -35,12 +35,7 @@ let keyFirstHarvestHeight = "first_harvest_height"
 let keyfirstHarvestCpmm = "first_harvest"
 let governanceAddress = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
 let wallet = Address(base58'3P6J84oH51DzY6xk2mT5TheXRbrCwBMxonp')
-let votingAddress = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
-# TODO change voting
-let swopUsdnAddress = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
-# TODO change swopUsdnAddress
-let wavesUsdnAddress = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
-# TODO change vowavesUsdnAddressting
+let votingAddress = Address(base58'3PQZWxShKGRgBN1qoJw6B4s9YWS9FneZTPg')
 let adminIncreaseInterestAddress = Address(base58'3PPupsBVHgDXaRhyMbkTxminzAotp8AMsr6')
 let oneWeekInBlock = 10106 # 1440*7*60/59.84 where 59.84 - real block duration in seconds
 let totalVoteShare = 10000000000
@@ -193,25 +188,22 @@ func claimCalc(pool:String,caller:Address,pmtAmount:Int) = {
     (userNewInterest,currentInterest,claimAmount,userShareTokensAmount)
 }
 
-#При пополнении стейкинга Share-токенами контракт должен проверить есть ли ещё застейканные Share-токены. Если есть, то работает как сейчас, если нет, то контрат должен рассчитать сколько SWOP-токенов начислено до этого момента и записать данное значение как доход адреса-копилки.
 func calculateProtocolReward(pool:String) ={
     let (lastInterestHeight,lastInterest) = getLastInterestInfo(pool)
     let (currentRewardPerBlock,rewardUpdateHeight,previousRewardPerBlock) = rewardInfo(pool)
     let shareTokenLocked = getTotalShareTokenLocked(pool)
-    if shareTokenLocked == 0 then 0 else # this condition true only for the first call
-    # if shareTokenLocked == 0 then# this condition true only for the first call
-        if height < rewardUpdateHeight then # in case of updating reward info at gov dApp
+    if shareTokenLocked == 0 then 0 else
+        if height < rewardUpdateHeight then
             let reward = previousRewardPerBlock*(height-lastInterestHeight)
             reward
         else
             if (lastInterestHeight > rewardUpdateHeight) then
                 let reward = currentRewardPerBlock*(height-lastInterestHeight)
                 reward
-            else # in case if reward updated we need update interest
+            else
                 let rewardAfterLastInterestBeforeReawardUpdate = previousRewardPerBlock*(rewardUpdateHeight-lastInterestHeight)
                 let reward = currentRewardPerBlock*(height-rewardUpdateHeight)
                 reward + rewardAfterLastInterestBeforeReawardUpdate
-    # else 0
 }
 
 func checkPmtAssetIdCorrect(pool:String,pmtAssetId:ByteVector|Unit) = {
@@ -231,7 +223,6 @@ func init(earlyLP:String) = {
     [
         Issue("SWOP", "SWOP protocol token", initAmount, 8, true),
         StringEntry(keySWOPid, SWOPid.toBase58String())
-        # ScriptTransfer(earlyLP.addressFromStringValue(),initAmount,SWOPid)
     ]
 }
 
@@ -246,7 +237,6 @@ func initPoolShareFarming(pool:String) = {
         IntegerEntry(pool + keyLastInterestHeight,height)
 
     ]
-    # записать в момент обновления весов!
 }
 
 @Callable(i)
@@ -300,8 +290,6 @@ func lockShareTokens(pool:String) = {
                 if (shareToken > 0) then {
                     if (shareToken <= totalShareAmountNew) then {
                         baseEntry
-                        # ++ [
-                        #     ScriptTransfer(wallet, protocolReward, SWOP)]
                     } else
                         throw("You maximum share token is " + shareToken.toString())
                 } else
