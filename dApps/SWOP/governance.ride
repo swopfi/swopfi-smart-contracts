@@ -40,7 +40,7 @@ let activeVoteFirst = "voting_active_cell_1"
 let activeVoteSecond = "voting_active_cell_2"
 let activeVoteThird = "voting_active_cell_3"
 let activeVoteFourth = "voting_active_cell_4"
-let activeVoteFifth = "voting_active_cell_1"
+let activeVoteFifth = "voting_active_cell_5"
 
 let isActive = this.getBoolean(keyActive).valueOrElse(true)
 
