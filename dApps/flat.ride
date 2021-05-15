@@ -289,7 +289,6 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
     let slippageValueMaxForReplenish = scale8 + scale8 * tolerance / 10000000
 
     let slippageValueMinForSwap = scale8 - scale8 * 1 / 10000000
-    let slippageValueMaxForSwap = scale8 + scale8 * 1 / 10000000
 
     if !isActive then
         throwIsInactive()
@@ -463,6 +462,7 @@ func takeIntoAccountExtraFunds(amountLeave: Int) = {
     let uncountableB = accountBalanceWithStakedB - balanceB
     let amountEnrollA = uncountableA - if assetIdA == USDN then amountLeave else 0
     let amountEnrollB = uncountableB - if assetIdB == USDN then amountLeave else 0
+    let invariantNew = invariantCalc(balanceA + amountEnrollA, balanceB + amountEnrollB)
 
     if !isActive then
             throwIsInactive()
@@ -476,6 +476,7 @@ func takeIntoAccountExtraFunds(amountLeave: Int) = {
         throw("Too large amountLeave")
     else
         [
+            IntegerEntry(kInvariant, invariantNew),
             IntegerEntry(kBalanceA, balanceA + amountEnrollA),
             IntegerEntry(kBalanceB, balanceB + amountEnrollB),
             IntegerEntry("last_income_"+strAssetIdA, amountEnrollA),
