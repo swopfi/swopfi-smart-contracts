@@ -17,7 +17,7 @@ let keyUserSWOPLocked = "_SWOP_amount"
 let keyUserGetBackHeight = "_getBackHeight"
 let keyTotalSWOPLocked = "total_SWOP_amount"
 let kUserTotalVoteSWOP = "_user_total_SWOP_vote"
-let keyUserVoteOptionAmount = "_SWOP_option_amount" 
+let keyUserVoteOptionAmount = "_SWOP_option_amount"
 let keyTotalVoteOptionAmount = "total_SWOP_option_amount"
 let keyUserSWOPClaimedAmount = "_SWOP_claimed_amount"
 let keyUserSWOPLastClaimedAmount = "_SWOP_last_claimed_amount"
@@ -228,7 +228,7 @@ func withdrawSWOP(withdrawAmount: Int) = if !isActive then throw("DApp is inacti
     let (userVoteAmount,userUnvoteAmount) = getUserVoteInfo(i.caller)
     let userVoteAmountForNewPool = getUserTotalVoteForNewPoolAmount(i.caller)
     if userUnvoteAmount < 0 || userVoteAmount < 0 || userVoteAmountForNewPool < 0 then throw("userUnvoteAmount < 0 || userVoteAmount < 0 || userVoteAmountForNewPool < 0") else
-    let availableToUnstake = userSWOPLocked - userUnvoteAmount - max([userVoteAmountForNewPool,userVoteAmount])
+    let availableToUnstake = userSWOPLocked - max([userVoteAmountForNewPool,userVoteAmount + userUnvoteAmount])
 
     if withdrawAmount > availableToUnstake then throw("withdrawAmount > availableToUnstake") else
     let totalSWOPLockedNew = totalSWOPLocked + claimAmount - withdrawAmount
@@ -266,7 +266,7 @@ func claimAndStakeSWOP() = if !isActive then throw("DApp is inactive at this mom
     let userSWOPLocked = getUserSWOPLocked(i.caller)
     let lastInterest = getLastInterestInfo()
     let (userNewInterest,claimAmount) = claimCalc(i.caller)
-    let userSWOPLockedNew = userSWOPLocked + claimAmount 
+    let userSWOPLockedNew = userSWOPLocked + claimAmount
     let totalSWOPLockedNew = totalSWOPLocked + claimAmount
     let userClaimedAmount = getUserSWOPClaimedAmount(i.caller)
     let userClaimedAmountNew = userClaimedAmount + claimAmount
@@ -285,7 +285,7 @@ func updateWeights(previousPools: List[String],previousRewards: List[Int],curren
      if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStartStop, adminPubKeyWallet].containsElement(i.callerPublicKey) then
         throw("Only admin can call this function")
     else
-    
+
     func sum(a:Int, b:Int) = a + b
 
     func PreviousRewardEntry(accumulated: List[IntegerEntry], pool: String) = {
@@ -301,9 +301,9 @@ func updateWeights(previousPools: List[String],previousRewards: List[Int],curren
     let sumRewardPrevious = FOLD<20>(previousRewards, 0, sum)
     let sumRewardCurrent =  FOLD<20>(currentRewards, 0, sum)
 
-    if rewardUpdateHeight < height then 
-        throw("rewardUpdateHeight < height") else 
-    if sumRewardPrevious != totalVoteShare || sumRewardCurrent != totalVoteShare then 
+    if rewardUpdateHeight < height then
+        throw("rewardUpdateHeight < height") else
+    if sumRewardPrevious != totalVoteShare || sumRewardCurrent != totalVoteShare then
         throw("sumRewardPrevious != totalVoteShare or sumRewardCurrent != totalVoteShare")  else
 
     let previousRewardEntryNew = FOLD<20>(previousPools, [], PreviousRewardEntry)
