@@ -26,8 +26,8 @@ public class CpmmDApp extends DApp {
                 .replace("Czn4yoAuUZCVCLJDRfskn8URfkwpknwBTZDbs1wFrY7h", admin.toString()));
     }
 
-    public DAppCall init(boolean isFirstHarvestPool) {
-        return new DAppCall(address(), Function.as("init", BooleanArg.as(isFirstHarvestPool)));
+    public DAppCall init(boolean isFirstHarvest) {
+        return new DAppCall(address(), Function.as("init", BooleanArg.as(isFirstHarvest)));
     }
 
     public DAppCall replenishWithTwoTokens(long slippageTolerance) {
