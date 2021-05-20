@@ -39,7 +39,7 @@ let basePeriod = votingAddress.getInteger(kBasePeriod).valueOrErrorMessage("Empt
 let startHeight = votingAddress.getInteger(kStartHeight).valueOrErrorMessage("Empty kStartHeight")
 let periodLength =  votingAddress.getInteger(kPeriodLength).valueOrErrorMessage("Empty kPeriodLength")  # 10102
 
-let firstHarvestEndPeriod = basePeriod + (height-startHeight)/periodLength + 2
+let firstHarvestEndPeriod = basePeriod + (height-startHeight)/periodLength + 3
 
 let USDN = base58'DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p'
 let stakingFeeInUSDN = 9 * assetInfo(USDN).value().minSponsoredFee.value() # sponsored fee for invoke called from scripted account
