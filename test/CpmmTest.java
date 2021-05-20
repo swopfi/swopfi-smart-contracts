@@ -37,6 +37,7 @@ class CpmmTest {
     final int scaleValue8 = 100000000;
     final String version = "1.0.0";
     final long stakingFee = 9 * minSponsoredAssetFee;
+    final boolean isFirstHarvestFalse = false;
 
     static final int aDecimal = 8;
     static final int bDecimal = 6;
@@ -59,14 +60,14 @@ class CpmmTest {
         );
         async(
                 () -> firstCaller.sponsorFee(tokenB, minSponsoredAssetFee),
-                () -> exchanger1 = new CpmmDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
-                () -> exchanger2 = new CpmmDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
-                () -> exchanger3 = new CpmmDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
-                () -> exchanger4 = new CpmmDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
-                () -> exchanger5 = new CpmmDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
-                () -> exchanger6 = new CpmmDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
-                () -> exchanger7 = new CpmmDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey()),
-                () -> exchanger8 = new CpmmDApp(WAVES.amount(100), governance, stakingAcc.address(), tokenB, secondCaller.publicKey())
+                () -> exchanger1 = new CpmmDApp(WAVES.amount(1000), governance, stakingAcc.address(), tokenB, firstCaller.publicKey()),
+                () -> exchanger2 = new CpmmDApp(WAVES.amount(1000), governance, stakingAcc.address(), tokenB, firstCaller.publicKey()),
+                () -> exchanger3 = new CpmmDApp(WAVES.amount(1000), governance, stakingAcc.address(), tokenB, firstCaller.publicKey()),
+                () -> exchanger4 = new CpmmDApp(WAVES.amount(1000), governance, stakingAcc.address(), tokenB, firstCaller.publicKey()),
+                () -> exchanger5 = new CpmmDApp(WAVES.amount(1000), governance, stakingAcc.address(), tokenB, firstCaller.publicKey()),
+                () -> exchanger6 = new CpmmDApp(WAVES.amount(1000), governance, stakingAcc.address(), tokenB, firstCaller.publicKey()),
+                () -> exchanger7 = new CpmmDApp(WAVES.amount(1000), governance, stakingAcc.address(), tokenB, firstCaller.publicKey()),
+                () -> exchanger8 = new CpmmDApp(WAVES.amount(1000), governance, stakingAcc.address(), tokenB, firstCaller.publicKey())
         );
     }
 
@@ -90,9 +91,8 @@ class CpmmTest {
 
         int digitsInShareToken = (aDecimal + bDecimal) / 2;
 
-        firstCaller.invoke(exchanger.init(false), i -> i
+        firstCaller.invoke(exchanger.init(isFirstHarvestFalse), i -> i
                 .payment(fundAmountA, tokenA).payment(fundAmountB, tokenB).additionalFee(WAVES.amount(1)));
-        node().waitNBlocks(1);
 
         AssetId shareTokenId = AssetId.as(exchanger.getStringData("share_asset_id"));
 
@@ -137,7 +137,8 @@ class CpmmTest {
 
     @ParameterizedTest(name = "firstCaller exchanges {1} tokenA")
     @MethodSource("aExchangerProvider")
-    void b_canExchangeA(CpmmDApp exchanger, long tokenReceiveAmount) {
+    void
+    b_canExchangeA(CpmmDApp exchanger, long tokenReceiveAmount) {
 
         long amountTokenA = exchanger.getIntegerData("A_asset_balance");
         long amountTokenB = exchanger.getIntegerData("B_asset_balance");
@@ -426,26 +427,26 @@ class CpmmTest {
     @Test
     void h_canShutdown() {
         assertThat(assertThrows(ApiError.class, () ->
-                firstCaller.invoke(exchanger1.shutdown()))
+                secondCaller.invoke(exchanger1.shutdown()))
         ).hasMessageContaining("Only admin can call this function");
 
-        secondCaller.invoke(exchanger1.shutdown());
+        firstCaller.invoke(exchanger1.shutdown());
         assertThat(exchanger1.getBooleanData("active")).isFalse();
         assertThat(exchanger1.getStringData("shutdown_cause")).isEqualTo("Paused by admin");
 
 
         assertThat(assertThrows(ApiError.class, () ->
-                firstCaller.invoke(exchanger1.shutdown()))
+                secondCaller.invoke(exchanger1.shutdown()))
         ).hasMessageContaining("DApp is already suspended. Cause: Paused by admin");
     }
 
     @Test
     void i_canActivate() {
         assertThat(assertThrows(ApiError.class, () ->
-                firstCaller.invoke(exchanger1.activate()))
+                secondCaller.invoke(exchanger1.activate()))
         ).hasMessageContaining("Only admin can call this function");
 
-        secondCaller.invoke(exchanger1.activate());
+        firstCaller.invoke(exchanger1.activate());
 
         assertThat(exchanger1.getBooleanData("active")).isTrue();
 
@@ -454,7 +455,7 @@ class CpmmTest {
         ).hasMessageContaining("no data for this key");
 
         assertThat(assertThrows(ApiError.class, () ->
-                firstCaller.invoke(exchanger1.activate()))
+                secondCaller.invoke(exchanger1.activate()))
         ).hasMessageContaining("DApp is already active");
     }
 

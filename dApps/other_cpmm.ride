@@ -17,38 +17,32 @@ let keyCommission = "commission"
 let keyCommissionScaleDelimiter = "commission_scale_delimiter"
 let keyCause = "shutdown_cause"
 let keyFirstHarvest = "first_harvest"
-let keyBasePeriod = "base_period"
-let keyPeriodLength = "period_length"
-let keyStartHeight = "start_height"
 let keyFirstHarvestHeight = "first_harvest_height"
-let keyDurationFullVotePower = "duration_full_vote_power"
 let kShareLimit = "share_limit_on_first_harvest"
-let keyMinVotePower = "min_vote_power"
+let kBasePeriod = "base_period"
+let kPeriodLength = "period_length"
+let kStartHeight = "start_height"
+let kFirstHarvestHeight = "first_harvest_height"
+
 
 let adminPubKey1 = base58'DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA'
 let adminPubKey2 = base58'E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7'
 let adminPubKey3 = base58'AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ'
 let adminPubKeyStartStop = base58'EtVkT6ed8GtbUiVVEqdmEqsp2J4qbb3rre2HFgxeVYdg'
 let adminPubKeyStaking = base58'Czn4yoAuUZCVCLJDRfskn8URfkwpknwBTZDbs1wFrY7h'
-let adminPubKeyBackend = base58'Czn4yoAuUZCVCLJDRfskn8URfkwpknwBTZDbs1wFrY7h'
-# change to backendKey
 
-let governanceAddress = Address(base58'3P6J84oH51DzY6xk2mT5TheXRbrCwBMxonp')
-let govAddr = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
-let votingAddress = Address(base58'3P6J84oH51DzY6xk2mT5TheXRbrCwBMxonp')
-#change address
+let walletAddress = Address(base58'3P6J84oH51DzY6xk2mT5TheXRbrCwBMxonp')
+let votingAddress = Address(base58'3PQZWxShKGRgBN1qoJw6B4s9YWS9FneZTPg')
 let stakingAddress = Address(base58'3PNikM6yp4NqcSU8guxQtmR5onr2D4e8yTJ')
+
+let basePeriod = votingAddress.getInteger(kBasePeriod).valueOrErrorMessage("Empty kBasePeriod") # 0
+let startHeight = votingAddress.getInteger(kStartHeight).valueOrErrorMessage("Empty kStartHeight")
+let periodLength =  votingAddress.getInteger(kPeriodLength).valueOrErrorMessage("Empty kPeriodLength")  # 10102
+
+let firstHarvestEndPeriod = basePeriod + (height-startHeight)/periodLength + 3
 
 let USDN = base58'DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p'
 let stakingFeeInUSDN = 9 * assetInfo(USDN).value().minSponsoredFee.value() # sponsored fee for invoke called from scripted account
-
-let basePeriod = votingAddress.getInteger(keyBasePeriod).valueOrErrorMessage("Empty kBasePeriod") # 0
-let startHeight = votingAddress.getInteger(keyStartHeight).valueOrErrorMessage("Empty kStartHeight")
-let periodLength =  votingAddress.getInteger(keyPeriodLength).valueOrErrorMessage("Empty kPeriodLength")  # 10102
-let durationFullVotePower = votingAddress.getInteger(keyDurationFullVotePower).valueOrErrorMessage("Empty kDurationFullVotePower") # 1443, 1 days in block after voting start
-let minVotePower = votingAddress.getInteger(keyMinVotePower).valueOrErrorMessage("Empty kMinVotePower") # 10000000, minVoteCoeff/scale8 between 0 and 1 - voting power if vote at the end of voting period
-
-let currPeriod = basePeriod + (height-startHeight)/periodLength + 2
 
 let isActive = this.getBooleanValue(keyActive)
 
@@ -107,7 +101,7 @@ func getAssetInfo(assetId: ByteVector|Unit) = match assetId {
 }
 
 func getAssetInfoFromString(assetStr: String) = {
-    if assetStr == "WAVES" then ("WAVES", "WAVES", 8) 
+    if assetStr == "WAVES" then ("WAVES", "WAVES", 8)
     else {
         let stringId = assetStr
         let id = assetStr.fromBase58String()
@@ -147,7 +141,9 @@ func init(firstHarvest: Boolean) = {
     let (pmtStrAssetIdA, pmtAssetNameA, pmtDecimalsA) = getAssetInfo(pmtAssetIdA)
     let (pmtStrAssetIdB, pmtAssetNameB, pmtDecimalsB) = getAssetInfo(pmtAssetIdB)
 
-    if this.getBoolean(keyActive).isDefined() then
+    if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStaking].containsElement(i.callerPublicKey) then
+        throw("Only admin can call this function")
+    else if this.getBoolean(keyActive).isDefined() then
         throw("DApp is already active")
     else if pmtAssetIdA == pmtAssetIdB then
         throw("Assets must be different")
@@ -180,7 +176,7 @@ func init(firstHarvest: Boolean) = {
         if (firstHarvest) then {
             baseEntry ++ [
                 BooleanEntry(keyFirstHarvest, firstHarvest),
-                IntegerEntry(keyFirstHarvestHeight, currPeriod)
+                IntegerEntry(keyFirstHarvestHeight, startHeight + firstHarvestEndPeriod * periodLength)
             ]
         } else {
             baseEntry
@@ -193,7 +189,9 @@ func initWithInitRatio(amtAssetA: Int, amtAssetB: Int, strAssetIdA: String, strA
     let (pmtStrAssetIdA, pmtAssetNameA, pmtDecimalsA) = getAssetInfoFromString(strAssetIdA)
     let (pmtStrAssetIdB, pmtAssetNameB, pmtDecimalsB) = getAssetInfoFromString(strAssetIdB)
 
-    if this.getBoolean(keyActive).isDefined() then
+    if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStaking].containsElement(i.callerPublicKey) then
+        throw("Only admin can call this function")
+    else if this.getBoolean(keyActive).isDefined() then
         throw("DApp is already active")
     else if strAssetIdA == strAssetIdB then
         throw("Assets must be different")
@@ -218,14 +216,14 @@ func initWithInitRatio(amtAssetA: Int, amtAssetB: Int, strAssetIdA: String, strA
             IntegerEntry(keyCommissionScaleDelimiter, commissionScaleDelimiter),
             shareIssue,
             StringEntry(keyShareAssetId, shareIssueId.toBase58String()),
-            IntegerEntry(keyFirstHarvestHeight, currPeriod),
+            IntegerEntry(keyFirstHarvestHeight, startHeight + firstHarvestEndPeriod * periodLength),
             IntegerEntry(keyShareAssetSupply, shareInitialSupply)
         ]
 
         if (firstHarvest) then {
             baseEntry ++ [
                 BooleanEntry(keyFirstHarvest, firstHarvest),
-                IntegerEntry(keyFirstHarvestHeight, currPeriod)
+                IntegerEntry(keyFirstHarvestHeight, startHeight + firstHarvestEndPeriod * periodLength)
             ]
         } else {
             baseEntry
@@ -237,10 +235,10 @@ func initWithInitRatio(amtAssetA: Int, amtAssetB: Int, strAssetIdA: String, strA
 func keepLimitForFirstHarvest(shareLimit: Int) = {
     if !isActive then
         throw("DApp is inactive at this moment")
-    else if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyBackend].containsElement(i.callerPublicKey) then
+    else if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStaking].containsElement(i.callerPublicKey) then
         throw("Only admin can call this function")
     else
-        [   
+        [
             IntegerEntry(kShareLimit, shareLimit)
         ]
 }
@@ -256,10 +254,10 @@ func replenishWithTwoTokens(slippageTolerance: Int) = {
     if (balanceA == 0 && balanceB == 0) then {
         let (pmtStrAssetIdA, pmtAssetNameA, pmtDecimalsA) = getAssetInfo(pmtAssetIdA)
         let (pmtStrAssetIdB, pmtAssetNameB, pmtDecimalsB) = getAssetInfo(pmtAssetIdB)
+        let tokenRatio = fraction(assetInitA, scaleValue8, pmtAmountA)
+            .fraction(scaleValue3, assetInitB.fraction(scaleValue8, pmtAmountB))
 
-        if this.getBoolean(keyActive).isDefined() then
-            throw("DApp is already active")
-        else if pmtAssetIdA == pmtAssetIdB then
+        if pmtAssetIdA == pmtAssetIdB then
             throw("Assets must be different")
         else {
             let shareDecimals = (pmtDecimalsA + pmtDecimalsB) / 2
@@ -275,6 +273,9 @@ func replenishWithTwoTokens(slippageTolerance: Int) = {
                 throw("Slippage tolerance must be between 0 and " + slippageToleranceDelimiter.toString() + " inclusively. Actual: " + slippageTolerance.toString())
             else if i.payments.size() != 2 then
                 throw("Two attached assets expected")
+            else if tokenRatio < (scaleValue3 * (slippageToleranceDelimiter - slippageTolerance)) / slippageToleranceDelimiter
+            || tokenRatio > (scaleValue3 * (slippageToleranceDelimiter + slippageTolerance)) / slippageToleranceDelimiter then
+                throw("Incorrect assets amount: amounts must have the contract ratio")
             else if pmtAssetIdA != assetIdA || pmtAssetIdB != assetIdB then
                 throw("Incorrect assets attached. Expected: " + strAssetIdA + " and " + strAssetIdB)
             else if shareInitialSupply == 0 then
@@ -282,7 +283,7 @@ func replenishWithTwoTokens(slippageTolerance: Int) = {
             else if !hasEnoughBalance then
                 suspend("Suspicious state. Actual balances: " + balanceA.toString() + " " + assetNameA + ", " + balanceB.toString() + " " + assetNameB
                 + ". State: " + accountBalance(assetIdA).toString() + " " + assetNameA + ", " + accountBalance(assetIdB).toString() + " " + assetNameB)
-            else 
+            else
             [
                 Reissue(shareAssetId, shareInitialSupply, true),
                 IntegerEntry(keyBalanceA, pmtAmountA),
@@ -372,7 +373,7 @@ func exchange(minAmountToReceive: Int) = {
 
     if !isActive then
         throw("DApp is inactive at this moment")
-    else if balanceA == 0 && balanceB == 0 then 
+    else if balanceA == 0 || balanceB == 0 then
         throw("Can't exchange with zero balance")
     else if minAmountToReceive <= 0 then
         throw("Minimal amount to receive must be positive. Actual: " + minAmountToReceive.toString())
@@ -397,7 +398,7 @@ func exchange(minAmountToReceive: Int) = {
                 IntegerEntry(keyBalanceA, newBalanceA),
                 IntegerEntry(keyBalanceB, newBalanceB),
                 ScriptTransfer(i.caller, amountWithFee, assetIdSend),
-                ScriptTransfer(governanceAddress, governanceReward, assetIdSend)
+                ScriptTransfer(walletAddress, governanceReward, assetIdSend)
             ]
     } else if pmtAssetId == assetIdB then {
         let assetIdSend = assetIdA
@@ -414,7 +415,7 @@ func exchange(minAmountToReceive: Int) = {
                 IntegerEntry(keyBalanceA, newBalanceA),
                 IntegerEntry(keyBalanceB, newBalanceB),
                 ScriptTransfer(i.caller, amountWithFee, assetIdSend),
-                ScriptTransfer(governanceAddress, governanceReward, assetIdSend)
+                ScriptTransfer(walletAddress, governanceReward, assetIdSend)
             ]
     } else
         throw("Incorrect asset attached. Expected: " + strAssetIdA + " or " + strAssetIdB)
