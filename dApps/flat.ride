@@ -1,9 +1,8 @@
-{-# STDLIB_VERSION 4 #-}
+{-# STDLIB_VERSION 5 #-}
 {-# CONTENT_TYPE DAPP #-}
 {-# SCRIPT_TYPE ACCOUNT #-}
 
 let version = "2.0.0"
-
 let kVersion = "version"
 let kActive = "active"
 let kAssetIdA = "A_asset_id"
@@ -58,7 +57,7 @@ let scale8 = 100000000
 let scale12 = 1000000000000
 let slippageScale3 = 1000
 let digits8 = 8
-
+let digits12 = 12
 let dAppThreshold = 50 # dAppThresholdAmount/dAppThresholdAmountDelimiter = 0.5
 let dAppThresholdScale2 = 100
 
@@ -67,7 +66,7 @@ let exchangeRatioLimitMax = 110000000 #1.1*scale8. This parameter helps to avoid
 
 let alpha = 50 # model coefficient alpha = 0.15 with 2 digits
 let alphaDigits = 2
-let beta = 46000000 # model coefficient beta = 0.46 with 8 digits
+let beta = 460000000000 # model coefficient beta = 0.46 with 12 digits
 
 func accountBalance(assetId: ByteVector|Unit) = match assetId {
     case id: ByteVector => this.assetBalance(id)
@@ -89,26 +88,26 @@ let hasEnoughBalance = accountBalanceWithStakedA >= balanceA && accountBalanceWi
 # skewness = 0.5*(x/y+y/x)
 # Each fraction multiple by scale in order to avoid zeroing
 # During working on this fraction scale8 was switched to scale12. To unscale back to 8 digits added /10000
-func skewness(x: Int, y: Int) = (scale12.fraction(x, y) + scale12.fraction(y, x)) / 2 / 10000
+func skewness(x: Int, y: Int) = (scale12.fraction(x, y) + scale12.fraction(y, x)) / 2 
 
 # Calculate (x+y)*skewness^(-alpha) + 2*(x*y)^0.5*(skewness-beta)^alpha
+
 func invariantCalc(x: Int, y: Int) = {
     let sk = skewness(x, y)
     fraction(
-        x + y,
-        scale8,
-        pow(sk, digits8, alpha, alphaDigits, digits8, UP)
-    ) + 2 * fraction(
-        pow(fraction(x, y, scale8), 0, 5, 1, digits8 / 2, DOWN),
-        pow(sk - beta, digits8, alpha, alphaDigits, digits8, DOWN),
-        scale8
-    )
+        (x + y).toBigInt(),
+        scale12.toBigInt(),
+        pow(sk.toBigInt(), digits12, alpha.toBigInt(), alphaDigits, digits12, CEILING)
+    ).toInt() + 2 * fraction(
+        pow(fraction(x, y, scale8), 0, 5, 1, digits8 / 2, DOWN).toBigInt(),
+        pow((sk - beta).toBigInt(), digits12, alpha.toBigInt(), alphaDigits, digits12, DOWN),
+        scale12.toBigInt()
+    ).toInt()
 }
 
 func calculateSendAmount(amountToSendEstimated: Int, minTokenReceiveAmount: Int, tokenReceiveAmount: Int, tokenId: ByteVector|Unit) = {
     let slippageValue = scale8 - scale8 * 1 / 10000000 # 0.000001% of slippage
     let deltaBetweenMaxAndMinSendValue = amountToSendEstimated - minTokenReceiveAmount
-
     # only one of the variables will be used depending on the token
     let x = balanceA + tokenReceiveAmount
     let y = balanceB + tokenReceiveAmount
@@ -139,7 +138,6 @@ func calculateSendAmount(amountToSendEstimated: Int, minTokenReceiveAmount: Int,
     }
 
     let stepAmount = FOLD<5>([1, 2, 3, 4, 5], -1, getStepAmount)
-    
     if stepAmount < 0 then
         throw("something went wrong while working with amountToSend") # TODO when?
     else if invariantEstimatedRatio > slippageValue && invariantNew > invariant then
@@ -206,11 +204,13 @@ func init() = {
         # we save 16 digit info with using digits8 in pow functions. We divide /scale8 to delete 8 digits and another 8 digits we define as digits in shareToken in Issue tx
         let shareDecimals = (pmtDecimalsA + pmtDecimalsB) / 2
         let shareInitialSupply = fraction(
-            pow(pmtAmountA, pmtDecimalsA, 5, 1, pmtDecimalsA, HALFDOWN),
-            pow(pmtAmountB, pmtDecimalsB, 5, 1, pmtDecimalsB, HALFDOWN),
-            pow(10, 0, shareDecimals, 0, 0, HALFDOWN)
+            pow(pmtAmountA, pmtDecimalsA, 5, 1, pmtDecimalsA, DOWN),
+            pow(pmtAmountB, pmtDecimalsB, 5, 1, pmtDecimalsB, DOWN),
+            pow(10, 0, shareDecimals, 0, 0, DOWN)
         )
         let shareIssue = Issue(shareName, shareDescription, shareInitialSupply, shareDecimals, true)
+        
+
         let shareIssueId = shareIssue.calculateAssetId()
 
         let invariantCalculated = invariantCalc(pmtAmountA, pmtAmountB)
@@ -407,7 +407,7 @@ func exchange(estimatedAmountToReceive: Int, minAmountToReceive: Int) = {
         throw("Incorrect args and pmt ratio")
     else {
         let sendAssetId = if pmtAssetId == assetIdA then assetIdB else assetIdA
-
+        
         let amount = calculateSendAmount(estimatedAmountToReceive, minAmountToReceive, pmtAmount, pmtAssetId)
         let governanceReward = amount.fraction(feeGovernance, feeScale6)
         let amountMinusFee = amount.fraction(feeScale6 - fee, feeScale6)
@@ -418,7 +418,6 @@ func exchange(estimatedAmountToReceive: Int, minAmountToReceive: Int) = {
             else
                 (balanceA - amountMinusFee - governanceReward, balanceB + pmtAmount)
         let dAppThresholdAmount = fraction(newBalanceA + newBalanceB, dAppThreshold, 2 * dAppThresholdScale2)
-
         if newBalanceA < dAppThresholdAmount || newBalanceB < dAppThresholdAmount then
             throwThreshold(dAppThresholdAmount, newBalanceA, newBalanceB)
         else if assetIdA == USDN && sendAssetId == assetIdA && newBalanceA <= stakedAmountUSDN then
