@@ -484,13 +484,13 @@ func takeIntoAccountExtraFunds(amountLeave: Int) = {
 
 @Verifier(tx)
 func verify() = match tx {
-    case invoke: InvokeScriptTransaction =>
-        let callTakeIntoAccount = invoke.dApp == this && invoke.function == "takeIntoAccountExtraFunds"
+    case inv: InvokeScriptTransaction =>
+        let callTakeIntoAccount = inv.dApp == this && inv.function == "takeIntoAccountExtraFunds"
         let callStaking =
-            invoke.dApp == stakingAddress
+            inv.dApp == stakingAddress
             && (
-                (invoke.function == "lockNeutrino" && invoke.payments.size() == 1 && invoke.payments[0].assetId == USDN)
-                || (invoke.function == "unlockNeutrino" && invoke.payments.size() == 0)
+                (inv.function == "lockNeutrino" && inv.payments.size() == 1 && inv.payments[0].assetId == USDN)
+                || (inv.function == "unlockNeutrino" && inv.payments.size() == 0)
             )
         let signedByAdmin =
             sigVerify(tx.bodyBytes, tx.proofs[0], adm1)
