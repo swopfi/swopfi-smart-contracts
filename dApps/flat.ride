@@ -99,7 +99,7 @@ func invariantCalc(x: Int, y: Int) = {
         scale12.toBigInt(),
         pow(sk.toBigInt(), digits12, alpha.toBigInt(), alphaDigits, digits12, CEILING)
     ).toInt() + 2 * fraction(
-        pow(fraction(x, y, scale8), 0, 5, 1, digits8 / 2, DOWN).toBigInt(),
+        pow(fraction(x.toBigInt(), y.toBigInt(), scale8.toBigInt()), 0, 5.toBigInt(), 1, digits8 / 2, DOWN),
         pow((sk - beta).toBigInt(), digits12, alpha.toBigInt(), alphaDigits, digits12, DOWN),
         scale12.toBigInt()
     ).toInt()
