@@ -23,6 +23,8 @@ public class VotingNewPoolTest {
     private static final Account secondCaller = new Account(1000_00000000L);
     private static final long firstCallerInitAmount = 1000_00000000L;
     private static final long secondCallerInitAmount = 1000_00000000L;
+    private static final int amountOfDays = 7;
+    private static final int maxVoting = 3;
     private static final Account walletAddress = new Account(1_00000000L);
     private static final Account farming = new Account(1000_00000000L);
     private static final Account voting = new Account(100_00000000L);
@@ -104,7 +106,7 @@ public class VotingNewPoolTest {
         assertAll("state after init pool",
                 () -> assertThat(votingDApp.getIntegerData(firstAssetId.toString() + "_" + usdnId.toString() + "_" + lastPoolId +"_voting")).isEqualTo(lastPoolId),
                 () -> assertThat(votingDApp.getBooleanData(lastPoolId + "_status")).isEqualTo(true),
-                () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * 5),
+                () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * amountOfDays),
                 () -> assertThat(votingDApp.getIntegerData("voting_active_number")).isEqualTo(1),
                 () -> assertThat(votingDApp.getIntegerData("voting_id_last")).isEqualTo(lastPoolId + 1)
         );
@@ -170,14 +172,6 @@ public class VotingNewPoolTest {
                 () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(firstAssetId.toString()),
                         StringArg.as(usdnId.toString())
-                ).payment(10_00000000L, swopId)),
-                () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
-                        StringArg.as(secondAssetId.toString()),
-                        StringArg.as(usdnId.toString())
-                ).payment(10_00000000L, swopId)),
-                () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
-                        StringArg.as(firstAssetId.toString()),
-                        StringArg.as(swopId.toString())
                 ).payment(10_00000000L, swopId))
         );
         
@@ -186,10 +180,10 @@ public class VotingNewPoolTest {
                         StringArg.as(secondAssetId.toString()),
                         StringArg.as(swopId.toString())
                 ).payment(10_00000000L, swopId)))
-        ).hasMessageContaining("Too many votings. Maximum quantity: 5");
+        ).hasMessageContaining("Too many votings. Maximum quantity: " + maxVoting);
         
         votingDApp.writeData(d -> d.data(
-                IntegerEntry.as("4_finish_height", node().getHeight() - 1)
+                IntegerEntry.as((maxVoting - 1) + "_finish_height", node().getHeight() - 1)
         ));
         
         assertThat(assertThrows(ApiError.class, () ->
@@ -214,14 +208,6 @@ public class VotingNewPoolTest {
                 () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(secondAssetId.toString()),
                         StringArg.as("WAVES")
-                ).payment(10_00000000L, swopId)),
-                () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
-                        StringArg.as(firstAssetId.toString()),
-                        StringArg.as(usdnId.toString())
-                ).payment(10_00000000L, swopId)),
-                () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
-                        StringArg.as(secondAssetId.toString()),
-                        StringArg.as(usdnId.toString())
                 ).payment(10_00000000L, swopId))
         );
         firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
@@ -229,7 +215,7 @@ public class VotingNewPoolTest {
                 StringArg.as(swopId.toString())
         ).payment(10_00000000L, swopId));
         votingDApp.writeData(d -> d.data(
-                IntegerEntry.as("4_finish_height", node().getHeight() - 1)
+                IntegerEntry.as((maxVoting - 1) + "_finish_height", node().getHeight() - 1)
         ));
         
         long lastPoolId = votingDApp.getIntegerData("voting_id_last");
@@ -241,8 +227,8 @@ public class VotingNewPoolTest {
         assertAll("state after init pool",
                 () -> assertThat(votingDApp.getIntegerData(firstAssetId.toString() + "_" + swopId.toString() + "_" + lastPoolId +"_voting")).isEqualTo(lastPoolId),
                 () -> assertThat(votingDApp.getBooleanData(lastPoolId + "_status")).isEqualTo(true),
-                () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * 5),
-                () -> assertThat(votingDApp.getIntegerData("voting_active_number")).isEqualTo(5),
+                () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * amountOfDays),
+                () -> assertThat(votingDApp.getIntegerData("voting_active_number")).isEqualTo(maxVoting),
                 () -> assertThat(votingDApp.getIntegerData("voting_id_last")).isEqualTo(lastPoolId + 1)
         );
     }
@@ -267,7 +253,7 @@ public class VotingNewPoolTest {
         assertAll("state after init pool",
                 () -> assertThat(votingDApp.getIntegerData(firstAssetId.toString() + "_" + usdnId.toString() + "_" + lastPoolId +"_voting")).isEqualTo(lastPoolId),
                 () -> assertThat(votingDApp.getBooleanData(lastPoolId + "_status")).isEqualTo(true),
-                () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * 5),
+                () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * amountOfDays),
                 () -> assertThat(votingDApp.getIntegerData("voting_active_number")).isEqualTo(2),
                 () -> assertThat(votingDApp.getIntegerData("voting_id_last")).isEqualTo(lastPoolId + 1)
         );
@@ -287,21 +273,14 @@ public class VotingNewPoolTest {
                 () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(secondAssetId.toString()),
                         StringArg.as("WAVES")
-                ).payment(10_00000000L, swopId)),
-                () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
-                        StringArg.as(firstAssetId.toString()),
-                        StringArg.as(usdnId.toString())
-                ).payment(10_00000000L, swopId)),
-                () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
-                        StringArg.as(secondAssetId.toString()),
-                        StringArg.as(usdnId.toString())
                 ).payment(10_00000000L, swopId))
         );
         votingDApp.writeData(d -> d.data(
                 IntegerEntry.as("0_finish_height", node().getHeight() - 1),
-                IntegerEntry.as("1_finish_height", node().getHeight() - 1),
-                IntegerEntry.as("2_finish_height", node().getHeight() - 1),
-                IntegerEntry.as("3_finish_height", node().getHeight() - 1)
+                IntegerEntry.as("1_finish_height", node().getHeight() - 1)
+//                ,
+//                IntegerEntry.as("2_finish_height", node().getHeight() - 1),
+//                IntegerEntry.as("3_finish_height", node().getHeight() - 1)
         ));
         
         long lastPoolId = votingDApp.getIntegerData("voting_id_last");
@@ -313,7 +292,7 @@ public class VotingNewPoolTest {
         assertAll("state after init pool",
                 () -> assertThat(votingDApp.getIntegerData(firstAssetId.toString() + "_" + usdnId.toString() + "_" + lastPoolId +"_voting")).isEqualTo(lastPoolId),
                 () -> assertThat(votingDApp.getBooleanData(lastPoolId + "_status")).isEqualTo(true),
-                () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * 5),
+                () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * amountOfDays),
                 () -> assertThat(votingDApp.getIntegerData("voting_active_number")).isEqualTo(1),
                 () -> assertThat(votingDApp.getIntegerData("voting_id_last")).isEqualTo(lastPoolId + 1)
         );
@@ -338,36 +317,18 @@ public class VotingNewPoolTest {
                 () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(thirdAssetId.toString()),
                         StringArg.as("WAVES")
-                ).payment(10_00000000L, swopId)),
-                () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
-                        StringArg.as(firstAssetId.toString()),
-                        StringArg.as(usdnId.toString())
-                ).payment(10_00000000L, swopId)),
-                () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
-                        StringArg.as(secondAssetId.toString()),
-                        StringArg.as(usdnId.toString())
                 ).payment(10_00000000L, swopId))
         );
 
         votingDApp.writeData(d -> d.data(
                 IntegerEntry.as("0_finish_height", node().getHeight() - 1),
-                IntegerEntry.as("1_finish_height", node().getHeight() - 1),
-                IntegerEntry.as("2_finish_height", node().getHeight() - 1),
-                IntegerEntry.as("3_finish_height", node().getHeight() - 1)
+                IntegerEntry.as("1_finish_height", node().getHeight() - 1)
         ));
         
         async(
                 () ->  firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
-                        StringArg.as(thirdAssetId.toString()),
-                        StringArg.as(usdnId.toString())
-                ).payment(10_00000000L, swopId)),
-                () ->  firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(firstAssetId.toString()),
-                        StringArg.as(swopId.toString())
-                ).payment(10_00000000L, swopId)),
-                () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
-                        StringArg.as(secondAssetId.toString()),
-                        StringArg.as(swopId.toString())
+                        StringArg.as(usdnId.toString())
                 ).payment(10_00000000L, swopId))
         );
         
@@ -380,8 +341,8 @@ public class VotingNewPoolTest {
         assertAll("state after init pool",
                 () -> assertThat(votingDApp.getIntegerData(fourthAssetId.toString() + "_" + usdnId.toString() + "_" + lastPoolId +"_voting")).isEqualTo(lastPoolId),
                 () -> assertThat(votingDApp.getBooleanData(lastPoolId + "_status")).isEqualTo(true),
-                () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * 5),
-                () -> assertThat(votingDApp.getIntegerData("voting_active_number")).isEqualTo(5),
+                () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * amountOfDays),
+                () -> assertThat(votingDApp.getIntegerData("voting_active_number")).isEqualTo(maxVoting),
                 () -> assertThat(votingDApp.getIntegerData("voting_id_last")).isEqualTo(lastPoolId + 1)
         );
     }
@@ -391,36 +352,22 @@ public class VotingNewPoolTest {
         Account votingDApp = new Account(10_00000000L);
         votingDApp.setScript(votingScript);
         votingDApp.invoke(i -> i.dApp(votingDApp).function("init"));
-        
+
         async(
-                () ->  firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
+                () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(firstAssetId.toString()),
                         StringArg.as("WAVES")
                 ).payment(10_00000000L, swopId)),
                 () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(secondAssetId.toString()),
                         StringArg.as("WAVES")
-                ).payment(10_00000000L, swopId)),
-                () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
-                        StringArg.as(thirdAssetId.toString()),
-                        StringArg.as("WAVES")
-                ).payment(10_00000000L, swopId)),
-                () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
-                        StringArg.as(firstAssetId.toString()),
-                        StringArg.as(usdnId.toString())
-                ).payment(10_00000000L, swopId)),
-                () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
-                        StringArg.as(secondAssetId.toString()),
-                        StringArg.as(usdnId.toString())
                 ).payment(10_00000000L, swopId))
         );
 
         votingDApp.writeData(d -> d.data(
                 IntegerEntry.as("0_finish_height", node().getHeight() - 1),
                 IntegerEntry.as("1_finish_height", node().getHeight() - 1),
-                IntegerEntry.as("2_finish_height", node().getHeight() - 1),
-                IntegerEntry.as("3_finish_height", node().getHeight() - 1),
-                IntegerEntry.as("4_finish_height", node().getHeight() - 1)
+                IntegerEntry.as("2_finish_height", node().getHeight() - 1)
         ));
         async(
                 () ->  firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
@@ -429,14 +376,6 @@ public class VotingNewPoolTest {
                 ).payment(10_00000000L, swopId)),
                 () ->  firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(firstAssetId.toString()),
-                        StringArg.as(swopId.toString())
-                ).payment(10_00000000L, swopId)),
-                () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
-                        StringArg.as(secondAssetId.toString()),
-                        StringArg.as(swopId.toString())
-                ).payment(10_00000000L, swopId)),
-                () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
-                        StringArg.as(thirdAssetId.toString()),
                         StringArg.as(swopId.toString())
                 ).payment(10_00000000L, swopId))
         );
@@ -450,8 +389,8 @@ public class VotingNewPoolTest {
         assertAll("state after init pool",
                 () -> assertThat(votingDApp.getIntegerData(fourthAssetId.toString() + "_" + swopId.toString() + "_" + lastPoolId +"_voting")).isEqualTo(lastPoolId),
                 () -> assertThat(votingDApp.getBooleanData(lastPoolId + "_status")).isEqualTo(true),
-                () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * 5),
-                () -> assertThat(votingDApp.getIntegerData("voting_active_number")).isEqualTo(5),
+                () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * amountOfDays),
+                () -> assertThat(votingDApp.getIntegerData("voting_active_number")).isEqualTo(maxVoting),
                 () -> assertThat(votingDApp.getIntegerData("voting_id_last")).isEqualTo(lastPoolId + 1)
         );
     }
@@ -514,7 +453,7 @@ public class VotingNewPoolTest {
         assertAll("state after init pool",
                 () -> assertThat(votingDApp.getIntegerData(firstAssetId.toString() + "_WAVES_" + lastPoolId +"_voting")).isEqualTo(lastPoolId),
                 () -> assertThat(votingDApp.getBooleanData(lastPoolId + "_status")).isEqualTo(true),
-                () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * 5),
+                () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * amountOfDays),
                 () -> assertThat(votingDApp.getIntegerData("voting_active_number")).isEqualTo(1),
                 () -> assertThat(votingDApp.getIntegerData("voting_id_last")).isEqualTo(lastPoolId + 1)
         );
@@ -535,7 +474,7 @@ public class VotingNewPoolTest {
         assertAll("state after init pool",
                 () -> assertThat(votingDApp.getIntegerData("WAVES_" + usdnId.toString() + "_" + lastPoolId +"_voting")).isEqualTo(lastPoolId),
                 () -> assertThat(votingDApp.getBooleanData(lastPoolId + "_status")).isEqualTo(true),
-                () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * 5),
+                () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * amountOfDays),
                 () -> assertThat(votingDApp.getIntegerData("voting_active_number")).isEqualTo(1),
                 () -> assertThat(votingDApp.getIntegerData("voting_id_last")).isEqualTo(lastPoolId + 1)
         );
@@ -615,22 +554,12 @@ public class VotingNewPoolTest {
                 () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(firstAssetId.toString()),
                         StringArg.as(usdnId.toString())
-                ).payment(10_00000000L, swopId)),
-                () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
-                        StringArg.as(secondAssetId.toString()),
-                        StringArg.as(usdnId.toString())
-                ).payment(10_00000000L, swopId)),
-                () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
-                        StringArg.as(firstAssetId.toString()),
-                        StringArg.as(swopId.toString())
                 ).payment(10_00000000L, swopId))
         );
         votingDApp.writeData(d -> d.data(
                 IntegerEntry.as("0_finish_height", node().getHeight() - 1),
                 IntegerEntry.as("1_finish_height", node().getHeight() - 1),
-                IntegerEntry.as("2_finish_height", node().getHeight() - 1),
-                IntegerEntry.as("3_finish_height", node().getHeight() - 1),
-                IntegerEntry.as("4_finish_height", node().getHeight() - 1)
+                IntegerEntry.as("2_finish_height", node().getHeight() - 1)
         ));
 
         long lastPoolId = votingDApp.getIntegerData("voting_id_last");
@@ -642,7 +571,7 @@ public class VotingNewPoolTest {
         assertAll("state after init pool",
                 () -> assertThat(votingDApp.getIntegerData(firstAssetId.toString() + "_WAVES_" + lastPoolId +"_voting")).isEqualTo(lastPoolId),
                 () -> assertThat(votingDApp.getBooleanData(lastPoolId + "_status")).isEqualTo(true),
-                () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * 5),
+                () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * amountOfDays),
                 () -> assertThat(votingDApp.getIntegerData("voting_active_number")).isEqualTo(1),
                 () -> assertThat(votingDApp.getIntegerData("voting_id_last")).isEqualTo(lastPoolId + 1)
         );
@@ -666,18 +595,10 @@ public class VotingNewPoolTest {
                 () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(firstAssetId.toString()),
                         StringArg.as(usdnId.toString())
-                ).payment(10_00000000L, swopId)),
-                () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
-                        StringArg.as(secondAssetId.toString()),
-                        StringArg.as(usdnId.toString())
-                ).payment(10_00000000L, swopId)),
-                () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
-                        StringArg.as(firstAssetId.toString()),
-                        StringArg.as(swopId.toString())
                 ).payment(10_00000000L, swopId))
         );
         votingDApp.writeData(d -> d.data(
-                IntegerEntry.as("4_finish_height", node().getHeight() - 1)
+                IntegerEntry.as((maxVoting - 1) +"_finish_height", node().getHeight() - 1)
         ));
         firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                 StringArg.as("WAVES"),
@@ -689,7 +610,7 @@ public class VotingNewPoolTest {
                         StringArg.as(secondAssetId.toString()),
                         StringArg.as(swopId.toString())
                 ).payment(10_00000000L, swopId)))
-        ).hasMessageContaining("Too many votings. Maximum quantity: 5");
+        ).hasMessageContaining("Too many votings. Maximum quantity: " + maxVoting);
 
     }
 
@@ -711,18 +632,10 @@ public class VotingNewPoolTest {
                 () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(firstAssetId.toString()),
                         StringArg.as(usdnId.toString())
-                ).payment(10_00000000L, swopId)),
-                () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
-                        StringArg.as(secondAssetId.toString()),
-                        StringArg.as(usdnId.toString())
-                ).payment(10_00000000L, swopId)),
-                () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
-                        StringArg.as(firstAssetId.toString()),
-                        StringArg.as(swopId.toString())
                 ).payment(10_00000000L, swopId))
         );
         firstCaller.invoke( i -> i.dApp(votingDApp).function("cancelVoting",
-                IntegerArg.as(4),
+                IntegerArg.as(maxVoting - 1),
                 StringArg.as("because I can")
         ));
 
@@ -735,8 +648,8 @@ public class VotingNewPoolTest {
         assertAll("state after init pool",
                 () -> assertThat(votingDApp.getIntegerData(secondAssetId.toString() + "_" + swopId.toString() + "_" + lastPoolId +"_voting")).isEqualTo(lastPoolId),
                 () -> assertThat(votingDApp.getBooleanData(lastPoolId + "_status")).isEqualTo(true),
-                () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * 5),
-                () -> assertThat(votingDApp.getIntegerData("voting_active_number")).isEqualTo(5),
+                () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * amountOfDays),
+                () -> assertThat(votingDApp.getIntegerData("voting_active_number")).isEqualTo(maxVoting),
                 () -> assertThat(votingDApp.getIntegerData("voting_id_last")).isEqualTo(lastPoolId + 1)
         );
     }
@@ -755,14 +668,6 @@ public class VotingNewPoolTest {
                 () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
                         StringArg.as(secondAssetId.toString()),
                         StringArg.as("WAVES")
-                ).payment(10_00000000L, swopId)),
-                () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
-                        StringArg.as(firstAssetId.toString()),
-                        StringArg.as(usdnId.toString())
-                ).payment(10_00000000L, swopId)),
-                () -> firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
-                        StringArg.as(secondAssetId.toString()),
-                        StringArg.as(usdnId.toString())
                 ).payment(10_00000000L, swopId))
         );
         firstCaller.invoke( i -> i.dApp(votingDApp).function("initVotingForNewPool",
@@ -770,7 +675,7 @@ public class VotingNewPoolTest {
                 StringArg.as(swopId.toString())
         ).payment(10_00000000L, swopId));
         firstCaller.invoke( i -> i.dApp(votingDApp).function("cancelVoting",
-                IntegerArg.as(4),
+                IntegerArg.as(maxVoting - 1),
                 StringArg.as("because I can")
         ));
 
@@ -783,8 +688,8 @@ public class VotingNewPoolTest {
         assertAll("state after init pool",
                 () -> assertThat(votingDApp.getIntegerData(firstAssetId.toString() + "_" + swopId.toString() + "_" + lastPoolId +"_voting")).isEqualTo(lastPoolId),
                 () -> assertThat(votingDApp.getBooleanData(lastPoolId + "_status")).isEqualTo(true),
-                () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * 5),
-                () -> assertThat(votingDApp.getIntegerData("voting_active_number")).isEqualTo(5),
+                () -> assertThat(votingDApp.getIntegerData(lastPoolId + "_finish_height")).isEqualTo(height + 1443 * amountOfDays),
+                () -> assertThat(votingDApp.getIntegerData("voting_active_number")).isEqualTo(maxVoting),
                 () -> assertThat(votingDApp.getIntegerData("voting_id_last")).isEqualTo(lastPoolId + 1)
         );
     }

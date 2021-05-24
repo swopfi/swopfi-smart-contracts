@@ -26,8 +26,6 @@ let periodOfVoting = "period_voting"
 let activeVoteFirst = "voting_active_cell_1"
 let activeVoteSecond = "voting_active_cell_2"
 let activeVoteThird = "voting_active_cell_3"
-let activeVoteFourth = "voting_active_cell_4"
-let activeVoteFifth = "voting_active_cell_5"
 
 let adminPubKey1 = base58'DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA'
 let adminPubKey2 = base58'E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7'
@@ -46,16 +44,14 @@ let amountOfVoting = this.getIntegerValue(keyAmountOfVoting)
 let firstActiveVote = this.getString(activeVoteFirst).valueOrElse("")
 let secondActiveVote = this.getString(activeVoteSecond).valueOrElse("")
 let thirdActiveVote = this.getString(activeVoteThird).valueOrElse("")
-let fourthActiveVote = this.getString(activeVoteFourth).valueOrElse("")
-let fifthActiveVote = this.getString(activeVoteFifth).valueOrElse("")
 
 let comissionForInitalizationOfVoting = 1000000000
 let scaleValue3 = 1000
 let scaleValue8 = 100000000
 let slippageToleranceDelimiter = 1000
 let scaleValue8Digits = 8
-let maxAmountOfVoting = 5
-let maxDayOfVoting = 5
+let maxAmountOfVoting = 3
+let maxDayOfVoting = 7
 let fiveDays = 1443 * maxDayOfVoting
 
 func getAssetInfo(assetId: ByteVector|Unit) = match assetId {
@@ -107,12 +103,10 @@ func isUnactivePoolExists(poolsState: String) = {
     } else poolsState
 }
 
-func isLastFiveActivePoolExists(assetA: String, assetB: String) = {
+func isLastActivePoolExists(assetA: String, assetB: String) = {
     (isActivePoolExists(firstActiveVote, assetA, assetB) ||
     isActivePoolExists(secondActiveVote, assetA, assetB) ||
-    isActivePoolExists(thirdActiveVote,  assetA, assetB) ||
-    isActivePoolExists(fourthActiveVote, assetA, assetB) ||
-    isActivePoolExists(fifthActiveVote, assetA, assetB))
+    isActivePoolExists(thirdActiveVote,  assetA, assetB))
 }
 
 func getActivePool(voting: Int) = {
@@ -129,19 +123,15 @@ func getActivePool(voting: Int) = {
         (0)
 }
 
-func getActiveVotingPoolAmount() = 
+func getActiveVotingPoolAmount() =
     getActivePool(this.getInteger(firstActiveVote).valueOrElse(-1)) +
     getActivePool(this.getInteger(secondActiveVote).valueOrElse(-1)) +
-    getActivePool(this.getInteger(thirdActiveVote).valueOrElse(-1)) +
-    getActivePool(this.getInteger(fourthActiveVote).valueOrElse(-1)) +
-    getActivePool(this.getInteger(fifthActiveVote).valueOrElse(-1))
+    getActivePool(this.getInteger(thirdActiveVote).valueOrElse(-1))
 
 
 func getUnactiveVotingPool() = if isUnactivePoolExists(activeVoteFirst) != "" then activeVoteFirst
                     else if isUnactivePoolExists(activeVoteSecond) != "" then activeVoteSecond
                     else if isUnactivePoolExists(activeVoteThird) != "" then activeVoteThird
-                    else if isUnactivePoolExists(activeVoteFourth) != "" then activeVoteFourth
-                    else if isUnactivePoolExists(activeVoteFifth) != "" then activeVoteFifth
                     else ""
 
 func getAssetInfoFromString(assetStr: String) = if assetStr == "WAVES" then unit else assetStr.fromBase58String()
@@ -176,9 +166,7 @@ func init() = {
             IntegerEntry(keyMaxDayOfVoting, maxDayOfVoting),
             StringEntry(activeVoteFirst, activeInit),
             StringEntry(activeVoteSecond, activeInit),
-            StringEntry(activeVoteThird, activeInit),
-            StringEntry(activeVoteFourth, activeInit),
-            StringEntry(activeVoteFifth, activeInit)
+            StringEntry(activeVoteThird, activeInit)
         ]
     }
 }
@@ -189,10 +177,10 @@ func initVotingForNewPool(assetA: String, assetB: String) = {
     let (poolAssetIdA, poolAssetIdB) = (getAssetInfoFromString(assetA), getAssetInfoFromString(assetB))
     let unactiveVote = getUnactiveVotingPool()
     let newNumberOfVoting = getActiveVotingPoolAmount()
-    let isPoolExists = isLastFiveActivePoolExists(assetA, assetB)
+    let isPoolExists = isLastActivePoolExists(assetA, assetB)
     let (pmtStrAssetIdA, pmtAssetNameA, pmtDecimalsA) = getAssetInfo(poolAssetIdA)
     let (pmtStrAssetIdB, pmtAssetNameB, pmtDecimalsB) = getAssetInfo(poolAssetIdB)
-    
+
     if !isActive then
         throw("DApp is inactive at this moment")
     else if poolAssetIdA == poolAssetIdB then
@@ -203,7 +191,7 @@ func initVotingForNewPool(assetA: String, assetB: String) = {
         throw("Too many votings. Maximum quantity: " + maxAmountOfVoting.toString())
     else if i.payments.size() != 1 then
         throw("One attached asset expected")
-    else if (pmtAssetId !=  SWOP) then 
+    else if (pmtAssetId !=  SWOP) then
         throw("You must use a SWOP token")
     else if (assetA == "" || assetB == "") then
         throw("Assets can't be empty")
