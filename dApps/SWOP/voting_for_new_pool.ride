@@ -52,7 +52,7 @@ let slippageToleranceDelimiter = 1000
 let scaleValue8Digits = 8
 let maxAmountOfVoting = 3
 let maxDayOfVoting = 7
-let fiveDays = 1443 * maxDayOfVoting
+let votingPeriodLength = 1443 * maxDayOfVoting
 
 func getAssetInfo(assetId: ByteVector|Unit) = match assetId {
     case id: ByteVector =>
@@ -202,7 +202,7 @@ func initVotingForNewPool(assetA: String, assetB: String) = {
     else {
         [
             IntegerEntry(assetA + "_" + assetB + "_" + amountOfVoting.toString() + votingId, amountOfVoting),
-            IntegerEntry(amountOfVoting.toString() + keyHeightOfPool, height + fiveDays),
+            IntegerEntry(amountOfVoting.toString() + keyHeightOfPool, height + votingPeriodLength),
             BooleanEntry(amountOfVoting.toString() + keyStatusOfVoting, true),
             IntegerEntry(keyAmountOfVoting, amountOfVoting + 1),
             IntegerEntry(keyNumberOfVoting, newNumberOfVoting + 1),
