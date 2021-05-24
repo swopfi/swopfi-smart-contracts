@@ -38,8 +38,6 @@ let keyHeightOfPoolVotingForNewPool  = "_finish_height"
 let activeVoteFirst = "voting_active_cell_1"
 let activeVoteSecond = "voting_active_cell_2"
 let activeVoteThird = "voting_active_cell_3"
-let activeVoteFourth = "voting_active_cell_4"
-let activeVoteFifth = "voting_active_cell_5"
 
 let isActive = this.getBoolean(keyActive).valueOrElse(true)
 
@@ -63,8 +61,6 @@ let periodLength =  votingLiteContract.getInteger(kPeriodLength).valueOrErrorMes
 let firstActiveVote = votingForNewPool.getString(activeVoteFirst).valueOrElse("")
 let secondActiveVote = votingForNewPool.getString(activeVoteSecond).valueOrElse("")
 let thirdActiveVote = votingForNewPool.getString(activeVoteThird).valueOrElse("")
-let fourthActiveVote = votingForNewPool.getString(activeVoteFourth).valueOrElse("")
-let fifthActiveVote = votingForNewPool.getString(activeVoteFifth).valueOrElse("")
 
 let currVotingPeriod = basePeriod + (height-startHeight)/periodLength
 
@@ -119,9 +115,7 @@ func getUserTotalVoteForNewPoolAmount(user:Address) = {
     let listOfVoting = [
         getUserTotalVoteAmountForOnePool(firstActiveVote, user),
         getUserTotalVoteAmountForOnePool(secondActiveVote, user),
-        getUserTotalVoteAmountForOnePool(thirdActiveVote, user),
-        getUserTotalVoteAmountForOnePool(fourthActiveVote, user),
-        getUserTotalVoteAmountForOnePool(fifthActiveVote, user)
+        getUserTotalVoteAmountForOnePool(thirdActiveVote, user)
     ]
     max(listOfVoting)
 }
