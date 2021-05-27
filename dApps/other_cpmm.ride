@@ -9,11 +9,21 @@ let keyAssetIdA = "A_asset_id"
 let keyAssetIdB = "B_asset_id"
 let keyBalanceA = "A_asset_balance"
 let keyBalanceB = "B_asset_balance"
+let keyBalanceInitA = "A_asset_init"
+let keyBalanceInitB = "B_asset_init"
 let keyShareAssetId = "share_asset_id"
 let keyShareAssetSupply = "share_asset_supply"
 let keyCommission = "commission"
 let keyCommissionScaleDelimiter = "commission_scale_delimiter"
 let keyCause = "shutdown_cause"
+let keyFirstHarvest = "first_harvest"
+let keyFirstHarvestHeight = "first_harvest_height"
+let kShareLimit = "share_limit_on_first_harvest"
+let kBasePeriod = "base_period"
+let kPeriodLength = "period_length"
+let kStartHeight = "start_height"
+let kFirstHarvestHeight = "first_harvest_height"
+
 
 let adminPubKey1 = base58'DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA'
 let adminPubKey2 = base58'E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7'
@@ -21,10 +31,20 @@ let adminPubKey3 = base58'AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ'
 let adminPubKeyStartStop = base58'EtVkT6ed8GtbUiVVEqdmEqsp2J4qbb3rre2HFgxeVYdg'
 let adminPubKeyStaking = base58'Czn4yoAuUZCVCLJDRfskn8URfkwpknwBTZDbs1wFrY7h'
 
-let governanceAddress = Address(base58'3P6J84oH51DzY6xk2mT5TheXRbrCwBMxonp')
+let walletAddress = Address(base58'3P6J84oH51DzY6xk2mT5TheXRbrCwBMxonp')
+let votingAddress = Address(base58'3PQZWxShKGRgBN1qoJw6B4s9YWS9FneZTPg')
 let stakingAddress = Address(base58'3PNikM6yp4NqcSU8guxQtmR5onr2D4e8yTJ')
 
+let basePeriod = votingAddress.getInteger(kBasePeriod).valueOrErrorMessage("Empty kBasePeriod") # 0
+let startHeight = votingAddress.getInteger(kStartHeight).valueOrErrorMessage("Empty kStartHeight")
+let periodLength =  votingAddress.getInteger(kPeriodLength).valueOrErrorMessage("Empty kPeriodLength")  # 10102
+
+let firstHarvestEndPeriod = basePeriod + (height-startHeight)/periodLength + 3
+
 let USDN = base58'DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p'
+let NSBT = base58'6nSpVyNH7yM69eg446wrQR94ipbbcmZMU1ENPwanC97g'
+let swopUSDNtoWAVES = Address(base58'3PHaNgomBkrvEL2QnuJarQVJa71wjw9qiqG')
+let swopUSDNtoNSBT = Address(base58'3P2V63Xd6BviDkeMzxhUw2SJyojByRz8a8m')
 let stakingFeeInUSDN = 9 * assetInfo(USDN).value().minSponsoredFee.value() # sponsored fee for invoke called from scripted account
 
 let isActive = this.getBooleanValue(keyActive)
@@ -65,6 +85,9 @@ let stakedAmountUSDN = match stakingAddress.getInteger("rpd_balance_" + USDN.toB
     case nothing: Unit => 0
 }
 
+let assetInitA = this.getIntegerValue(keyBalanceInitA)
+let assetInitB = this.getIntegerValue(keyBalanceInitB)
+
 let availableBalanceA = balanceA - if assetIdA == USDN then stakedAmountUSDN else 0
 let availableBalanceB = balanceB - if assetIdB == USDN then stakedAmountUSDN else 0
 let accountBalanceWithStakedA = accountBalance(assetIdA) + if assetIdA == USDN then stakedAmountUSDN else 0
@@ -78,6 +101,16 @@ func getAssetInfo(assetId: ByteVector|Unit) = match assetId {
         let info = assetInfo(id).valueOrErrorMessage("Asset " + stringId + " doesn't exist")
         (stringId, info.name, info.decimals)
     case waves: Unit => ("WAVES", "WAVES", 8)
+}
+
+func getAssetInfoFromString(assetStr: String) = {
+    if assetStr == "WAVES" then ("WAVES", "WAVES", 8)
+    else {
+        let stringId = assetStr
+        let id = assetStr.fromBase58String()
+        let info = assetInfo(id).valueOrErrorMessage("Asset " + stringId + " doesn't exist")
+        (stringId, info.name, info.decimals)
+    }
 }
 
 func suspend(cause: String) = [
@@ -105,13 +138,15 @@ func throwInsufficientAvailableBalances(amountA: Int, amountB: Int) = throw("Ins
     +  ". Please contact support in Telegram: https://t.me/swopfisupport")
 
 @Callable(i)
-func init() = {
+func init(firstHarvest: Boolean) = {
     let (pmtAmountA, pmtAssetIdA) = (i.payments[0].amount, i.payments[0].assetId)
     let (pmtAmountB, pmtAssetIdB) = (i.payments[1].amount, i.payments[1].assetId)
     let (pmtStrAssetIdA, pmtAssetNameA, pmtDecimalsA) = getAssetInfo(pmtAssetIdA)
     let (pmtStrAssetIdB, pmtAssetNameB, pmtDecimalsB) = getAssetInfo(pmtAssetIdB)
 
-    if this.getBoolean(keyActive).isDefined() then
+    if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStaking].containsElement(i.callerPublicKey) then
+        throw("Only admin can call this function")
+    else if this.getBoolean(keyActive).isDefined() then
         throw("DApp is already active")
     else if pmtAssetIdA == pmtAssetIdB then
         throw("Assets must be different")
@@ -127,7 +162,7 @@ func init() = {
         )
         let shareIssue = Issue(shareName, shareDescription, shareInitialSupply, shareDecimals, true)
         let shareIssueId = shareIssue.calculateAssetId()
-        [
+        let baseEntry =         [
             StringEntry(keyVersion, version),
             BooleanEntry(keyActive, true),
             StringEntry(keyAssetIdA, pmtStrAssetIdA),
@@ -141,7 +176,74 @@ func init() = {
             IntegerEntry(keyShareAssetSupply, shareInitialSupply),
             ScriptTransfer(i.caller, shareInitialSupply, shareIssueId)
         ]
+        if (firstHarvest) then {
+            baseEntry ++ [
+                BooleanEntry(keyFirstHarvest, firstHarvest),
+                IntegerEntry(keyFirstHarvestHeight, startHeight + firstHarvestEndPeriod * periodLength)
+            ]
+        } else {
+            baseEntry
+        }
     }
+}
+
+@Callable(i)
+func initWithInitRatio(amtAssetA: Int, amtAssetB: Int, strAssetIdA: String, strAssetIdB: String, firstHarvest: Boolean) = {
+    let (pmtStrAssetIdA, pmtAssetNameA, pmtDecimalsA) = getAssetInfoFromString(strAssetIdA)
+    let (pmtStrAssetIdB, pmtAssetNameB, pmtDecimalsB) = getAssetInfoFromString(strAssetIdB)
+
+    if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStaking].containsElement(i.callerPublicKey) then
+        throw("Only admin can call this function")
+    else if this.getBoolean(keyActive).isDefined() then
+        throw("DApp is already active")
+    else if strAssetIdA == strAssetIdB then
+        throw("Assets must be different")
+    else {
+        let shareName = "s" + pmtAssetNameA.take(7) + "_" + pmtAssetNameB.take(7)
+        let shareDescription = "ShareToken of SwopFi protocol for " + pmtAssetNameA + " and " + pmtAssetNameB + " at address " + this.toString()
+
+        let shareDecimals = (pmtDecimalsA + pmtDecimalsB) / 2
+        let shareInitialSupply = 0
+        let shareIssue = Issue(shareName, shareDescription, shareInitialSupply, shareDecimals, true)
+        let shareIssueId = shareIssue.calculateAssetId()
+        let baseEntry =         [
+            StringEntry(keyVersion, version),
+            BooleanEntry(keyActive, true),
+            StringEntry(keyAssetIdA, pmtStrAssetIdA),
+            StringEntry(keyAssetIdB, pmtStrAssetIdB),
+            IntegerEntry(keyBalanceInitA, amtAssetA),
+            IntegerEntry(keyBalanceInitB, amtAssetB),
+            IntegerEntry(keyBalanceA, 0),
+            IntegerEntry(keyBalanceB, 0),
+            IntegerEntry(keyCommission, commission),
+            IntegerEntry(keyCommissionScaleDelimiter, commissionScaleDelimiter),
+            shareIssue,
+            StringEntry(keyShareAssetId, shareIssueId.toBase58String()),
+            IntegerEntry(keyFirstHarvestHeight, startHeight + firstHarvestEndPeriod * periodLength),
+            IntegerEntry(keyShareAssetSupply, shareInitialSupply)
+        ]
+
+        if (firstHarvest) then {
+            baseEntry ++ [
+                BooleanEntry(keyFirstHarvest, firstHarvest),
+                IntegerEntry(keyFirstHarvestHeight, startHeight + firstHarvestEndPeriod * periodLength)
+            ]
+        } else {
+            baseEntry
+        }
+    }
+}
+
+@Callable(i)
+func keepLimitForFirstHarvest(shareLimit: Int) = {
+    if !isActive then
+        throw("DApp is inactive at this moment")
+    else if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStaking].containsElement(i.callerPublicKey) then
+        throw("Only admin can call this function")
+    else
+        [
+            IntegerEntry(kShareLimit, shareLimit)
+        ]
 }
 
 @Callable(i)
@@ -151,6 +253,49 @@ func replenishWithTwoTokens(slippageTolerance: Int) = {
     # block for accounting the cost of commissions for staking operations
     let pmtAmountA = deductStakingFee(i.payments[0].amount, pmtAssetIdA)
     let pmtAmountB = deductStakingFee(i.payments[1].amount, pmtAssetIdB)
+
+    if (balanceA == 0 && balanceB == 0) then {
+        let (pmtStrAssetIdA, pmtAssetNameA, pmtDecimalsA) = getAssetInfo(pmtAssetIdA)
+        let (pmtStrAssetIdB, pmtAssetNameB, pmtDecimalsB) = getAssetInfo(pmtAssetIdB)
+        let tokenRatio = fraction(assetInitA, scaleValue8, pmtAmountA)
+            .fraction(scaleValue3, assetInitB.fraction(scaleValue8, pmtAmountB))
+
+        if pmtAssetIdA == pmtAssetIdB then
+            throw("Assets must be different")
+        else {
+            let shareDecimals = (pmtDecimalsA + pmtDecimalsB) / 2
+            let shareInitialSupply = fraction(
+                pow(pmtAmountA, pmtDecimalsA, 5, 1, pmtDecimalsA, HALFDOWN),
+                pow(pmtAmountB, pmtDecimalsB, 5, 1, pmtDecimalsB, HALFDOWN),
+                pow(10, 0, shareDecimals, 0, 0, HALFDOWN)
+            )
+
+            if !isActive then
+                throw("DApp is inactive at this moment")
+            else if slippageTolerance < 0 || slippageTolerance > slippageToleranceDelimiter then
+                throw("Slippage tolerance must be between 0 and " + slippageToleranceDelimiter.toString() + " inclusively. Actual: " + slippageTolerance.toString())
+            else if i.payments.size() != 2 then
+                throw("Two attached assets expected")
+            else if tokenRatio < (scaleValue3 * (slippageToleranceDelimiter - slippageTolerance)) / slippageToleranceDelimiter
+            || tokenRatio > (scaleValue3 * (slippageToleranceDelimiter + slippageTolerance)) / slippageToleranceDelimiter then
+                throw("Incorrect assets amount: amounts must have the contract ratio")
+            else if pmtAssetIdA != assetIdA || pmtAssetIdB != assetIdB then
+                throw("Incorrect assets attached. Expected: " + strAssetIdA + " and " + strAssetIdB)
+            else if shareInitialSupply == 0 then
+                throw("Too small amount to replenish")
+            else if !hasEnoughBalance then
+                suspend("Suspicious state. Actual balances: " + balanceA.toString() + " " + assetNameA + ", " + balanceB.toString() + " " + assetNameB
+                + ". State: " + accountBalance(assetIdA).toString() + " " + assetNameA + ", " + accountBalance(assetIdB).toString() + " " + assetNameB)
+            else
+            [
+                Reissue(shareAssetId, shareInitialSupply, true),
+                IntegerEntry(keyBalanceA, pmtAmountA),
+                IntegerEntry(keyBalanceB, pmtAmountB),
+                IntegerEntry(keyShareAssetSupply, shareInitialSupply),
+                ScriptTransfer(i.caller, shareInitialSupply, shareAssetId)
+            ]
+        }
+    } else
 
     # fraction should be equal 1(multiple by 1000) if depositor replenish with proportion according to actual price
     let tokenRatio = fraction(balanceA, scaleValue8, pmtAmountA)
@@ -231,6 +376,8 @@ func exchange(minAmountToReceive: Int) = {
 
     if !isActive then
         throw("DApp is inactive at this moment")
+    else if balanceA == 0 || balanceB == 0 then
+        throw("Can't exchange with zero balance")
     else if minAmountToReceive <= 0 then
         throw("Minimal amount to receive must be positive. Actual: " + minAmountToReceive.toString())
     else if i.payments.size() != 1 then
@@ -240,6 +387,7 @@ func exchange(minAmountToReceive: Int) = {
         + ". State: " + accountBalance(assetIdA).toString() + " " + assetNameA + ", " + accountBalance(assetIdB).toString() + " " + assetNameB)
     else if pmtAssetId == assetIdA then {
         let assetIdSend = assetIdB
+
         let (amountWithoutFee, amountWithFee, governanceReward) = calculateFees(balanceA, balanceB)
 
         let newBalanceA = balanceA + pmtAmount
@@ -253,7 +401,7 @@ func exchange(minAmountToReceive: Int) = {
                 IntegerEntry(keyBalanceA, newBalanceA),
                 IntegerEntry(keyBalanceB, newBalanceB),
                 ScriptTransfer(i.caller, amountWithFee, assetIdSend),
-                ScriptTransfer(governanceAddress, governanceReward, assetIdSend)
+                ScriptTransfer(walletAddress, governanceReward, assetIdSend)
             ]
     } else if pmtAssetId == assetIdB then {
         let assetIdSend = assetIdA
@@ -270,7 +418,7 @@ func exchange(minAmountToReceive: Int) = {
                 IntegerEntry(keyBalanceA, newBalanceA),
                 IntegerEntry(keyBalanceB, newBalanceB),
                 ScriptTransfer(i.caller, amountWithFee, assetIdSend),
-                ScriptTransfer(governanceAddress, governanceReward, assetIdSend)
+                ScriptTransfer(walletAddress, governanceReward, assetIdSend)
             ]
     } else
         throw("Incorrect asset attached. Expected: " + strAssetIdA + " or " + strAssetIdB)
@@ -329,16 +477,27 @@ func verify() = match tx {
         let callStaking =
             invoke.dApp == stakingAddress
             && (
-                (invoke.function == "lockNeutrino" && invoke.payments.size() == 1 && invoke.payments[0].assetId == USDN)
-                || (invoke.function == "unlockNeutrino" && invoke.payments.size() == 0)
+                ((invoke.function == "lockNeutrino" && invoke.payments.size() == 1 && invoke.payments[0].assetId == USDN)
+                || (invoke.function == "unlockNeutrino" && invoke.payments.size() == 0)) ||
+                ((invoke.function == "lockNsbt" && invoke.payments.size() == 1 && invoke.payments[0].assetId == NSBT)
+                || (invoke.function == "unlockNsbt" && invoke.payments.size() == 0))
             )
+        let callExchange =
+            (assetIdA == NSBT && assetIdB == USDN
+            && invoke.dApp == swopUSDNtoWAVES
+            && invoke.function == "exchange"
+            && invoke.payments[0].assetId == unit) ||
+            (assetIdA == NSBT && assetIdB == USDN
+            && invoke.dApp == swopUSDNtoNSBT
+            && invoke.function == "exchange"
+            && invoke.payments[0].assetId == USDN)
         let signedByAdmin =
             sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1)
             || sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey2)
             || sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey3)
             || sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKeyStaking)
 
-        (callTakeIntoAccount || callStaking) && signedByAdmin
+        (callTakeIntoAccount || callStaking || callExchange) && signedByAdmin
     case _ => {
         let adminPubKey1Signed = if sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1) then 1 else 0
         let adminPubKey2Signed = if sigVerify(tx.bodyBytes, tx.proofs[1], adminPubKey2) then 1 else 0
