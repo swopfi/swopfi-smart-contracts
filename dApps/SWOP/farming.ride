@@ -235,7 +235,8 @@ func init(earlyLP:String) = {
 @Callable(i)
 func initPoolShareFarming(pool:String) = {
     if i.caller != this then
-        throw("Only the DApp itself can call this function") else
+        throw("Only the DApp itself can call this function")
+    else
     let (currentReward,rewardUpdateHeight,previousRewardPerBlock) = rewardInfo(pool)
     [
         IntegerEntry(pool + keyShareTokensLocked, 0),
@@ -281,7 +282,6 @@ func lockShareTokens(pool:String) = {
                         IntegerEntry(pool + "_" + i.caller.toString() + keyAvailableSWOP, availableFundsNew)
                     ]
 
-
     if (pmtAmount <= 0) then
         throw("You can't lock token")
     else if !checkPmtAssetIdCorrect(pool,pmtAssetId) then throw("Incorrect pmtAssetId")
@@ -298,13 +298,15 @@ func lockShareTokens(pool:String) = {
             if(userPoolActiveVote != 0) then {
                 let limitShareToken = getShareLimitToken(pool.addressFromStringValue())
                 let shareToken = fraction(limitShareToken,userPoolActiveVote,poolActiveVote) - userShareTokenLocked
-                if (parseInt(amountActiveVoteUserPoolStract[1]).valueOrElse(0) >= harvestPeriod) then {
+                if amountActiveVoteUserPoolStract.size() > 1 && parseInt(amountActiveVoteUserPoolStract[1]).valueOrElse(0) >= harvestPeriod then
                     throw("You can't share token")
-                } else if (pmtAmount > limitShareToken) then
+                else if (pmtAmount > limitShareToken) then
                     throw("You can't share token more than " + limitShareToken.toString())
                 else if (shareToken > 0) then {
                     if (totalShareAmount == 0) then {
-                        baseEntry ++ [ ScriptTransfer(wallet, protocolReward, SWOP) ]
+                        baseEntry ++ [
+                            Reissue(SWOP, protocolReward, true),
+                            ScriptTransfer(wallet, protocolReward, SWOP) ]
                     } else if (pmtAmount <= shareToken) then {
                         baseEntry
                     } else
