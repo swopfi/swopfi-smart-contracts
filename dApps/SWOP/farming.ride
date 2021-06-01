@@ -282,10 +282,9 @@ func lockShareTokens(pool:String) = {
                         IntegerEntry(pool + "_" + i.caller.toString() + keyAvailableSWOP, availableFundsNew)
                     ]
 
-            
-    if (pmtAmount <= 0) then 
+    if (pmtAmount <= 0) then
         throw("You can't lock token")
-    else if !checkPmtAssetIdCorrect(pool,pmtAssetId) then throw("Incorrect pmtAssetId") 
+    else if !checkPmtAssetIdCorrect(pool,pmtAssetId) then throw("Incorrect pmtAssetId")
     else if (isFirstHarvest(Address(pool.fromBase58String())) && getHeightFirstHarvest(Address(pool.fromBase58String())) > height) then {
         let harvestPeriod = (getHeightFirstHarvest(Address(pool.fromBase58String())) - startHeight + 1) / periodLength - 1
         let amountOfVoting = votingAddress.getStringValue(i.caller.toString() + "_" + pool + "_user_pool_struc").split("_")
@@ -299,17 +298,17 @@ func lockShareTokens(pool:String) = {
             if(userPoolActiveVote != 0) then {
                 let limitShareToken = getShareLimitToken(pool.addressFromStringValue())
                 let shareToken = fraction(limitShareToken,userPoolActiveVote,poolActiveVote) - userShareTokenLocked
-                if amountActiveVoteUserPoolStract.size() > 1 && parseInt(amountActiveVoteUserPoolStract[1]).valueOrElse(0) >= harvestPeriod then 
+                if amountActiveVoteUserPoolStract.size() > 1 && parseInt(amountActiveVoteUserPoolStract[1]).valueOrElse(0) >= harvestPeriod then
                     throw("You can't share token")
-                else if (pmtAmount > limitShareToken) then 
+                else if (pmtAmount > limitShareToken) then
                     throw("You can't share token more than " + limitShareToken.toString())
                 else if (shareToken > 0) then {
                     if (totalShareAmount == 0) then {
-                        baseEntry ++ [ 
+                        baseEntry ++ [
                             Reissue(SWOP, protocolReward, true),
                             ScriptTransfer(wallet, protocolReward, SWOP) ]
                     } else if (pmtAmount <= shareToken) then {
-                        baseEntry 
+                        baseEntry
                     } else
                         throw("Your maximum share token is " + shareToken.toString())
                 } else
@@ -334,8 +333,8 @@ func withdrawShareTokens(pool:String,shareTokensWithdrawAmount:Int) = {
         let userClaimedAmount = getUserSWOPClaimedAmount(pool,i.caller)
         let userClaimedAmountNew = userClaimedAmount + claimAmount
 
-        if shareTokensWithdrawAmount > userShareTokensAmount then 
-            throw("Withdraw amount more then user locked amount") 
+        if shareTokensWithdrawAmount > userShareTokensAmount then
+            throw("Withdraw amount more then user locked amount")
         else
         [
             IntegerEntry(pool + "_" + i.caller.toString() + keyUserLastInterest, userNewInterest),
@@ -359,8 +358,8 @@ func claim(pool:String) = {
     let availableFund = userAvailableSWOP(pool,i.caller) + claimAmount
     let userClaimedAmount = getUserSWOPClaimedAmount(pool,i.caller)
     let userClaimedAmountNew = userClaimedAmount + claimAmount
-    if availableFund == 0 then 
-        throw("You have 0 available SWOP") 
+    if availableFund == 0 then
+        throw("You have 0 available SWOP")
     else
     [
         IntegerEntry(pool + "_" + i.caller.toString() + keyUserLastInterest, userNewInterest),
