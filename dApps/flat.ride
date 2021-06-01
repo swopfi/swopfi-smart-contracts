@@ -303,23 +303,17 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
     else {
         let (virtualReplenishA, virtualReplenishB,
             balanceAfterSwapA, balanceAfterSwapB,
-            invariantCalculated,
             newBalanceA, newBalanceB) =
             if pmtAssetId == assetIdA then (
                 pmtAmount - virtualSwapTokenPay, virtualSwapTokenGet,
                 balanceA + virtualSwapTokenPay, balanceB - virtualSwapTokenGet,
-                invariantCalc(balanceA + pmtAmount, balanceB),
                 balanceA + pmtAmount, balanceB
             ) else (
                 virtualSwapTokenGet, pmtAmount - virtualSwapTokenPay,
                 balanceA - virtualSwapTokenGet, balanceB + virtualSwapTokenPay,
-                invariantCalc(balanceA, balanceB + pmtAmount),
                 balanceA, balanceB + pmtAmount
             )
-        let newBalanceEntry =
-            if pmtAssetId == assetIdA then
-                IntegerEntry(kBalanceA, newBalanceA)
-            else IntegerEntry(kBalanceB, newBalanceB)
+
 
         let invariantNew = invariantCalc(balanceAfterSwapA, balanceAfterSwapB)
         let invariantEstimatedRatio = scale8.fraction(invariant, invariantNew)
@@ -340,14 +334,32 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
             let ratioShareTokensInB = virtualReplenishB.deductStakingFee(assetIdB).fraction(scale8, balanceAfterSwapB)
 
             let shareTokenToPayAmount = min([ratioShareTokensInA, ratioShareTokensInB]).fraction(shareAssetSupply, scale8)
+            # is devided by 2 to account internal swap commission. Only half of tokens took part in internal exchange
+            let shareTokenToPayAmountAfterFee = shareTokenToPayAmount.fraction(feeScale6 - fee, 2*feeScale6)
+            let shareTokenGovernanceReward = shareTokenToPayAmount.fraction(feeGovernance, 2*feeScale6)
+            let governanceRewardTokenA = shareTokenGovernanceReward.fraction(balanceA, shareAssetSupply) 
+            let governanceRewardTokenB = shareTokenGovernanceReward.fraction(balanceB, shareAssetSupply)
+
+            let newBalanceEntry =
+            if pmtAssetId == assetIdA then
+                [IntegerEntry(kBalanceA, newBalanceA - governanceRewardTokenA),IntegerEntry(kBalanceB, balanceB - governanceRewardTokenB)]
+            else [IntegerEntry(kBalanceA, balanceA - governanceRewardTokenA), IntegerEntry(kBalanceB, newBalanceB -  governanceRewardTokenB)]
+
+            let invariantCalculated = 
+                if pmtAssetId == assetIdA then (
+                    invariantCalc(newBalanceA - governanceRewardTokenA, balanceB - governanceRewardTokenB)
+                ) else (
+                    invariantCalc(balanceA - governanceRewardTokenA, newBalanceB -  governanceRewardTokenB)
+                )
 
             [
-                Reissue(shareAssetId, shareTokenToPayAmount, true),
-                ScriptTransfer(i.caller, shareTokenToPayAmount, shareAssetId),
-                IntegerEntry(kShareAssetSupply, shareAssetSupply + shareTokenToPayAmount),
-                newBalanceEntry,
+                Reissue(shareAssetId, shareTokenToPayAmountAfterFee, true),
+                ScriptTransfer(i.caller, shareTokenToPayAmountAfterFee, shareAssetId),
+                ScriptTransfer(govAddr, governanceRewardTokenA, assetIdA),
+                ScriptTransfer(govAddr, governanceRewardTokenB, assetIdB),
+                IntegerEntry(kShareAssetSupply, shareAssetSupply + shareTokenToPayAmountAfterFee),
                 IntegerEntry(kInvariant, invariantCalculated)
-            ]
+            ] ++  newBalanceEntry
         }
     }
 }
