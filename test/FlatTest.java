@@ -27,7 +27,6 @@ import static im.mak.paddle.Node.node;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 import static org.junit.jupiter.api.Assertions.*;
-
 @TestMethodOrder(MethodOrderer.Alphanumeric.class)
 public class FlatTest {
     final int commission = 500;
@@ -36,6 +35,9 @@ public class FlatTest {
     final int scaleValue8 = 100000000;
     final double alpha = 0.5;
     final double betta = 0.46;
+    final int fee = 500;
+    final int feeScale6 = 1000000;
+    final int feeGovernance = 200;
     final String version = "2.0.0";
     final long stakingFee = 9 * minSponsoredAssetFee;
 
@@ -254,15 +256,31 @@ public class FlatTest {
                 .multiply(BigDecimal.valueOf(tokenShareSupply))
                 .divide(BigDecimal.valueOf(scaleValue8), 8, RoundingMode.HALF_DOWN)
                 .longValue();
-        long invariantCalculated = invariantCalc(dAppTokensAmountA + pmtAmount, dAppTokensAmountB).longValue();
+        long shareTokenToPayAmountAfterFee = BigDecimal.valueOf(shareTokenToPayAmount)
+                .multiply(BigDecimal.valueOf(feeScale6 - fee))
+                .divide(BigDecimal.valueOf(2 * feeScale6), 8, RoundingMode.HALF_DOWN)
+                .longValue();
+        long shareTokenGovernanceReward = BigDecimal.valueOf(shareTokenToPayAmount)
+                .multiply(BigDecimal.valueOf(feeGovernance))
+                .divide(BigDecimal.valueOf(2 * feeScale6), 8, RoundingMode.HALF_DOWN)
+                .longValue();
+        long governanceRewardTokenA = BigDecimal.valueOf(shareTokenGovernanceReward)
+                .multiply(BigDecimal.valueOf(dAppTokensAmountA))
+                .divide(BigDecimal.valueOf(tokenShareSupply), 8, RoundingMode.HALF_DOWN)
+                .longValue();
+        long governanceRewardTokenB = BigDecimal.valueOf(shareTokenGovernanceReward)
+                .multiply(BigDecimal.valueOf(dAppTokensAmountB))
+                .divide(BigDecimal.valueOf(tokenShareSupply), 8, RoundingMode.HALF_DOWN)
+                .longValue();
+        long invariantCalculated = invariantCalc(dAppTokensAmountA + pmtAmount - governanceRewardTokenA, dAppTokensAmountB - governanceRewardTokenB).longValue();
 
         firstCaller.invoke(exchanger.replenishWithOneToken(virtualSwapTokenPay, virtualSwapTokenGet),
                 Amount.of(pmtAmount, tokenA));
 
-        assertAll("data and balances", 
+        assertAll("data and balances",
                 () -> assertThat(exchanger.getData()).contains(
-                        IntegerEntry.as("A_asset_balance", dAppTokensAmountA + pmtAmount),
-                        IntegerEntry.as("B_asset_balance", dAppTokensAmountB),
+                        IntegerEntry.as("A_asset_balance", dAppTokensAmountA + pmtAmount - governanceRewardTokenA),
+                        IntegerEntry.as("B_asset_balance", dAppTokensAmountB - governanceRewardTokenB),
                         StringEntry.as("A_asset_id", tokenA.toString()),
                         StringEntry.as("B_asset_id", tokenB.toString()),
                         BooleanEntry.as("active", true),
@@ -271,8 +289,8 @@ public class FlatTest {
                         IntegerEntry.as("commission_scale_delimiter", commissionScaleDelimiter),
                         StringEntry.as("version", version),
                         StringEntry.as("share_asset_id", shareTokenId.toString()),
-                        IntegerEntry.as("share_asset_supply", tokenShareSupply + shareTokenToPayAmount)),
-                () -> assertThat(firstCaller.getAssetBalance(shareTokenId)).isEqualTo(callerTokenShareBalance + shareTokenToPayAmount));
+                        IntegerEntry.as("share_asset_supply", tokenShareSupply + shareTokenToPayAmountAfterFee)),
+                () -> assertThat(firstCaller.getAssetBalance(shareTokenId)).isEqualTo(callerTokenShareBalance + shareTokenToPayAmountAfterFee));
     }
 
     static Stream<Arguments> replenishOneTokenBProvider() {
@@ -309,14 +327,30 @@ public class FlatTest {
                 .multiply(BigDecimal.valueOf(tokenShareSupply))
                 .divide(BigDecimal.valueOf(scaleValue8), 8, RoundingMode.HALF_DOWN)
                 .longValue();
-        long invariantCalculated = invariantCalc(dAppTokensAmountA, dAppTokensAmountB + pmtAmount).longValue();
+        long shareTokenToPayAmountAfterFee = BigDecimal.valueOf(shareTokenToPayAmount)
+                .multiply(BigDecimal.valueOf(feeScale6 - fee))
+                .divide(BigDecimal.valueOf(2 * feeScale6), 8, RoundingMode.HALF_DOWN)
+                .longValue();
+        long shareTokenGovernanceReward = BigDecimal.valueOf(shareTokenToPayAmount)
+                .multiply(BigDecimal.valueOf(feeGovernance))
+                .divide(BigDecimal.valueOf(2 * feeScale6), 8, RoundingMode.HALF_DOWN)
+                .longValue();
+        long governanceRewardTokenA = BigDecimal.valueOf(shareTokenGovernanceReward)
+                .multiply(BigDecimal.valueOf(dAppTokensAmountA))
+                .divide(BigDecimal.valueOf(tokenShareSupply), 8, RoundingMode.HALF_DOWN)
+                .longValue();
+        long governanceRewardTokenB = BigDecimal.valueOf(shareTokenGovernanceReward)
+                .multiply(BigDecimal.valueOf(dAppTokensAmountB))
+                .divide(BigDecimal.valueOf(tokenShareSupply), 8, RoundingMode.HALF_DOWN)
+                .longValue();
+        long invariantCalculated = invariantCalc(dAppTokensAmountA - governanceRewardTokenA, dAppTokensAmountB + pmtAmount - governanceRewardTokenB).longValue();
 
         firstCaller.invoke(exchanger.replenishWithOneToken(virtualSwapTokenPay, virtualSwapTokenGet), Amount.of(pmtAmount, tokenB));
 
         assertAll("data and balances",
                 () -> assertThat(exchanger.getData()).contains(
-                        IntegerEntry.as("A_asset_balance", dAppTokensAmountA),
-                        IntegerEntry.as("B_asset_balance", dAppTokensAmountB + pmtAmount),
+                        IntegerEntry.as("A_asset_balance", dAppTokensAmountA - governanceRewardTokenA),
+                        IntegerEntry.as("B_asset_balance", dAppTokensAmountB + pmtAmount - governanceRewardTokenB),
                         StringEntry.as("A_asset_id", tokenA.toString()),
                         StringEntry.as("B_asset_id", tokenB.toString()),
                         BooleanEntry.as("active", true),
@@ -325,8 +359,8 @@ public class FlatTest {
                         IntegerEntry.as("commission_scale_delimiter", commissionScaleDelimiter),
                         StringEntry.as("version", version),
                         StringEntry.as("share_asset_id", shareTokenId.toString()),
-                        IntegerEntry.as("share_asset_supply", tokenShareSupply + shareTokenToPayAmount)),
-                () -> assertThat(firstCaller.getAssetBalance(shareTokenId)).isEqualTo(callerTokenShareBalance + shareTokenToPayAmount));
+                        IntegerEntry.as("share_asset_supply", tokenShareSupply + shareTokenToPayAmountAfterFee)),
+                () -> assertThat(firstCaller.getAssetBalance(shareTokenId)).isEqualTo(callerTokenShareBalance + shareTokenToPayAmountAfterFee));
     }
 
     static Stream<Arguments> replenishByTwiceProvider() {
