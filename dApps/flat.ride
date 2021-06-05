@@ -335,31 +335,23 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
 
             let shareTokenToPayAmount = min([ratioShareTokensInA, ratioShareTokensInB]).fraction(shareAssetSupply, scale8)
             # is devided by 2 to account internal swap commission. Only half of tokens took part in internal exchange
-            let shareTokenToPayAmountAfterFee = shareTokenToPayAmount.fraction(feeScale6 - fee, 2*feeScale6)
-            let shareTokenGovernanceReward = shareTokenToPayAmount.fraction(feeGovernance, 2*feeScale6)
+            let shareTokenToPayAmountAfterFee = shareTokenToPayAmount.fraction(feeScale6 - fee/2, feeScale6)
+            let shareTokenGovernanceReward = shareTokenToPayAmount.fraction(feeGovernance/2, feeScale6)
             let governanceRewardTokenA = shareTokenGovernanceReward.fraction(balanceA, shareAssetSupply) 
             let governanceRewardTokenB = shareTokenGovernanceReward.fraction(balanceB, shareAssetSupply)
 
-            let newBalanceEntry =
-            if pmtAssetId == assetIdA then
-                [IntegerEntry(kBalanceA, newBalanceA - governanceRewardTokenA),IntegerEntry(kBalanceB, balanceB - governanceRewardTokenB)]
-            else [IntegerEntry(kBalanceA, balanceA - governanceRewardTokenA), IntegerEntry(kBalanceB, newBalanceB -  governanceRewardTokenB)]
-
-            let invariantCalculated = 
-                if pmtAssetId == assetIdA then (
-                    invariantCalc(newBalanceA - governanceRewardTokenA, balanceB - governanceRewardTokenB)
-                ) else (
-                    invariantCalc(balanceA - governanceRewardTokenA, newBalanceB -  governanceRewardTokenB)
-                )
+            let invariantCalculated = invariantCalc(newBalanceA - governanceRewardTokenA, newBalanceB - governanceRewardTokenB)
 
             [
                 Reissue(shareAssetId, shareTokenToPayAmountAfterFee, true),
                 ScriptTransfer(i.caller, shareTokenToPayAmountAfterFee, shareAssetId),
                 ScriptTransfer(govAddr, governanceRewardTokenA, assetIdA),
                 ScriptTransfer(govAddr, governanceRewardTokenB, assetIdB),
+                IntegerEntry(kBalanceA, newBalanceA - governanceRewardTokenA),
+                IntegerEntry(kBalanceB, newBalanceB - governanceRewardTokenB),
                 IntegerEntry(kShareAssetSupply, shareAssetSupply + shareTokenToPayAmountAfterFee),
                 IntegerEntry(kInvariant, invariantCalculated)
-            ] ++  newBalanceEntry
+            ]
         }
     }
 }
