@@ -30,6 +30,7 @@ let adminPubKey2 = base58'E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7'
 let adminPubKey3 = base58'AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ'
 let adminPubKeyStartStop = base58'EtVkT6ed8GtbUiVVEqdmEqsp2J4qbb3rre2HFgxeVYdg'
 let adminPubKeyStaking = base58'Czn4yoAuUZCVCLJDRfskn8URfkwpknwBTZDbs1wFrY7h'
+let walletPubKey = base58'GTY8yEJ2S4heRompxyvbJoBN1Td5BM5Pp4JgVbj9tmCw'
 
 let walletAddress = Address(base58'3P6J84oH51DzY6xk2mT5TheXRbrCwBMxonp')
 let votingAddress = Address(base58'3PQZWxShKGRgBN1qoJw6B4s9YWS9FneZTPg')
@@ -235,7 +236,7 @@ func initWithInitRatio(amtAssetA: Int, amtAssetB: Int, strAssetIdA: String, strA
 func keepLimitForFirstHarvest(shareLimit: Int) = {
     if !isActive then
         throw("DApp is inactive at this moment")
-    else if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStaking].containsElement(i.callerPublicKey) then
+    else if ![adminPubKey1, adminPubKey2, adminPubKey3, walletPubKey].containsElement(i.callerPublicKey) then
         throw("Only admin can call this function")
     else
         [
