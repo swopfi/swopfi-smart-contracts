@@ -231,7 +231,7 @@ func voteForPool(voting: Int, yesOrNo: Boolean, voteAmt: Int) = {
     else if (voteAmt < 0) then
         throw("The number of votes must be positive")
     else if totalVoteUser > userSWOPinGovernance then
-        throw(this.toString() + " has " + userSWOPinGovernance.toString() +  " SWOP in governance.")
+        throw(i.caller.toString() + " has " + userSWOPinGovernance.toString() +  " SWOP in governance.")
     else {
         if(yesOrNo) then {
             let oldVoteUser = this.getInteger(i.caller.toString() + "_" + voting.toString() + keyYesUser).valueOrElse(0)
