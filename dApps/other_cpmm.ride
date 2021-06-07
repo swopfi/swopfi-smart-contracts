@@ -216,7 +216,6 @@ func initWithInitRatio(amtAssetA: Int, amtAssetB: Int, strAssetIdA: String, strA
             IntegerEntry(keyCommissionScaleDelimiter, commissionScaleDelimiter),
             shareIssue,
             StringEntry(keyShareAssetId, shareIssueId.toBase58String()),
-            IntegerEntry(keyFirstHarvestHeight, startHeight + firstHarvestEndPeriod * periodLength),
             IntegerEntry(keyShareAssetSupply, shareInitialSupply)
         ]
 
