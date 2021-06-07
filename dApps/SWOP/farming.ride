@@ -257,7 +257,8 @@ func initPoolShareFarming(pool:String) = {
 @Callable(i)
 func updatePoolInterest(pool:String) = {
     if i.caller != wallet then
-        throw("Only the Admin itself can call this function") else
+        throw("Only the Admin itself can call this function")
+    else
     let (userNewInterest,currentInterest,claimAmount,userShareTokensAmount) = claimCalc(pool,adminIncreaseInterestAddress,0)
     let (currentReward,rewardUpdateHeight,previousRewardPerBlock,poolRewardUpdateHeight) = rewardInfo(pool)
     [
@@ -340,7 +341,9 @@ func withdrawShareTokens(pool:String,shareTokensWithdrawAmount:Int) = {
         let userClaimedAmount = getUserSWOPClaimedAmount(pool,i.caller)
         let userClaimedAmountNew = userClaimedAmount + claimAmount
 
-        if shareTokensWithdrawAmount > userShareTokensAmount then throw("Withdraw amount more then user locked amount") else
+        if shareTokensWithdrawAmount > userShareTokensAmount then
+            throw("Withdraw amount more then user locked amount")
+        else
         [
             IntegerEntry(pool + "_" + i.caller.toString() + keyUserLastInterest, userNewInterest),
             IntegerEntry(pool + "_" + i.caller.toString() + keyUserShareTokensLocked, userShareAmountNew),
@@ -363,7 +366,9 @@ func claim(pool:String) = {
     let availableFund = userAvailableSWOP(pool,i.caller) + claimAmount
     let userClaimedAmount = getUserSWOPClaimedAmount(pool,i.caller)
     let userClaimedAmountNew = userClaimedAmount + claimAmount
-    if availableFund == 0 then throw("You have 0 available SWOP") else
+    if availableFund == 0 then
+        throw("You have 0 available SWOP")
+    else
     [
         IntegerEntry(pool + "_" + i.caller.toString() + keyUserLastInterest, userNewInterest),
         IntegerEntry(pool + keyLastInterest, currentInterest),
