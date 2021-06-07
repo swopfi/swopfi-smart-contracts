@@ -257,12 +257,12 @@ public class FlatTest {
                 .divide(BigDecimal.valueOf(scaleValue8), 8, RoundingMode.HALF_DOWN)
                 .longValue();
         long shareTokenToPayAmountAfterFee = BigDecimal.valueOf(shareTokenToPayAmount)
-                .multiply(BigDecimal.valueOf(feeScale6 - fee))
-                .divide(BigDecimal.valueOf(2 * feeScale6), 8, RoundingMode.HALF_DOWN)
+                .multiply(BigDecimal.valueOf(feeScale6 - fee / 2))
+                .divide(BigDecimal.valueOf(feeScale6), 8, RoundingMode.HALF_DOWN)
                 .longValue();
         long shareTokenGovernanceReward = BigDecimal.valueOf(shareTokenToPayAmount)
-                .multiply(BigDecimal.valueOf(feeGovernance))
-                .divide(BigDecimal.valueOf(2 * feeScale6), 8, RoundingMode.HALF_DOWN)
+                .multiply(BigDecimal.valueOf(feeGovernance / 2))
+                .divide(BigDecimal.valueOf(feeScale6), 8, RoundingMode.HALF_DOWN)
                 .longValue();
         long governanceRewardTokenA = BigDecimal.valueOf(shareTokenGovernanceReward)
                 .multiply(BigDecimal.valueOf(dAppTokensAmountA))
@@ -328,12 +328,12 @@ public class FlatTest {
                 .divide(BigDecimal.valueOf(scaleValue8), 8, RoundingMode.HALF_DOWN)
                 .longValue();
         long shareTokenToPayAmountAfterFee = BigDecimal.valueOf(shareTokenToPayAmount)
-                .multiply(BigDecimal.valueOf(feeScale6 - fee))
-                .divide(BigDecimal.valueOf(2 * feeScale6), 8, RoundingMode.HALF_DOWN)
+                .multiply(BigDecimal.valueOf(feeScale6 - fee / 2))
+                .divide(BigDecimal.valueOf(feeScale6), 8, RoundingMode.HALF_DOWN)
                 .longValue();
         long shareTokenGovernanceReward = BigDecimal.valueOf(shareTokenToPayAmount)
-                .multiply(BigDecimal.valueOf(feeGovernance))
-                .divide(BigDecimal.valueOf(2 * feeScale6), 8, RoundingMode.HALF_DOWN)
+                .multiply(BigDecimal.valueOf(feeGovernance / 2))
+                .divide(BigDecimal.valueOf(feeScale6), 8, RoundingMode.HALF_DOWN)
                 .longValue();
         long governanceRewardTokenA = BigDecimal.valueOf(shareTokenGovernanceReward)
                 .multiply(BigDecimal.valueOf(dAppTokensAmountA))
