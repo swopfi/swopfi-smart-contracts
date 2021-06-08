@@ -224,6 +224,8 @@ func voteForPool(voting: Int, yesOrNo: Boolean, voteAmt: Int) = {
         else this.getInteger(i.caller.toString() + "_" + voting.toString() + keyYesUser).valueOrElse(0) + voteAmt
     if !isCallerInGovernance(i.caller) then
         throw("This address has 0 SWOP in Governance dApp")
+    else if !isActive then
+        throw("DApp is inactive at this moment")
     else if(!statusOfVoting) then
         throw("This voting was canceled")
     else if (currentHeight > poolInitHeight) then
