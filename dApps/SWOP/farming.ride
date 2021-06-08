@@ -8,6 +8,8 @@ let adminPubKey3 = base58'AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ'
 
 let keyShareTokensLocked = "_total_share_tokens_locked" # with prefix(pool identity) get info about total share locked in this pool
 let kShareLimit = "share_limit_on_first_harvest"
+let keyActive = "active"
+let keyCause = "shutdown_cause"
 let keyRewardPoolFractionCurrent = "_current_pool_fraction_reward"
 let keyRewardPoolFractionPrevious = "_previous_pool_fraction_reward"
 let keyTotalRewardPerBlockCurrent = "total_reward_per_block_current"
@@ -63,6 +65,8 @@ let startHeight = votingAddress.getInteger(kStartHeight).valueOrErrorMessage("Em
 let periodLength =  votingAddress.getInteger(kPeriodLength).valueOrErrorMessage("Empty kPeriodLength")  # 10102
 let durationFullVotePower = votingAddress.getInteger(kDurationFullVotePower).valueOrErrorMessage("Empty kDurationFullVotePower") # 1443, 1 days in block after voting start
 let minVotePower = votingAddress.getInteger(kMinVotePower).valueOrErrorMessage("Empty kMinVotePower") # 10000000, minVoteCoeff/scale8 between 0 and 1 - voting power if vote at the end of voting period
+
+let isActive = this.getBooleanValue(keyActive)
 
 let currPeriod = basePeriod + (height-startHeight)/periodLength
 func getLimitToken(pool:Address) = pool.getIntegerValue(keyLimitShareFirstHarvest).valueOrElse(0)
@@ -220,13 +224,20 @@ func checkPmtAssetIdCorrect(pool:String,pmtAssetId:ByteVector|Unit) = {
 func getUserSWOPClaimedAmount(pool:String,user:Address) =  this.getInteger(pool + "_" + user.toString() + keyUserSWOPClaimedAmount)
                                                 .valueOrElse(0)
 
+func suspend(cause: String) = [
+    BooleanEntry(keyActive, false),
+    StringEntry(keyCause, cause)
+]
+
 @Callable(i)
 func init(earlyLP:String) = {
     if this.getString(keySWOPid).isDefined() then throw("SWOP already initialized") else
+    if this.getBoolean(keyActive).isDefined() then throw("DApp is already active") else
     let initAmount = 100000000000000
     let SWOPissue = Issue("SWOP", "SWOP protocol token", initAmount, 8, true)
     let SWOPid = SWOPissue.calculateAssetId()
     [
+        BooleanEntry(keyActive, true),
         Issue("SWOP", "SWOP protocol token", initAmount, 8, true),
         StringEntry(keySWOPid, SWOPid.toBase58String())
     ]
@@ -236,7 +247,8 @@ func init(earlyLP:String) = {
 func initPoolShareFarming(pool:String) = {
     if i.caller != this then
         throw("Only the DApp itself can call this function")
-    else
+    else if !isActive then
+        throw("DApp is inactive at this moment") else
     let (currentReward,rewardUpdateHeight,previousRewardPerBlock) = rewardInfo(pool)
     [
         IntegerEntry(pool + keyShareTokensLocked, 0),
@@ -250,7 +262,8 @@ func initPoolShareFarming(pool:String) = {
 func updatePoolInterest(pool:String) = {
     if i.caller != wallet then
         throw("Only the Admin itself can call this function")
-    else
+    else if !isActive then
+        throw("DApp is inactive at this moment") else
     let (userNewInterest,currentInterest,claimAmount,userShareTokensAmount) = claimCalc(pool,adminIncreaseInterestAddress,0)
     let (currentReward,rewardUpdateHeight,previousRewardPerBlock) = rewardInfo(pool)
     [
@@ -284,6 +297,8 @@ func lockShareTokens(pool:String) = {
 
     if (pmtAmount <= 0) then
         throw("You can't lock token")
+    else if !isActive then
+        throw("DApp is inactive at this moment")
     else if !checkPmtAssetIdCorrect(pool,pmtAssetId) then throw("Incorrect pmtAssetId")
     else if (isFirstHarvest(Address(pool.fromBase58String())) && getHeightFirstHarvest(Address(pool.fromBase58String())) > height) then {
         let harvestPeriod = (getHeightFirstHarvest(Address(pool.fromBase58String())) - startHeight + 1) / periodLength - 1
@@ -335,7 +350,8 @@ func withdrawShareTokens(pool:String,shareTokensWithdrawAmount:Int) = {
 
         if shareTokensWithdrawAmount > userShareTokensAmount then
             throw("Withdraw amount more then user locked amount")
-        else
+        else if !isActive then
+            throw("DApp is inactive at this moment") else
         [
             IntegerEntry(pool + "_" + i.caller.toString() + keyUserLastInterest, userNewInterest),
             IntegerEntry(pool + "_" + i.caller.toString() + keyUserShareTokensLocked, userShareAmountNew),
@@ -360,7 +376,8 @@ func claim(pool:String) = {
     let userClaimedAmountNew = userClaimedAmount + claimAmount
     if availableFund == 0 then
         throw("You have 0 available SWOP")
-    else
+    else if !isActive then
+        throw("DApp is inactive at this moment") else
     [
         IntegerEntry(pool + "_" + i.caller.toString() + keyUserLastInterest, userNewInterest),
         IntegerEntry(pool + keyLastInterest, currentInterest),
@@ -372,6 +389,26 @@ func claim(pool:String) = {
         ScriptTransfer(i.caller, availableFund, SWOP)
     ]
 }
+
+@Callable(i)
+func shutdown() =
+    if !isActive then
+        throw("DApp is already suspended. Cause: " + this.getString(keyCause).valueOrElse("the cause wasn't specified"))
+    else if ![adminPubKey1, adminPubKey2, adminPubKey3].containsElement(i.callerPublicKey) then
+        throw("Only admin can call this function")
+    else
+        suspend("Paused by admin")
+
+@Callable(i)
+func activate() =
+    if isActive then
+        throw("DApp is already active")
+    else if ![adminPubKey1, adminPubKey2, adminPubKey3].containsElement(i.callerPublicKey) then
+        throw("Only admin can call this function")
+    else [
+        BooleanEntry(keyActive, true),
+        DeleteEntry(keyCause)
+    ]
 
 @Verifier(tx)
 func verify() = match tx {
