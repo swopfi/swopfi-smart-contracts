@@ -308,28 +308,28 @@ func updateWeights(previousPools: List[String],previousRewards: List[Int],curren
     func getSumReward(prevTempSum: Int, curTempSum: Int, pagination: Int) = {
         if pagination == 0 then {
             let currVotingPeriodEntry = currVotingPeriod + 1
-            let currVotingPeriodHeightEntry = currVotingPeriodEntry * periodLength
+            let currVotingPeriodHeightEntry = startHeight + currVotingPeriodEntry * periodLength
             if currVotingPeriodHeightEntry != rewardUpdateHeight then
-                throw("rewardUpdateHeight != currVotingPeriodHeightEntry - " + currVotingPeriodHeightEntry.toString() + "!=" + rewardUpdateHeight.toString()) else
+                throw("rewardUpdateHeight != currVotingPeriodHeightEntry: " + rewardUpdateHeight.toString() + "!= " + currVotingPeriodHeightEntry.toString()) else
             ([IntegerEntry(keyTempPrevSum, prevTempSum)], [IntegerEntry(keyTempCurSum, curTempSum)])
         } else if pagination == 1 then {
             let prevTempSumFromKey = this.getInteger(keyTempPrevSum).valueOrElse(0)
             let curTempSumFromKey = this.getInteger(keyTempCurSum).valueOrElse(0)
             let currVotingPeriodEntry = currVotingPeriod + 1
-            let currVotingPeriodHeightEntry = currVotingPeriodEntry * periodLength
+            let currVotingPeriodHeightEntry = startHeight + currVotingPeriodEntry * periodLength
             if currVotingPeriodHeightEntry != rewardUpdateHeight then
-                throw("rewardUpdateHeight != currVotingPeriodHeightEntry - " + currVotingPeriodHeightEntry.toString() + "!=" + rewardUpdateHeight.toString()) else
+                throw("rewardUpdateHeight != currVotingPeriodHeightEntry: " + rewardUpdateHeight.toString() + "!= " + currVotingPeriodHeightEntry.toString()) else
             ([IntegerEntry(keyTempPrevSum, prevTempSum + prevTempSumFromKey)], [IntegerEntry(keyTempCurSum, curTempSum + curTempSumFromKey)])
         } else if pagination == 2 then {
             let prevSum = this.getInteger(keyTempPrevSum).valueOrElse(0) + prevTempSum
             let curSum = this.getInteger(keyTempCurSum).valueOrElse(0) + curTempSum
             let currVotingPeriodEntry = currVotingPeriod + 1
-            let currVotingPeriodHeightEntry = currVotingPeriodEntry * periodLength
+            let currVotingPeriodHeightEntry = startHeight + currVotingPeriodEntry * periodLength
 
             if prevSum != totalVoteShare || curSum != totalVoteShare then
                 throw("sumRewardPrevious != totalVoteShare or sumRewardCurrent != totalVoteShare")
             else if currVotingPeriodHeightEntry != rewardUpdateHeight then
-                throw("rewardUpdateHeight != currVotingPeriodHeightEntry - " + currVotingPeriodHeightEntry.toString() + "!=" + rewardUpdateHeight.toString()) else
+                throw("rewardUpdateHeight != currVotingPeriodHeightEntry: " + rewardUpdateHeight.toString() + "!= " + currVotingPeriodHeightEntry.toString()) else
             ([IntegerEntry(keyTempPrevSum, prevSum)], [IntegerEntry(keyTempCurSum, curSum)])
         } else {
             throw("Incorrect pagination")
