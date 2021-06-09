@@ -169,28 +169,22 @@ func getUserInterestInfo(pool:String, userAddress:Address) = {
 
 func calcInterest(lastInterestHeight:Int,rewardUpdateHeight:Int,poolRewardUpdateHeight:Int,lastInterest:Int,currentRewardPerBlock:Int,shareTokenLocked:Int,previousRewardPerBlock:Int,shareAssetId:ByteVector,scaleValue:Int,pmtAmount:Int) = {
     if shareTokenLocked == 0 then 0 else # this condition true only for the first call
-    let prevSum = this.getInteger(keyTempPrevSum).valueOrElse(0)
-    let curSum = this.getInteger(keyTempCurSum).valueOrElse(0)
 
-    if (totalVoteShare == prevSum && curSum == totalVoteShare && poolRewardUpdateHeight != 0) then {
-        if height <= rewardUpdateHeight && rewardUpdateHeight == poolRewardUpdateHeight  then # in case of updating reward info at gov dApp
-            let reward = currentRewardPerBlock*(height-lastInterestHeight)
-            lastInterest + fraction(reward,scaleValue,shareTokenLocked) # interests[n] = interests[n-1] + reward[n] / totalSupplyLP(n)
-        else if rewardUpdateHeight < height && rewardUpdateHeight == poolRewardUpdateHeight then
-            let reward = currentRewardPerBlock*(height-lastInterestHeight)
+    if (poolRewardUpdateHeight != 0) then {
+        if height < rewardUpdateHeight && rewardUpdateHeight == poolRewardUpdateHeight  then # in case of updating reward info at gov dApp
+            let reward = previousRewardPerBlock*(height-lastInterestHeight)
             lastInterest + fraction(reward,scaleValue,shareTokenLocked) # interests[n] = interests[n-1] + reward[n] / totalSupplyLP(n)
         else if rewardUpdateHeight < height && rewardUpdateHeight != poolRewardUpdateHeight then
             let reward = previousRewardPerBlock*(height-lastInterestHeight)
             lastInterest + fraction(reward,scaleValue,shareTokenLocked) # interests[n] = interests[n-1] + reward[n] / totalSupplyLP(n)
-        else
-            if (lastInterestHeight > rewardUpdateHeight) then
-                let reward = currentRewardPerBlock*(height-lastInterestHeight)
-                lastInterest + fraction(reward,scaleValue,shareTokenLocked) # interests[n] = interests[n-1] + reward[n] / totalSupplyLP(n)
-            else # in case if reward updated we need update interest
-                let rewardAfterLastInterestBeforeReawardUpdate = previousRewardPerBlock*(rewardUpdateHeight-lastInterestHeight)
-                let interestAfterUpdate = lastInterest + fraction(rewardAfterLastInterestBeforeReawardUpdate,scaleValue,shareTokenLocked)
-                let reward = currentRewardPerBlock*(height-rewardUpdateHeight)
-                interestAfterUpdate + fraction(reward,scaleValue,shareTokenLocked) # interests[n] = interests[n-1] + reward[n] / totalSupplyLP(n)
+        else if rewardUpdateHeight < height && rewardUpdateHeight == poolRewardUpdateHeight && lastInterestHeight > rewardUpdateHeight then
+            let reward = currentRewardPerBlock*(height-lastInterestHeight)
+            lastInterest + fraction(reward,scaleValue,shareTokenLocked) # interests[n] = interests[n-1] + reward[n] / totalSupplyLP(n)
+        else # in case if reward updated we need update interest
+            let rewardAfterLastInterestBeforeReawardUpdate = previousRewardPerBlock*(rewardUpdateHeight-lastInterestHeight)
+            let interestAfterUpdate = lastInterest + fraction(rewardAfterLastInterestBeforeReawardUpdate,scaleValue,shareTokenLocked)
+            let reward = currentRewardPerBlock*(height-rewardUpdateHeight)
+            interestAfterUpdate + fraction(reward,scaleValue,shareTokenLocked) # interests[n] = interests[n-1] + reward[n] / totalSupplyLP(n)
     } else if (poolRewardUpdateHeight == 0) then {
         if height < rewardUpdateHeight then # in case of updating reward info at gov dApp
             let reward = previousRewardPerBlock*(height-lastInterestHeight)
@@ -227,8 +221,6 @@ func calculateProtocolReward(pool:String) ={
     let (lastInterestHeight,lastInterest) = getLastInterestInfo(pool)
     let (currentRewardPerBlock,rewardUpdateHeight,previousRewardPerBlock,poolRewardUpdateHeight) = rewardInfo(pool)
     let shareTokenLocked = getTotalShareTokenLocked(pool)
-    let prevSum = this.getInteger(keyTempPrevSum).valueOrElse(0)
-    let curSum = this.getInteger(keyTempCurSum).valueOrElse(0)
     if shareTokenLocked == 0 && poolRewardUpdateHeight == 0 then
         if height < rewardUpdateHeight then
             let reward = previousRewardPerBlock*(height-lastInterestHeight)
@@ -241,24 +233,20 @@ func calculateProtocolReward(pool:String) ={
                 let rewardAfterLastInterestBeforeReawardUpdate = previousRewardPerBlock*(rewardUpdateHeight-lastInterestHeight)
                 let reward = currentRewardPerBlock*(height-rewardUpdateHeight)
                 reward + rewardAfterLastInterestBeforeReawardUpdate
-    else if shareTokenLocked == 0 && poolRewardUpdateHeight != 0 && prevSum == totalVoteShare && curSum == totalVoteShare then
-        if height <= rewardUpdateHeight && rewardUpdateHeight == poolRewardUpdateHeight  then # in case of updating reward info at gov dApp
-            let reward = currentRewardPerBlock*(height-lastInterestHeight)
-            reward
-        else if rewardUpdateHeight < height && rewardUpdateHeight == poolRewardUpdateHeight then
-            let reward = currentRewardPerBlock*(height-lastInterestHeight)
+    else if shareTokenLocked == 0 && poolRewardUpdateHeight != 0 then
+        if height < rewardUpdateHeight && rewardUpdateHeight == poolRewardUpdateHeight  then # in case of updating reward info at gov dApp
+            let reward = previousRewardPerBlock*(height-lastInterestHeight)
             reward
         else if rewardUpdateHeight < height && rewardUpdateHeight != poolRewardUpdateHeight then
             let reward = previousRewardPerBlock*(height-lastInterestHeight)
             reward
-        else
-            if (lastInterestHeight > rewardUpdateHeight) then
-                let reward = currentRewardPerBlock*(height-lastInterestHeight)
-                reward
-            else # in case if reward updated we need update interest
-                let rewardAfterLastInterestBeforeReawardUpdate = previousRewardPerBlock*(rewardUpdateHeight-lastInterestHeight)
-                let reward = currentRewardPerBlock*(height-rewardUpdateHeight)
-                reward + rewardAfterLastInterestBeforeReawardUpdate
+        else if rewardUpdateHeight < height && rewardUpdateHeight == poolRewardUpdateHeight && lastInterestHeight > rewardUpdateHeight then
+            let reward = currentRewardPerBlock*(height-lastInterestHeight)
+            reward
+        else # in case if reward updated we need update interest
+            let rewardAfterLastInterestBeforeReawardUpdate = previousRewardPerBlock*(rewardUpdateHeight-lastInterestHeight)
+            let reward = currentRewardPerBlock*(height-rewardUpdateHeight)
+            reward + rewardAfterLastInterestBeforeReawardUpdate
     else
         0
 }
