@@ -162,7 +162,7 @@ func getUserInterestInfo(pool:String, userAddress:Address) = {
     (userLastInterestValue,userShareTokensAmount)
 }
 
-func calcInterest(lastInterestHeight:Int,rewardUpdateHeight:Int,lastInterest:Int,currentRewardPerBlock:Int,shareTokenLocked:Int,previousRewardPerBlock:Int,shareAssetId:ByteVector,scaleValue:Int,pmtAmount:Int) = {
+func calcInterest(lastInterestHeight:Int,rewardUpdateHeight:Int,lastInterest:Int,currentRewardPerBlock:Int,shareTokenLocked:Int,previousRewardPerBlock:Int,shareAssetId:ByteVector,scaleValue:Int) = {
     if shareTokenLocked == 0 then 0 else # this condition true only for the first call
 
     if height < rewardUpdateHeight then # in case of updating reward info at gov dApp
@@ -186,7 +186,7 @@ func claimCalc(pool:String,caller:Address,pmtAmount:Int) = {
     let (lastInterestHeight,lastInterest) = getLastInterestInfo(pool)
     let (currentRewardPerBlock,rewardUpdateHeight,previousRewardPerBlock) = rewardInfo(pool)
     let (userLastInterest,userShareTokensAmount) = getUserInterestInfo(pool,caller)
-    let currentInterest = calcInterest(lastInterestHeight,rewardUpdateHeight,lastInterest,currentRewardPerBlock,shareTokenLocked,previousRewardPerBlock,shareAssetId,scaleValue,pmtAmount) # multiple by scale8
+    let currentInterest = calcInterest(lastInterestHeight,rewardUpdateHeight,lastInterest,currentRewardPerBlock,shareTokenLocked,previousRewardPerBlock,shareAssetId,scaleValue) # multiple by scale8
     let claimAmount = fraction(userShareTokensAmount,currentInterest-userLastInterest,scaleValue)
     let userNewInterest = currentInterest
     (userNewInterest,currentInterest,claimAmount,userShareTokensAmount)
