@@ -377,7 +377,7 @@ class FarmingTest {
                 IntegerEntry.as(String.format(keyUserShareTokensLocked, pool1.address(), firstCaller.address()), userShareTokensLocked + lockShareAmount),
                 IntegerEntry.as(String.format(keyShareTokensLocked, pool1.address()), sTokensLockedBeforeFirst + lockShareAmount),
                 IntegerEntry.as(String.format(keyAvailableSWOP, pool1.address(), firstCaller.address()), userAvailableSWOP + claimAmount1));
-        
+
         node().waitNBlocks(2);
         votingDApp.writeData(d -> d
                 .integer(String.format(keyRewardPoolFractionCurrent, pool1.address()), secondReward)
