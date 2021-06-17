@@ -27,10 +27,11 @@ let keyVotingStartHeight = "_startHeight"
 let keyVoteDuration = "_vote_duration"
 let keyRewardPoolFractionCurrent = "_current_pool_fraction_reward"
 let keyRewardPoolFractionPrevious = "_previous_pool_fraction_reward"
-let keyHeightPoolFraction = "_reward_update_height"
+let keyHeightPoolFraction = "_pool_reward_update_height"
 let keyTotalRewardPerBlockCurrent = "total_reward_per_block_current"
 let keyTotalRewardPerBlockPrevious = "total_reward_per_block_previous"
 let keyRewardUpdateHeight = "reward_update_height"
+let keyRewardUpdateFirstPaginationHeight = "reward_update_height_first_pagination"
 let keyNoVotingForNewPool = "_vote_no"
 let keyYesVotingForNewPool = "_vote_yes"
 let keyAmountOfVotingForNewPool = "max_amount_voting"
@@ -82,6 +83,7 @@ func getLastInterestInfo() = {
 
 func getUserSWOPLocked(user:Address) =  this.getInteger(user.toString() + keyUserSWOPLocked)
                                                 .valueOrElse(0)
+
 func getUserSWOPClaimedAmount(user:Address) =  this.getInteger(user.toString() + keyUserSWOPClaimedAmount)
                                                 .valueOrElse(0)
 
@@ -144,6 +146,15 @@ func getUserVoteOptionAmount(user:Address) = this.getInteger(user.toString() + k
                                                 .valueOrElse(0)
 
 func getVotingStartHeight(voteName:String) =  this.getInteger(voteName + keyVotingStartHeight)
+                                                .valueOrElse(0)
+
+func getPoolUpdateHeight(pool: String) = this.getInteger(pool+keyHeightPoolFraction)
+                                                .valueOrElse(0)
+
+func isDefinePoolUpdateHeight(pool: String) = this.getInteger(pool+keyHeightPoolFraction)
+                                                .isDefined()
+
+func getCurPoolWeight(pool: String) = this.getInteger(pool+keyRewardPoolFractionCurrent)
                                                 .valueOrElse(0)
 
 func getVoteOptionAmount(user:Address, voteName:String, option:String) =  {
@@ -280,77 +291,100 @@ func claimAndStakeSWOP() = if !isActive then throw("DApp is inactive at this mom
 @Callable(i)
 func updateWeights(previousPools: List[String],previousRewards: List[Int],currentPools: List[String],currentRewards: List[Int], rewardUpdateHeight: Int, pagination: Int) = if !isActive then throw("DApp is inactive at this moment") else {
     let amountPools = 10
+    let totalRewardUpdateHeight = this.getInteger(keyRewardUpdateHeight).valueOrElse(0)
+
     if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStartStop, adminPubKeyWallet].containsElement(i.callerPublicKey) then
         throw("Only admin can call this function")
     else if previousPools.size() > amountPools || currentPools.size() > amountPools then
         throw("Max amount of pool is " + amountPools.toString())
+    else if rewardUpdateHeight <= totalRewardUpdateHeight then
+        throw("rewardUpdateHeight <= totalRewardUpdateHeight; rewardUpdateHeight: " + rewardUpdateHeight.toString() + "; totalRewardUpdateHeight: " + totalRewardUpdateHeight.toString())
+    else if height >= rewardUpdateHeight then
+        throw("height >= rewardUpdateHeight")
+    else if 0 >= rewardUpdateHeight then
+        throw("0 >= rewardUpdateHeight ")
     else
 
     func sum(a:Int, b:Int) = a + b
 
-    func PreviousRewardEntry(accumulated: List[IntegerEntry], pool: String) = {
-        let poolIndex = previousPools.indexOf(pool).value()
-        let poolReward = previousRewards[poolIndex]
-        IntegerEntry(pool+keyRewardPoolFractionPrevious,poolReward) :: accumulated
+    func changePreviousRewardEntry(accumulated: List[IntegerEntry], pool: String) = {
+        let poolRewardUpdateHeight = getPoolUpdateHeight(pool)
+
+        if (isDefinePoolUpdateHeight(pool)) then {
+                let poolReward = getCurPoolWeight(pool)
+                IntegerEntry(pool+keyRewardPoolFractionPrevious,poolReward) :: accumulated
+        } else if (rewardUpdateHeight != poolRewardUpdateHeight) then {
+            if (poolRewardUpdateHeight == totalRewardUpdateHeight) then {
+                let poolReward = getCurPoolWeight(pool)
+                IntegerEntry(pool+keyRewardPoolFractionPrevious,poolReward) :: accumulated
+            } else
+                accumulated
+        } else
+            accumulated
     }
 
-    func CurrentRewardEntry(accumulated: List[IntegerEntry], pool: String) = {
+    func changeCurrentRewardEntry(accumulated: List[IntegerEntry], pool: String) = {
         let poolIndex = currentPools.indexOf(pool).value()
         let poolReward = currentRewards[poolIndex]
+        if (poolReward < 0) then {
+            throw("PoolReward < 0")
+        } else
         IntegerEntry(pool+keyRewardPoolFractionCurrent,poolReward) :: accumulated
     }
 
-    func HeightEntry(accumulated: List[IntegerEntry], pool: String) = {
+    func changeHeightEntry(accumulated: List[IntegerEntry], pool: String) = {
         let poolHeight = rewardUpdateHeight
         IntegerEntry(pool+keyHeightPoolFraction,poolHeight) :: accumulated
     }
 
     func getSumReward(prevTempSum: Int, curTempSum: Int, pagination: Int) = {
         if pagination == 0 then {
-            let currVotingPeriodEntry = currVotingPeriod + 1
-            let currVotingPeriodHeightEntry = startHeight + currVotingPeriodEntry * periodLength
-            if currVotingPeriodHeightEntry != rewardUpdateHeight then
-                throw("rewardUpdateHeight != currVotingPeriodHeightEntry: " + rewardUpdateHeight.toString() + " != " + currVotingPeriodHeightEntry.toString()) else
-            ([IntegerEntry(keyTempPrevSum, prevTempSum)], [IntegerEntry(keyTempCurSum, curTempSum)])
+            if prevTempSum > totalVoteShare || curTempSum > totalVoteShare then
+                throw("sumRewardPrevious > totalVoteShare or sumRewardCurrent > totalVoteShare: "
+                + pagination.toString() + " " + prevTempSum.toString() + " " + curTempSum.toString())  else
+            ([IntegerEntry(keyTempPrevSum, prevTempSum)], [IntegerEntry(keyTempCurSum, curTempSum)], [IntegerEntry(keyRewardUpdateFirstPaginationHeight, rewardUpdateHeight)])
         } else if pagination == 1 then {
             let prevTempSumFromKey = this.getInteger(keyTempPrevSum).valueOrElse(0)
             let curTempSumFromKey = this.getInteger(keyTempCurSum).valueOrElse(0)
-            let currVotingPeriodEntry = currVotingPeriod + 1
-            let currVotingPeriodHeightEntry = startHeight + currVotingPeriodEntry * periodLength
-            if currVotingPeriodHeightEntry != rewardUpdateHeight then
-                throw("rewardUpdateHeight != currVotingPeriodHeightEntry: " + rewardUpdateHeight.toString() + " != " + currVotingPeriodHeightEntry.toString()) else
-            ([IntegerEntry(keyTempPrevSum, prevTempSum + prevTempSumFromKey)], [IntegerEntry(keyTempCurSum, curTempSum + curTempSumFromKey)])
+            let rewardUpdateHeightFirstPaginationEntry = this.getInteger(keyRewardUpdateFirstPaginationHeight).valueOrElse(0)
+
+            if prevTempSum + prevTempSumFromKey > totalVoteShare || curTempSum + curTempSumFromKey > totalVoteShare then
+                throw("sumRewardPrevious > totalVoteShare or sumRewardCurrent > totalVoteShare: "
+                + pagination.toString() + " " + (prevTempSum + prevTempSumFromKey).toString() + " " + (curTempSum + curTempSumFromKey).toString())
+            else if rewardUpdateHeightFirstPaginationEntry != rewardUpdateHeight then
+                throw("current rewardUpdateHeight != rewardUpdateHeightFirstPaginationEntry; rewardUpdateHeight: "
+                + rewardUpdateHeight.toString() + " rewardUpdateHeightFirstPaginationEntry: " + rewardUpdateHeightFirstPaginationEntry.toString()) else
+            ([IntegerEntry(keyTempPrevSum, prevTempSum + prevTempSumFromKey)], [IntegerEntry(keyTempCurSum, curTempSum + curTempSumFromKey)], [])
         } else if pagination == 2 then {
             let prevSum = this.getInteger(keyTempPrevSum).valueOrElse(0) + prevTempSum
             let curSum = this.getInteger(keyTempCurSum).valueOrElse(0) + curTempSum
-            let currVotingPeriodEntry = currVotingPeriod + 1
-            let currVotingPeriodHeightEntry = startHeight + currVotingPeriodEntry * periodLength
+            let rewardUpdateHeightFirstPaginationEntry = this.getInteger(keyRewardUpdateFirstPaginationHeight).valueOrElse(0)
 
             if prevSum != totalVoteShare || curSum != totalVoteShare then
                 throw("sumRewardPrevious != totalVoteShare or sumRewardCurrent != totalVoteShare")
-            else if currVotingPeriodHeightEntry != rewardUpdateHeight then
-                throw("rewardUpdateHeight != currVotingPeriodHeightEntry: " + rewardUpdateHeight.toString() + " != " + currVotingPeriodHeightEntry.toString()) else
-            ([IntegerEntry(keyTempPrevSum, prevSum)], [IntegerEntry(keyTempCurSum, curSum)])
+            else if rewardUpdateHeightFirstPaginationEntry != rewardUpdateHeight then
+                throw("current rewardUpdateHeight != rewardUpdateHeightFirstPaginationEntry") else
+            ([IntegerEntry(keyTempPrevSum, prevSum)], [IntegerEntry(keyTempCurSum, curSum)], [])
         } else {
-            throw("Incorrect pagination")
+            throw("Incorrect pagination: " + pagination.toString())
         }
     }
 
     let sumRewardPreviousTemp = FOLD<10>(previousRewards, 0, sum)
     let sumRewardCurrentTemp =  FOLD<10>(currentRewards, 0, sum)
 
-    let (sumRewardPrevious, sumRewardCurrent) = getSumReward(sumRewardCurrentTemp, sumRewardCurrentTemp, pagination)
+    let (sumRewardPrevious, sumRewardCurrent, rewardUpdateHeightFirstPaginationEntry) = getSumReward(sumRewardPreviousTemp, sumRewardCurrentTemp, pagination)
 
-    let rewardUpdateHeightEntry = if pagination == 2 then [IntegerEntry(keyRewardUpdateHeight,rewardUpdateHeight)] else [IntegerEntry(keyRewardUpdateHeight,this.getIntegerValue(keyRewardUpdateHeight))]
+    let rewardUpdateHeightEntry = if pagination == 2 then [IntegerEntry(keyRewardUpdateHeight,rewardUpdateHeight)] else []
 
     if rewardUpdateHeight < height then
         throw("rewardUpdateHeight < height") else
 
-    let previousRewardEntryNew = FOLD<10>(previousPools, [], PreviousRewardEntry)
-    let currentRewardEntryNew = FOLD<10>(currentPools, [], CurrentRewardEntry)
-    let heightEntryNew = FOLD<10>(currentPools, [], HeightEntry)
+    let previousRewardEntryNew = FOLD<10>(previousPools, [], changePreviousRewardEntry)
+    let currentRewardEntryNew = FOLD<10>(currentPools, [], changeCurrentRewardEntry)
+    let heightEntryNewCur = FOLD<10>(currentPools, [], changeHeightEntry)
 
-    previousRewardEntryNew ++ currentRewardEntryNew ++ heightEntryNew ++ sumRewardPrevious ++ sumRewardCurrent ++ rewardUpdateHeightEntry
+    previousRewardEntryNew ++ currentRewardEntryNew ++ heightEntryNewCur ++ sumRewardPrevious ++ sumRewardCurrent ++ rewardUpdateHeightEntry ++ rewardUpdateHeightFirstPaginationEntry
 }
 
 @Callable(i)
