@@ -27,7 +27,9 @@ let stakingAddressUSDN = Address(base58'3PNikM6yp4NqcSU8guxQtmR5onr2D4e8yTJ')
 
 let USDN = base58'DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p'
 let NSBT = base58'6nSpVyNH7yM69eg446wrQR94ipbbcmZMU1ENPwanC97g'
+let SWOP = base58'Ehie5xYpeN8op1Cctc6aGUrqx8jq3jtf1DSjXDbfm7aT'
 let swopUSDNtoWAVES = Address(base58'3PHaNgomBkrvEL2QnuJarQVJa71wjw9qiqG')
+let swopUSDNtoNSBT = Address(base58'3P2V63Xd6BviDkeMzxhUw2SJyojByRz8a8m')
 
 let stakingFeeInUSDN = 9 * assetInfo(USDN).value().minSponsoredFee.value() # sponsored fee for invoke called from scripted account
 
@@ -351,10 +353,17 @@ func verify() = match tx {
         && invoke.dApp == stakingAddressUSDN)
         ||
         (sigVerify(invoke.bodyBytes, invoke.proofs[0], adminPubKeyStaking)
-        && assetIdA == NSBT && assetIdB == USDN
-        && invoke.dApp == swopUSDNtoWAVES
         && invoke.function == "exchange"
-        && invoke.payments[0].assetId == unit)
+        && ((
+            assetIdA == NSBT && assetIdB == USDN
+            && invoke.dApp == swopUSDNtoWAVES
+            && invoke.payments[0].assetId == unit
+            ) ||
+            (assetIdA == NSBT && assetIdB == SWOP
+            && invoke.dApp == swopUSDNtoNSBT
+            && invoke.payments[0].assetId == USDN
+            ))
+        )
         ||
         (sigVerify(invoke.bodyBytes, invoke.proofs[0], adminPubKeyStaking)
         && invoke.dApp == this
