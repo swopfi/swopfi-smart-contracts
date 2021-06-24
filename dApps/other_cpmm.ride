@@ -42,6 +42,9 @@ let periodLength =  votingAddress.getInteger(kPeriodLength).valueOrErrorMessage(
 let firstHarvestEndPeriod = basePeriod + (height-startHeight)/periodLength + 3
 
 let USDN = base58'DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p'
+let NSBT = base58'6nSpVyNH7yM69eg446wrQR94ipbbcmZMU1ENPwanC97g'
+let swopUSDNtoWAVES = Address(base58'3PHaNgomBkrvEL2QnuJarQVJa71wjw9qiqG')
+let swopUSDNtoNSBT = Address(base58'3P2V63Xd6BviDkeMzxhUw2SJyojByRz8a8m')
 let stakingFeeInUSDN = 9 * assetInfo(USDN).value().minSponsoredFee.value() # sponsored fee for invoke called from scripted account
 
 let isActive = this.getBooleanValue(keyActive)
@@ -474,16 +477,27 @@ func verify() = match tx {
         let callStaking =
             invoke.dApp == stakingAddress
             && (
-                (invoke.function == "lockNeutrino" && invoke.payments.size() == 1 && invoke.payments[0].assetId == USDN)
-                || (invoke.function == "unlockNeutrino" && invoke.payments.size() == 0)
+                ((invoke.function == "lockNeutrino" && invoke.payments.size() == 1 && invoke.payments[0].assetId == USDN)
+                || (invoke.function == "unlockNeutrino" && invoke.payments.size() == 0)) ||
+                ((invoke.function == "lockNsbt" && invoke.payments.size() == 1 && invoke.payments[0].assetId == NSBT)
+                || (invoke.function == "unlockNsbt" && invoke.payments.size() == 0))
             )
+        let callExchange =
+            (assetIdA == NSBT && assetIdB == USDN
+            && invoke.dApp == swopUSDNtoWAVES
+            && invoke.function == "exchange"
+            && invoke.payments[0].assetId == unit) ||
+            (assetIdA == NSBT && assetIdB == USDN
+            && invoke.dApp == swopUSDNtoNSBT
+            && invoke.function == "exchange"
+            && invoke.payments[0].assetId == USDN)
         let signedByAdmin =
             sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1)
             || sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey2)
             || sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey3)
             || sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKeyStaking)
 
-        (callTakeIntoAccount || callStaking) && signedByAdmin
+        (callTakeIntoAccount || callStaking || callExchange) && signedByAdmin
     case _ => {
         let adminPubKey1Signed = if sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1) then 1 else 0
         let adminPubKey2Signed = if sigVerify(tx.bodyBytes, tx.proofs[1], adminPubKey2) then 1 else 0
