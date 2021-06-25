@@ -361,9 +361,9 @@ func verify() = match tx {
             ) ||
             (assetIdA == NSBT && assetIdB == SWOP
             && (
-                invoke.dApp == swopUSDNtoNSBT && invoke.payments[0].assetId == USDN
+                (invoke.dApp == swopUSDNtoNSBT && invoke.payments[0].assetId == USDN)
                 ||
-                invoke.dApp == swopUSDNtoWAVES && invoke.payments[0].assetId == unit
+                (invoke.dApp == swopUSDNtoWAVES && invoke.payments[0].assetId == unit)
             )))
         )
         ||
