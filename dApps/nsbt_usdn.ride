@@ -29,7 +29,7 @@ let USDN = base58'DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p'
 let NSBT = base58'6nSpVyNH7yM69eg446wrQR94ipbbcmZMU1ENPwanC97g'
 let SWOP = base58'Ehie5xYpeN8op1Cctc6aGUrqx8jq3jtf1DSjXDbfm7aT'
 let swopUSDNtoWAVES = Address(base58'3PHaNgomBkrvEL2QnuJarQVJa71wjw9qiqG')
-let swopUSDNtoNSBT = Address(base58'3PMcDUBDyjNB1fkRGeLGpsz1ZQPfcmyp4r5')
+let swopUSDNtoNSBT = Address(base58'3P2V63Xd6BviDkeMzxhUw2SJyojByRz8a8m')
 
 let stakingFeeInUSDN = 9 * assetInfo(USDN).value().minSponsoredFee.value() # sponsored fee for invoke called from scripted account
 
