@@ -360,9 +360,11 @@ func verify() = match tx {
             && invoke.payments[0].assetId == unit
             ) ||
             (assetIdA == NSBT && assetIdB == SWOP
-            && invoke.dApp == swopUSDNtoNSBT
-            && invoke.payments[0].assetId == USDN
-            ))
+            && (
+                invoke.dApp == swopUSDNtoNSBT && invoke.payments[0].assetId == USDN
+                ||
+                invoke.dApp == swopUSDNtoWAVES && invoke.payments[0].assetId == unit
+            )))
         )
         ||
         (sigVerify(invoke.bodyBytes, invoke.proofs[0], adminPubKeyStaking)
