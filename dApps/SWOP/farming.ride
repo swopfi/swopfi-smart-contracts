@@ -335,7 +335,7 @@ func lockShareTokens(pool:String) = {
 
     if (pmtAmount <= 0) then
         throw("You can't lock token")
-    else if !isActive then	
+    else if !isActive then  
         throw("DApp is inactive at this moment")
     else if !checkPmtAssetIdCorrect(pool,pmtAssetId) then throw("Incorrect pmtAssetId")
     else if (isFirstHarvest(Address(pool.fromBase58String())) && getHeightFirstHarvest(Address(pool.fromBase58String())) > height) then {
