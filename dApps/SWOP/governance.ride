@@ -41,12 +41,19 @@ let activeVoteFirst = "voting_active_cell_1"
 let activeVoteSecond = "voting_active_cell_2"
 let activeVoteThird = "voting_active_cell_3"
 let keyTempCurSum = "sum_reward_current"
+let keyLaunchpadBoughtTickets = "_bought_tickets"
+let keyLaunchpadSwopPerTickets = "_swop_per_ticket"
+let keyLaunchpadActiveId = "launchpad_active_id"
+let keyLaunchpadDuration = "_duration"
+let keyLaunchpadStartHeight = "_start_height"
+let keyLauchpadFreezSwopDuration = "_freeze_swop_duration"
 
 let isActive = this.getBoolean(keyActive).valueOrElse(true)
 
 let farmingSWOPAddress = Address(base58'3P73HDkPqG15nLXevjCbmXtazHYTZbpPoPw')
 let votingLiteContract = Address(base58'3PQZWxShKGRgBN1qoJw6B4s9YWS9FneZTPg')
 let votingForNewPool = Address(base58'3PHgHf5C4WvHJucSHrjoVnMFsP1EhWffVLt')
+let launchpad = Address(base58'3P6YGPihPiF81VELikoV1myU55iwTvmcQaQ')
 
 let keySWOPid = "SWOP_id"
 let SWOP = farmingSWOPAddress.getStringValue(keySWOPid).fromBase58String()
@@ -122,6 +129,23 @@ func getUserTotalVoteForNewPoolAmount(user:Address) = {
         getUserTotalVoteAmountForOnePool(thirdActiveVote, user)
     ]
     max(listOfVoting)
+}
+
+func getUserBlockedInLauchpad(user:Address) = {
+    let lauchpadId = launchpad.getInteger(keyLaunchpadActiveId).valueOrElse(0).toString()
+    if lauchpadId == "0" then
+        (0)
+    else
+        let lStartHeight = launchpad.getInteger(lauchpadId + keyLaunchpadStartHeight).valueOrElse(0) 
+        let lDuration = launchpad.getInteger(lauchpadId + keyLaunchpadDuration).valueOrElse(0) 
+        let lFreezeSwopDuration = launchpad.getInteger(lauchpadId + keyLauchpadFreezSwopDuration).valueOrElse(0) 
+        let blockEndHeight = lStartHeight + lDuration + lFreezeSwopDuration
+        if blockEndHeight < height then
+            (0)
+        else
+            let boughtTickets = launchpad.getInteger(user.toString() + "_" + lauchpadId + keyLaunchpadBoughtTickets).valueOrElse(0)
+            let swopPerTicket = launchpad.getInteger(lauchpadId + keyLaunchpadSwopPerTickets).valueOrElse(0)
+            (boughtTickets * swopPerTicket)
 }
 
 func getTotalSWOPLocked() = this.getInteger(keyTotalSWOPLocked)
@@ -237,8 +261,9 @@ func withdrawSWOP(withdrawAmount: Int) = if !isActive then throw("DApp is inacti
     let (userNewInterest,claimAmount) = claimCalc(i.caller)
     let (userVoteAmount,userUnvoteAmount) = getUserVoteInfo(i.caller)
     let userVoteAmountForNewPool = getUserTotalVoteForNewPoolAmount(i.caller)
+    let blockedInLaunchpad = getUserBlockedInLauchpad(i.caller)
     if userUnvoteAmount < 0 || userVoteAmount < 0 || userVoteAmountForNewPool < 0 then throw("userUnvoteAmount < 0 || userVoteAmount < 0 || userVoteAmountForNewPool < 0") else
-    let availableToUnstake = userSWOPLocked - max([userVoteAmountForNewPool,userVoteAmount + userUnvoteAmount])
+    let availableToUnstake = userSWOPLocked - max([userVoteAmountForNewPool,userVoteAmount + userUnvoteAmount, blockedInLaunchpad])
 
     if withdrawAmount > availableToUnstake then throw("withdrawAmount > availableToUnstake") else
     let totalSWOPLockedNew = totalSWOPLocked + claimAmount - withdrawAmount

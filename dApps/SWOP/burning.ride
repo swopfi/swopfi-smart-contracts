@@ -1,0 +1,249 @@
+{-# STDLIB_VERSION 5 #-}
+{-# CONTENT_TYPE DAPP #-}
+{-# SCRIPT_TYPE ACCOUNT #-}
+
+let keyActive = "active"
+let keyEndHeight = "end_height"
+let keyPrizesPrices = "prizes_prices"
+let keyPrizesAIds = "prizes_achievements_ids"
+let keyPrizesAmounts = "prizes_amount"
+let keyLevelPrices = "level_prices"
+let keyLevelAchievemntsIds = "level_achievements_ids"
+let keySWOPid = "SWOP_id"
+let keyTotalBurned = "total_burned"
+let keyVerifyHash = "verify_hash"
+let keyFinalizeHeight = "finalize_height"
+
+let keyUserTotalBurned = "_total_burned"
+
+let oracle = Address(base58'3PEbqViERCoKnmcSULh6n2aiMvUdSQdCsom')
+let farming = Address(base58'3P73HDkPqG15nLXevjCbmXtazHYTZbpPoPw')
+let achievements = Address(base58'3PD88Svu91aKyBX1dnYVhkQyDXc8pg2EHFa')
+let minBurnAmount = 200000000
+
+let keyAdminPubKey1 = "admin_pub_1"
+let keyAdminPubKey2 = "admin_pub_2"
+let keyAdminPubKey3 = "admin_pub_3"
+func getAdminPub(keyAdminPub: String) = match oracle.getString(keyAdminPub) {
+    case string: String => string.fromBase58String()
+    case nothing => throw("Admin public key is empty")
+}
+let adminPubKey1 = getAdminPub(keyAdminPubKey1)
+let adminPubKey2 = getAdminPub(keyAdminPubKey2)
+let adminPubKey3 = getAdminPub(keyAdminPubKey3)
+let adminPubKeyStaking = base58'Czn4yoAuUZCVCLJDRfskn8URfkwpknwBTZDbs1wFrY7h'
+let commissionWalletPubKey = base58'G22aNF9sNHJr9LoEJSmchfF2Ats5iodjFFL57erCACSV'
+
+let swopId = farming.getStringValue(keySWOPid).fromBase58String()
+let isActive = this.getBoolean(keyActive).valueOrElse(true)
+
+
+func inListToStr(acc: String, next:Int) = 
+  if acc == "" then
+    acc + next.toString()
+  else 
+    acc + "," + next.toString()
+
+func inListToInt(acc: List[Int], next:String) = acc :+ parseIntValue(next)
+
+func calcPrizesAmounts(acc: (Int, List[Int]), next:Int) = {
+  let (total, result) = acc 
+  (total, result :+ (total / next))
+}
+
+func calcLevel(burned: Int) = {
+  let levelPrices = FOLD<5>(this.getStringValue(keyLevelPrices).split(","), [], inListToInt)
+  if(burned >= levelPrices.getElement(3)) then
+    4
+  else if(burned >= levelPrices.getElement(2)) then 
+    3
+  else if(burned >= levelPrices.getElement(1)) then 
+    2
+  else if(burned >= levelPrices.getElement(0)) then 
+    1
+  else 
+    0
+}
+
+@Callable(i)
+func init(endHeight: Int, prizePrices: List[Int], prizeAchievmentsIds: List[String], levelPrices: List[Int], levelAchievmentsIds: List[String]) = {
+  if ![adminPubKey1, adminPubKey2, adminPubKey3, commissionWalletPubKey].containsElement(i.callerPublicKey) then
+    throw("Only admin can call this function")
+  else if this.getInteger(keyEndHeight).isDefined() then
+    throw("DApp is already inited")
+  else if(endHeight < height) then
+    throw("Burning ending must be greater than current height")
+  else if(prizePrices.size() != 5 || prizeAchievmentsIds.size() != 5) then
+    throw("Amount of prizes achievemts lists must equal to 5")
+  else if(levelPrices.size() != 4 || levelAchievmentsIds.size() != 4) then
+    throw("Amount of levels lists must equal to 4")
+  else
+    let prizePricesStr = FOLD<5>(prizePrices, "", inListToStr)
+    let prizeAchievmentsIdsStr = makeString(prizeAchievmentsIds, ",")
+    let levelPricesStr = FOLD<5>(levelPrices, "", inListToStr)
+    let levelAchievmentsIdsStr = makeString(levelAchievmentsIds, ",")
+    let prizesAmountStr = "0,0,0,0,0"
+    let firstAddEntries = if i.payments.size() == 1 && i.payments[0].assetId == swopId then
+        let newTotalBurned = i.payments[0].amount
+        let res = FOLD<5>(prizePrices, (newTotalBurned, []), calcPrizesAmounts)
+        let newPrizesAmounts = res._2
+        let newPrizesAmountsStr = FOLD<5>(newPrizesAmounts, "", inListToStr)
+        [
+          IntegerEntry(keyTotalBurned, newTotalBurned),
+          StringEntry(keyPrizesAmounts, newPrizesAmountsStr)
+        ]
+      else
+        [StringEntry(keyPrizesAmounts, prizesAmountStr)]
+    [
+      IntegerEntry(keyEndHeight, endHeight),
+      StringEntry(keyPrizesPrices, prizePricesStr),
+      StringEntry(keyPrizesAIds, prizeAchievmentsIdsStr),
+      StringEntry(keyLevelPrices, levelPricesStr),
+      StringEntry(keyLevelAchievemntsIds, levelAchievmentsIdsStr)
+    ] ++ firstAddEntries
+}
+
+@Callable(i)
+func add() = {
+  let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
+  let endHeight = this.getInteger(keyEndHeight).valueOrElse(0)
+  let userTotalBurned = this.getInteger(i.caller.toString() + keyUserTotalBurned).valueOrElse(0)
+  let minPayAmount = minBurnAmount - userTotalBurned
+  if !isActive then
+    throw("DApp is inactive at this moment")
+  else if endHeight < height || endHeight == 0 then
+    throw("Swop burning are ended or not started yet")
+  else if pmtAssetId != swopId then
+    throw("You can add only SWOP token")
+  else if(pmtAmount < minPayAmount) then
+    throw("Minimum burn amount 2 SWOP")
+  else
+    let newTotalBurned = this.getInteger(keyTotalBurned).valueOrElse(0) + pmtAmount
+    let prizesAmounts = FOLD<5>(this.getStringValue(keyPrizesAmounts).split(","), [], inListToInt)
+    let prizesPrices = FOLD<5>(this.getStringValue(keyPrizesPrices).split(","), [], inListToInt)
+    let prizesAchievementsIds = this.getStringValue(keyPrizesAIds).split(",")
+    let levelAchievementsIds = this.getStringValue(keyLevelAchievemntsIds).split(",")
+    let res = FOLD<5>(prizesPrices, (newTotalBurned, []), calcPrizesAmounts)
+    let newPrizesAmounts = res._2
+    let newPrizesAmountsStr = FOLD<5>(newPrizesAmounts, "", inListToStr)
+    strict inv0 = 
+      if newPrizesAmounts.getElement(0) != prizesAmounts.getElement(0) then
+        let achievementAmount = newPrizesAmounts.getElement(0) - prizesAmounts.getElement(0)
+        invoke(achievements, "add", [prizesAchievementsIds.getElement(0), achievementAmount], [])
+      else 0
+    strict inv1 = 
+      if newPrizesAmounts.getElement(1) != prizesAmounts.getElement(1) then
+        let achievementAmount = newPrizesAmounts.getElement(1) - prizesAmounts.getElement(1)
+        invoke(achievements, "add", [prizesAchievementsIds.getElement(1), achievementAmount], [])
+      else 0
+    strict inv2 = 
+      if newPrizesAmounts.getElement(2) != prizesAmounts.getElement(2) then
+        let achievementAmount = newPrizesAmounts.getElement(2) - prizesAmounts.getElement(2)
+        invoke(achievements, "add", [prizesAchievementsIds.getElement(2), achievementAmount], [])
+      else 0
+    strict inv3 = 
+      if newPrizesAmounts.getElement(3) != prizesAmounts.getElement(3) then
+        let achievementAmount = newPrizesAmounts.getElement(3) - prizesAmounts.getElement(3)
+        invoke(achievements, "add", [prizesAchievementsIds.getElement(3), achievementAmount], [])
+      else 0
+    strict inv4 = 
+      if newPrizesAmounts.getElement(4) != prizesAmounts.getElement(4) then
+        let achievementAmount = newPrizesAmounts.getElement(4) - prizesAmounts.getElement(4)
+        invoke(achievements, "add", [prizesAchievementsIds.getElement(4), achievementAmount], [])
+      else 0
+    let baseEntry = [
+      IntegerEntry(keyTotalBurned, newTotalBurned),
+      IntegerEntry(i.caller.toString() + keyUserTotalBurned, userTotalBurned + pmtAmount),
+      StringEntry(keyPrizesAmounts, newPrizesAmountsStr)
+    ]
+    let oldLevel = calcLevel(userTotalBurned)
+    let newLevel = calcLevel(userTotalBurned + pmtAmount)
+    let levelDiff = newLevel - oldLevel
+    if levelDiff > 0 then
+      strict inv5 = if levelDiff >= 1 then
+          invoke(achievements, "add", [levelAchievementsIds.getElement(newLevel - 1), 1], [])
+        else
+          0
+      strict inv6 = if levelDiff >= 2 then
+          invoke(achievements, "add", [levelAchievementsIds.getElement(newLevel - 2), 1], [])
+        else
+          0
+      strict inv7 = if levelDiff >= 3 then
+          invoke(achievements, "add", [levelAchievementsIds.getElement(newLevel - 3), 1], [])
+        else
+          0
+      strict inv8 = if levelDiff == 4 then
+          invoke(achievements, "add", [levelAchievementsIds.getElement(newLevel - 4), 1], [])
+        else
+          0
+      baseEntry
+    else
+      baseEntry
+}
+
+@Callable(i)
+func hashingRandom(hash: String) = {
+    if !isActive then
+        throw("DApp is inactive at this moment")
+    else if ![adminPubKey1, adminPubKey2, adminPubKey3].containsElement(i.callerPublicKey) then
+        throw("Only admin can call this function")
+    else
+        [StringEntry(keyVerifyHash, hash)]
+}
+
+@Callable(i)
+func finalize(vrfHeight: Int, secretWord: String) = {
+    let savedHash = this.getStringValue(keyVerifyHash)
+    let calcHash = sha256(vrfHeight.toBytes() + secretWord.toBytes()).toBase58String()
+    if !isActive then
+        throw("DApp is inactive at this moment")
+    else if ![adminPubKey1, adminPubKey2, adminPubKey3].containsElement(i.callerPublicKey) then
+        throw("Only admin can call this function")
+    else if calcHash != savedHash then
+        throw("vrf Height hash not matching")
+    else
+        let burnAmount = this.getIntegerValue(keyTotalBurned)
+        [
+            Burn(swopId, burnAmount),
+            IntegerEntry(keyFinalizeHeight, height)
+        ]
+}
+
+@Callable(i)
+func shutdown() = {
+    if !isActive then
+        throw("DApp already inactive")
+    else if ![adminPubKey1, adminPubKey2, adminPubKey3].containsElement(i.callerPublicKey) then
+        throw("Only admin can call this function")
+    else
+    [BooleanEntry(keyActive, false)]
+}
+
+@Callable(i)
+func activate() = {
+    if isActive then
+        throw("DApp already active")
+    else if ![adminPubKey1, adminPubKey2, adminPubKey3].containsElement(i.callerPublicKey) then
+        throw("Only admin can call this function")
+    else
+    [BooleanEntry(keyActive, true)]
+}
+
+@Verifier(tx)
+func verify() = {
+    let multiSignedByAdmins = {
+        let adminPubKey1Signed = if sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1) then 1 else 0
+        let adminPubKey2Signed = if sigVerify(tx.bodyBytes, tx.proofs[1], adminPubKey2) then 1 else 0
+        let adminPubKey3Signed = if sigVerify(tx.bodyBytes, tx.proofs[2], adminPubKey3) then 1 else 0
+        adminPubKey1Signed + adminPubKey2Signed + adminPubKey3Signed >= 2
+    }
+    let signedByAdmin =
+            sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1)
+            || sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey2)
+            || sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey3)
+            || sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKeyStaking)
+    match tx {
+            case _ => multiSignedByAdmins
+    }
+}
+        

@@ -1,14 +1,25 @@
-{-# STDLIB_VERSION 4 #-}
+{-# STDLIB_VERSION 5 #-}
 {-# CONTENT_TYPE DAPP #-}
 {-# SCRIPT_TYPE ACCOUNT #-}
-
-let adminPubKey1 = base58'DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA'
-let adminPubKey2 = base58'E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7'
-let adminPubKey3 = base58'AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ'
 
 let keyPoolsListName = "pools"
 let keyPrefixPoolName = "pool_"
 let keyPrefixPoolIndex = "index_"
+
+let keyPair = "pair_"
+let keyAssetIdA = "A_asset_id"
+let keyAssetIdB = "B_asset_id"
+let keyLaunchpadDataTransactionStatus = "launchpad_data_transaction_status"
+
+let keyAdminPubKey1 = "admin_pub_1"
+let keyAdminPubKey2 = "admin_pub_2"
+let keyAdminPubKey3 = "admin_pub_3"
+
+let keyAchievementsWriters = "achievements_writers"
+
+let adminPubKey1 = base58'DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA'
+let adminPubKey2 = base58'E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7'
+let adminPubKey3 = base58'AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ'
 
 let pools = match this.getString(keyPoolsListName) {
     case string: String => string.split(",")
@@ -32,10 +43,22 @@ func getPoolNameIfValid(poolName: String) = {
 func getAddressIfValid(address: String) = address.addressFromString().valueOrErrorMessage("Can't parse \"" + address + "\" as address").toString()
 
 @Callable(i)
+func setAdmin() = isSelfCall(i).valueOrElse({
+    [
+        StringEntry(keyAdminPubKey1, adminPubKey1.toBase58String()),
+        StringEntry(keyAdminPubKey2, adminPubKey2.toBase58String()),
+        StringEntry(keyAdminPubKey3, adminPubKey3.toBase58String())
+    ]
+})
+
+@Callable(i)
 func addPool(poolAddress: String, poolName: String) = isSelfCall(i).valueOrElse({
     let validatedAddress = poolAddress.getAddressIfValid()
     let keyName = keyPrefixPoolName + validatedAddress
     let keyIndex = keyPrefixPoolIndex + validatedAddress
+    let assetIdA = poolAddress.addressFromString().value().getString(keyAssetIdA).valueOrErrorMessage("Asset id A is incorrect")
+    let assetIdB = poolAddress.addressFromString().value().getString(keyAssetIdB).valueOrErrorMessage("Asset id B is incorrect")
+
 
     let possiblyAlreadyAddedPool = this.getString(keyName)
 
@@ -44,6 +67,7 @@ func addPool(poolAddress: String, poolName: String) = isSelfCall(i).valueOrElse(
     else [
         IntegerEntry(keyIndex, pools.size()),
         StringEntry(keyName, poolName.getPoolNameIfValid()),
+        StringEntry(keyPair + assetIdA + "_" + assetIdB, poolAddress),
         StringEntry(keyPoolsListName, (pools :+ validatedAddress).makeString(","))
     ]
 })
@@ -60,6 +84,25 @@ func renamePool(poolAddress: String, newPoolName: String) = isSelfCall(i).valueO
         throw("Pool with address \"" + validatedAddress + "\" has not yet been added")
 })
 
+@Callable(i)
+func launchpadDataTransactionStatus(status: Boolean) = isSelfCall(i).valueOrElse({
+   [BooleanEntry(keyLaunchpadDataTransactionStatus, status)]
+})
+
+@Callable(i)
+func addAchievementsWriter(address: String) = isSelfCall(i).valueOrElse({
+    let writers = this.getString(keyAchievementsWriters).valueOrElse("")
+    let data = if writers == "" then [] else writers.split(",")
+    [StringEntry(keyAchievementsWriters, (data :+ address).makeString(","))]
+})
+
+@Callable(i)
+func removeAchievementsWriter(address: String) = isSelfCall(i).valueOrElse({
+    let writers = this.getString(keyAchievementsWriters).valueOrElse("").split(",")
+    let index = writers.indexOf(address).valueOrErrorMessage("Can't find address in the list")
+    [StringEntry(keyAchievementsWriters, writers.removeByIndex(index).makeString(","))]
+})
+
 @Verifier(tx)
 func verify() = {
     let adminPubKey1Signed = if sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1) then 1 else 0
@@ -67,11 +110,23 @@ func verify() = {
     let adminPubKey3Signed = if sigVerify(tx.bodyBytes, tx.proofs[2], adminPubKey3) then 1 else 0
     let signedByAdmin = adminPubKey1Signed + adminPubKey2Signed + adminPubKey3Signed >= 2
 
-    match tx {
-        case invoke: InvokeScriptTransaction => {
-            let isSelfInvoke = invoke.dApp == this && ["addPool", "renamePool"].containsElement(invoke.function)
+    let signedByAdminToCallAddPool = adminPubKey1Signed + adminPubKey2Signed + adminPubKey3Signed >= 1
 
-            signedByAdmin && invoke.payments.size() == 0 && isSelfInvoke
+    match tx {
+        case inv: InvokeScriptTransaction => {
+            let isSelfInvokeRenamePool = inv.dApp == this && ["renamePool"].containsElement(inv.function)
+            let isSelfInvokeSetAdmin = inv.dApp == this && ["setAdmin"].containsElement(inv.function)
+            let isSelfInvokeAddPool = inv.dApp == this && ["addPool"].containsElement(inv.function)
+            let isSelfInvokeLaunchpadDataTxStatus = inv.dApp == this && ["launchpadDataTransactionStatus"].containsElement(inv.function)
+            let isSelfInvokeAddAchievementsWriter = inv.dApp == this && ["addAchievementsWriter"].containsElement(inv.function)
+            let isSelfInvokeRemoveAchievementsWriter = inv.dApp == this && ["removeAchievementsWriter"].containsElement(inv.function)
+
+            (signedByAdmin && inv.payments.size() == 0 && isSelfInvokeRenamePool) ||
+            (signedByAdminToCallAddPool && inv.payments.size() == 0 && isSelfInvokeAddPool) ||
+            (signedByAdmin && inv.payments.size() == 0 && isSelfInvokeSetAdmin) ||
+            (signedByAdmin && inv.payments.size() == 0 && isSelfInvokeLaunchpadDataTxStatus) ||
+            (signedByAdmin && inv.payments.size() == 0 && isSelfInvokeAddAchievementsWriter) ||
+            (signedByAdmin && inv.payments.size() == 0 && isSelfInvokeRemoveAchievementsWriter)
         }
         case _: Transaction|Order => signedByAdmin
     }

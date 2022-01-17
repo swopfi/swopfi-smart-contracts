@@ -8,11 +8,21 @@ let activateHeight = this.getIntegerValue(keyActivateHeight)
 let finishHeight = this.getIntegerValue(keyFinishHeight)
 let totalShareSWOP = 100000000000000 # 1m with 8 digits
 let SWOP = base58'Ehie5xYpeN8op1Cctc6aGUrqx8jq3jtf1DSjXDbfm7aT'
+let oracle = Address(base58'3PEbqViERCoKnmcSULh6n2aiMvUdSQdCsom')
 let keyUserSWOPClaimedAmount = "_SWOP_claimed_amount"
 let keyUserSWOPLastClaimedAmount = "_SWOP_last_claimed_amount"
-let adminPubKey1 = base58'DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA'
-let adminPubKey2 = base58'E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7'
-let adminPubKey3 = base58'AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ'
+let keyAdminPubKey1 = "admin_pub_1"
+let keyAdminPubKey2 = "admin_pub_2"
+let keyAdminPubKey3 = "admin_pub_3"
+
+func getAdminPub(keyAdminPub: String) = match oracle.getString(keyAdminPub) {
+    case string: String => string.fromBase58String()
+    case nothing => throw("Admin public key is empty")
+}
+
+let adminPubKey1 = getAdminPub(keyAdminPubKey1)
+let adminPubKey2 = getAdminPub(keyAdminPubKey2)
+let adminPubKey3 = getAdminPub(keyAdminPubKey3)
 
 func getCallerShare(caller:Address) = {
     let callerShare = this.getInteger("share_" + caller.toString())

@@ -1,0 +1,545 @@
+{-# STDLIB_VERSION 5 #-}
+{-# CONTENT_TYPE DAPP #-}
+{-# SCRIPT_TYPE ACCOUNT #-}
+
+let keyActive = "active"
+let keyAdminPubKey1 = "admin_pub_1"
+let keyAdminPubKey2 = "admin_pub_2"
+let keyAdminPubKey3 = "admin_pub_3"
+let keyLaunchpadDataTransactionStatus = "launchpad_data_transaction_status"
+let keyLaunchpadNextId = "launchpad_next_id"
+let keyLaunchpadActiveId = "launchpad_active_id"
+let keyInitCaller = "init_caller"
+let keyAddress = "_address"
+let keyInitHeight = "_init_height"
+let keyStartHeight = "_start_height"
+let keyFinaliseHeight = "_finalise_height"
+let keyComission = "_comission"
+let keyAssetId = "_asset_id"
+let keyTotalTokenAmount = "_total_token_amount"
+let keyTotalAmountBuyAssetSold = "_total_buy_asset_sold"
+let keyTokensPerTicket = "_tokens_per_ticket"
+let keyPricePerToken = "_price_per_token"
+let keySwopPerTicket = "_swop_per_ticket"
+let keySwopfiTicketsAmount = "_tickets_swopfi_members"
+let keyCampaignTokensAmount = "_tokens_access_list"
+let keyTokensPerAllocation = "_tokens_per_allocation"
+let keyTicketLastNumber = "_ticket_last_number"
+let keyGovernanceStaked = "_SWOP_amount"
+let keyUserRefId = "_ref_id"
+let keyVerifyHash = "_verify_hash"
+let keyDuration = "_duration"
+let keyAmountBuyAssetInMarketing = "_total_purchased_buy_asset_in_marketing"
+let keyAmountBuyAssetInMarketingFinalized = "_total_purchased_buy_asset_in_marketing_finalized"
+let keyTransferBuyAsset = "_transfer_buy_asset"
+let keyFreezSwopDuration = "_freeze_swop_duration"
+let keyFreezeAdditionalToken = "_freeze_additional_token"
+let keyFreezeTokenId = "_freeze_token_id"
+let keyFreezeTokenDuration = "_freeze_token_duration"
+let keyFreezeTokenPerTicket = "_freeze_token_per_ticket"
+let keyBuyToken = "_buy_token"
+let keyClaimParams = "_claim_params"
+let keyHighCompetitionComission = "_high_competition_comission"
+let keyHighCompetitionSale = "_high_competition_sale"
+let keyHCTicketLastNumber = "_high_competition_ticket_last_number"
+let keyHighCompetitionAmount = "_tickets_high_competition"
+let keyTotalAmountBuyAssetSoldHC = "_total_buy_asset_sold_high_competition"
+
+let keyUserClaimedTokens = "_claimed_tokens"
+let keyUserClaimedBuyTokens = "_claimed_buy_tokens"
+let keyUserBoughtTicketsAmount = "_bought_tickets"
+let keyUserTickets = "_tickets_number"
+let keyUserHCTickets = "_tickets_number_high_competition"
+let keyUserHCBoughtTicketsAmount = "_bought_tickets_high_competition"
+let keyUserAvailableAllocations = "_available_purchase_marketing"
+let keyUserAmountBuyAssetInMarketing = "_purchased_buy_asset_in_marketing"
+let keyUserBoughtAllocations = "_bought_allocations"
+let keyUserClaimStatus = "_claim_status"
+let keyUserWinnedTicketsAmount = "_tickets_result"
+let keyUserWinnedHighCompetitionTicketsAmount = "_tickets_result_high_competition"
+let keyUserFreezeToken = "_freeze_token_amount"
+
+let oracle = Address(base58'3PEbqViERCoKnmcSULh6n2aiMvUdSQdCsom')
+let governance = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
+let commissionWallet = Address(base58'3PGYafJ2GuqPckmZNywet8moiPnBHz51Xdg')
+let stakingUSDNAddress = Address(base58'3PNikM6yp4NqcSU8guxQtmR5onr2D4e8yTJ')
+let USDN = base58'DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p'
+let adminPubKeyStaking = base58'Czn4yoAuUZCVCLJDRfskn8URfkwpknwBTZDbs1wFrY7h'
+
+let maxAllocationsAmount = 2
+let activeLaunchpadId = this.getIntegerValue(keyLaunchpadActiveId).valueOrElse(-1)
+
+func getAdminPub(keyAdminPub: String) = match oracle.getString(keyAdminPub) {
+    case string: String => string.fromBase58String()
+    case nothing => throw("Admin public key is empty")
+}
+let adminPubKey1 = getAdminPub(keyAdminPubKey1)
+let adminPubKey2 = getAdminPub(keyAdminPubKey2)
+let adminPubKey3 = getAdminPub(keyAdminPubKey3)
+
+func getAssetInfo(assetId: ByteVector|Unit) = match assetId {
+    case id: ByteVector =>
+        let stringId = id.toBase58String()
+        let info = assetInfo(id).valueOrErrorMessage("Asset " + stringId + " doesn't exist")
+        (stringId, info.name, info.decimals)
+    case waves: Unit => ("WAVES", "WAVES", 8)
+}
+
+func getLaunchpadNextId() = getInteger(this, keyLaunchpadNextId).valueOrElse(1)
+
+func stakedUsdnAmount() = stakingUSDNAddress.getInteger("rpd_balance_" + USDN.toBase58String() + "_" + this.toString()).valueOrElse(0)
+let active = this.getBoolean(keyActive).valueOrElse(true)
+func isActive() = if active then unit else throw("DApp is inactive at this moment")
+func isAdminCall(i:Invocation) = if [adminPubKey1, adminPubKey2, adminPubKey3].containsElement(i.callerPublicKey) then unit
+        else throw("Only admin can call this function")  
+
+func getAssetInfoFromString(assetStr: String) = {
+    if assetStr == "WAVES" then (unit, "WAVES", "WAVES", 8)
+    else {
+        let stringId = assetStr
+        let id = assetStr.fromBase58String()
+        let info = assetInfo(id).valueOrErrorMessage("Asset " + stringId + " doesn't exist")
+        (id, stringId, info.name, info.decimals)
+    }
+}
+
+@Callable(i)
+func hashingRandom(launchpadId: Int, hash: String) = isActive().valueOrElse(isAdminCall(i).valueOrElse({
+    [StringEntry(toString(launchpadId) + keyVerifyHash, hash)]
+}))
+
+@Callable(i)
+func initCaller(address: String) = isActive().valueOrElse(isAdminCall(i).valueOrElse({
+    [StringEntry(keyInitCaller, address)]
+}))
+
+@Callable(i)
+func init(
+    projectAddress: String, 
+    startHeight: Int,
+    duration: Int,
+    buyToken: String, 
+    commission: Int,
+    tokensPerTicket: Int, 
+    pricePerToken: Int, 
+    swopfiTicketsAmount: Int, 
+    campaignTokensAmount: Int, 
+    tokensPerAllocation: Int, 
+    swopPerTicket:Int, 
+    swopFreezeDuration: Int,
+    claimParams: List[String],
+    HighCompetitionSale: Boolean,
+    highCompetitionComission: Int,
+    highCompetitionTicketsAmount: Int,    
+    freezeAdditionalToken: Boolean, 
+    freezeParams: List[String]
+    ) = isActive().valueOrElse({
+
+    if i.caller.toString() != this.getString(keyInitCaller).valueOrElse("") then
+        throw("Only project admin can call init function")
+    else if i.payments.size() != 1 then
+        throw("One attached payment expected")
+    else if height > startHeight then
+        throw("Start height must be greater than blockchain height")
+    else if freezeAdditionalToken && freezeParams.size() != 3 then
+        throw("Freeze params list must have 3 items")
+    else
+        let launchpadId = getLaunchpadNextId()
+        let launchpadIdStr = toString(launchpadId)
+        let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
+        let (pmtStrAssetId, pmtAssetName, pmtDecimals) = getAssetInfo(pmtAssetId)
+        
+        let freezeAdditionalEntry = if freezeAdditionalToken then 
+                [
+                    BooleanEntry(launchpadIdStr + keyFreezeAdditionalToken, true),
+                    StringEntry(launchpadIdStr + keyFreezeTokenId, freezeParams.getElement(0)),
+                    IntegerEntry(launchpadIdStr + keyFreezeTokenDuration, freezeParams.getElement(1).parseIntValue()),
+                    IntegerEntry(launchpadIdStr + keyFreezeTokenPerTicket, freezeParams.getElement(2).parseIntValue())
+                ]
+            else
+                []
+        [
+            IntegerEntry(pmtStrAssetId + "_launchpad", launchpadId),
+            IntegerEntry(keyLaunchpadNextId, launchpadId + 1),
+            StringEntry(launchpadIdStr + keyAddress, projectAddress),
+            IntegerEntry(launchpadIdStr + keyInitHeight, height),
+            IntegerEntry(launchpadIdStr + keyStartHeight, startHeight),
+            IntegerEntry(launchpadIdStr + keyDuration, duration),
+            StringEntry(launchpadIdStr + keyBuyToken, buyToken),
+            IntegerEntry(launchpadIdStr + keyFreezSwopDuration, swopFreezeDuration),
+            IntegerEntry(launchpadIdStr + keyTotalTokenAmount, pmtAmount),
+            StringEntry(launchpadIdStr + keyAssetId, pmtStrAssetId),
+            IntegerEntry(launchpadIdStr + keyComission, commission),
+            IntegerEntry(launchpadIdStr + keyTicketLastNumber, 0),
+            IntegerEntry(launchpadIdStr + keyHCTicketLastNumber, 0),
+            IntegerEntry(launchpadIdStr + keyTokensPerTicket, tokensPerTicket),
+            IntegerEntry(launchpadIdStr + keyPricePerToken, pricePerToken),
+            IntegerEntry(launchpadIdStr + keySwopPerTicket, swopPerTicket),
+            IntegerEntry(launchpadIdStr + keySwopfiTicketsAmount, swopfiTicketsAmount),
+            IntegerEntry(launchpadIdStr + keyCampaignTokensAmount, campaignTokensAmount),
+            IntegerEntry(launchpadIdStr + keyTokensPerAllocation, tokensPerAllocation),
+            StringEntry(launchpadIdStr + keyClaimParams, claimParams.makeString(",")),
+            BooleanEntry(launchpadIdStr + keyHighCompetitionSale, HighCompetitionSale),
+            IntegerEntry(launchpadIdStr + keyHighCompetitionComission, highCompetitionComission),
+            IntegerEntry(launchpadIdStr + keyHighCompetitionAmount, highCompetitionTicketsAmount),
+            IntegerEntry(keyLaunchpadActiveId, launchpadId),
+            
+            StringEntry(keyInitCaller, "")
+        ] ++ freezeAdditionalEntry
+})
+
+@Callable(i)
+func commitSwopfiSale(launchpadId: Int, refId: String) = isActive().valueOrElse({
+    let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
+    let (buyAssetId, buyAssetStrId, buyAssetName, buyAssetDecimals) = getAssetInfoFromString(this.getString(launchpadId.toString() + keyBuyToken).value())
+    let stakedSwops = governance.getInteger(i.caller.toString() + keyGovernanceStaked).valueOrElse(0)
+    let allowedTicketsAmountAll = stakedSwops / this.getIntegerValue(launchpadId.toString() + keySwopPerTicket)
+    let boughtTicketsAmount = this.getInteger(i.caller.toString() + "_" + launchpadId.toString() + keyUserBoughtTicketsAmount).valueOrElse(0)
+    let allowedTicketsAmount = allowedTicketsAmountAll - boughtTicketsAmount
+    let startHeight = this.getInteger(launchpadId.toString() + keyStartHeight).value()
+    let duration = this.getInteger(launchpadId.toString() + keyDuration).value()
+    let freezeAdditionalToken = this.getBoolean(launchpadId.toString() + keyFreezeAdditionalToken).valueOrElse(false)
+
+    if activeLaunchpadId != launchpadId then
+        throw("There is no active launchpad or this launchpad is ended")
+    else if height < startHeight then
+        throw("Launchpad sale not started yet")
+    else if (startHeight + duration) < height then
+         throw("Launchpad sale ended")
+    else if !freezeAdditionalToken && (i.payments.size() != 1 || pmtAssetId != buyAssetId) then
+        throw("One attached payment in " + buyAssetName + " expected")
+    else if freezeAdditionalToken && (i.payments.size() != 2 || pmtAssetId != buyAssetId) then
+        let freezeTokenId = this.getStringValue(launchpadId.toString() + keyFreezeTokenId)
+        throw("Two attached payments expected: First in " + buyAssetName + ", second in " + freezeTokenId)
+    else if allowedTicketsAmountAll <= 0 || allowedTicketsAmount <= 0 then
+        throw("Not enought SWOP in staking to buy tickets")
+    else
+        let tokenPrice = this.getIntegerValue(launchpadId.toString() + keyPricePerToken)
+        let tokensPerTicket = this.getIntegerValue(launchpadId.toString() + keyTokensPerTicket)
+        let (tokenId, tokenStrAssetId, tokenAssetName, tokenDecimals) = getAssetInfoFromString(this.getStringValue(launchpadId.toString() + keyAssetId))
+        let ticketPrice = fraction(tokensPerTicket, tokenPrice, pow(10,0,tokenDecimals,0,0,DOWN))
+        let commissionPerTicket = fraction(ticketPrice, this.getIntegerValue(launchpadId.toString() + keyComission), 100)
+        let buyTicketAmount = pmtAmount / (ticketPrice + commissionPerTicket)
+        let allowedBuyTicketAmount = min([buyTicketAmount, allowedTicketsAmount])
+        let allowedBuyPriceWithComission = allowedBuyTicketAmount * (ticketPrice + commissionPerTicket)
+        let change = pmtAmount - allowedBuyPriceWithComission
+        if buyTicketAmount == 0 then
+            throw("Not enought " + buyAssetName + " to buy tickets")
+        else if change != 0 then
+            throw("Wrong payment. To buy " + allowedBuyTicketAmount.toString() + "tickets you need to pay " + allowedBuyPriceWithComission.toString() + buyAssetName)
+        else
+            let freezeAdditionalEntry = if freezeAdditionalToken then
+                let freezeTokenId = this.getStringValue(launchpadId.toString() + keyFreezeTokenId)
+                let freezeTokenPerTicket = this.getIntegerValue(launchpadId.toString() + keyFreezeTokenPerTicket)
+                let (pmtAmountFreeze, pmtAssetIdFreeze) = (i.payments[1].amount, i.payments[1].assetId)
+                let (pmtFreezeStrAssetId, pmtFreezeAssetName, pmtFreezeDecimals) = getAssetInfo(pmtAssetId)
+                let needFreezeTokens = freezeTokenPerTicket * buyTicketAmount
+                if pmtFreezeStrAssetId != freezeTokenId || needFreezeTokens != pmtAmountFreeze then 
+                    throw("You need to add " + needFreezeTokens.toString() + " " + pmtFreezeAssetName + " as a second payment")
+                else
+                [IntegerEntry(i.caller.toString() + "_" + launchpadId.toString() + keyUserFreezeToken, pmtAmountFreeze)]
+            else
+                [] 
+            let userBoughtTicketsNumbers = this.getString(i.caller.toString() + "_" + launchpadId.toString() + keyUserTickets).valueOrElse("")
+            let lastBoughtTicketNumber = this.getIntegerValue(launchpadId.toString() + keyTicketLastNumber)
+            let boughtRange = toString(lastBoughtTicketNumber + 1) + "-" + toString(lastBoughtTicketNumber + allowedBuyTicketAmount)
+            let newUserBoughtTicketsNumbers = userBoughtTicketsNumbers + if userBoughtTicketsNumbers != "" then "," + boughtRange else "" + boughtRange
+            strict inv = if buyAssetId == USDN then
+              invoke(stakingUSDNAddress, "lockNeutrino", [], [AttachedPayment(pmtAssetId,pmtAmount)])
+            else 0
+            let baseEntry = [
+                IntegerEntry(i.caller.toString() + "_" + launchpadId.toString() + keyUserBoughtTicketsAmount, boughtTicketsAmount + allowedBuyTicketAmount),
+                IntegerEntry(launchpadId.toString() + keyTicketLastNumber, lastBoughtTicketNumber + allowedBuyTicketAmount),
+                StringEntry(i.caller.toString() + "_" + launchpadId.toString() + keyUserTickets, newUserBoughtTicketsNumbers)
+            ] ++ freezeAdditionalEntry
+            if !this.getString(i.caller.toString() + "_" + launchpadId.toString() + keyUserRefId).isDefined() then
+                baseEntry ++
+                [StringEntry(i.caller.toString() + "_" + launchpadId.toString() + keyUserRefId, refId)]
+            else
+                baseEntry
+})
+
+@Callable(i)
+func commitAccessListSale(launchpadId: Int, refId: String) = isActive().valueOrElse({
+    let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
+    let (buyAssetId, buyAssetStrId, buyAssetName, buyAssetDecimals) = getAssetInfoFromString(this.getString(launchpadId.toString() + keyBuyToken).value())
+    let userUsdnInMarketing = this.getInteger(i.caller.toString() + "_" + launchpadId.toString() + keyUserAmountBuyAssetInMarketing).valueOrElse(0)
+    let usdnInMarketing = this.getInteger(launchpadId.toString() + keyAmountBuyAssetInMarketing).valueOrElse(0)
+    let boughtAllocations = this.getInteger(i.caller.toString() + "_" + launchpadId.toString() + keyUserBoughtAllocations).valueOrElse(0)
+    let commission = this.getIntegerValue(launchpadId.toString() + keyComission)
+    let tokenPrice = this.getIntegerValue(launchpadId.toString() + keyPricePerToken)
+    let tokensPerAllocation = this.getIntegerValue(launchpadId.toString() + keyTokensPerAllocation)
+    let (tokenId, tokenStrAssetId, tokenAssetName, tokenDecimals) = getAssetInfoFromString(this.getStringValue(launchpadId.toString() + keyAssetId))
+    let allocationPriceWithComission = fraction(fraction(tokenPrice, tokensPerAllocation, pow(10,0,tokenDecimals,0,0,DOWN)), 100+commission, 100)
+    let startHeight = this.getInteger(launchpadId.toString() + keyStartHeight).value()
+    let duration = this.getInteger(launchpadId.toString() + keyDuration).value()
+
+    if activeLaunchpadId != launchpadId then
+        throw("There is no active launchpad or this launchpad is ended")
+    else if height < startHeight then
+        throw("Launchpad sale not started yet")
+    else if (startHeight + duration) < height then
+         throw("Launchpad sale ended")
+    else if i.payments.size() != 1 || pmtAssetId != buyAssetId then
+        throw("One attached payment in " + buyAssetName + " expected")
+    else if boughtAllocations >= maxAllocationsAmount then
+        throw("You can buy only " + maxAllocationsAmount.toString() + "allocations")
+    else if allocationPriceWithComission != pmtAmount && (allocationPriceWithComission * 2) != pmtAmount then
+        throw(
+            "Wrong payment. You can buy 1 or 2 allocations for " + 
+            toString(allocationPriceWithComission) + buyAssetName + " per allocation"
+        )
+    else
+        let buyAllocationsAmount = pmtAmount / allocationPriceWithComission
+        strict inv = if buyAssetId == USDN then
+          invoke(stakingUSDNAddress, "lockNeutrino", [], [AttachedPayment(pmtAssetId,pmtAmount)])
+        else 0
+        let baseEntry = [
+            IntegerEntry(i.caller.toString() + "_" + launchpadId.toString() + keyUserBoughtAllocations, boughtAllocations + buyAllocationsAmount),
+            IntegerEntry(i.caller.toString() + "_" + launchpadId.toString() + keyUserAmountBuyAssetInMarketing, userUsdnInMarketing + pmtAmount),
+            IntegerEntry(launchpadId.toString() + keyAmountBuyAssetInMarketing, usdnInMarketing + pmtAmount)
+        ]
+        if !this.getString(i.caller.toString() + "_" + launchpadId.toString() + keyUserRefId).isDefined() then
+            baseEntry ++
+            [StringEntry(i.caller.toString() + "_" + launchpadId.toString() + keyUserRefId, refId)]
+        else
+            baseEntry
+        
+})
+
+@Callable(i)
+func commitHighCompetitionSale(launchpadId: Int, refId: String) = isActive().valueOrElse({
+    let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
+    let (buyAssetId, buyAssetStrId, buyAssetName, buyAssetDecimals) = getAssetInfoFromString(this.getString(launchpadId.toString() + keyBuyToken).value())
+    let startHeight = this.getInteger(launchpadId.toString() + keyStartHeight).value()
+    let duration = this.getInteger(launchpadId.toString() + keyDuration).value()
+    let boughtHCTicketsAmount = this.getInteger(i.caller.toString() + "_" + launchpadId.toString() + keyUserHCBoughtTicketsAmount).valueOrElse(0)
+    let highCompetitionSale = this.getBoolean(launchpadId.toString() + keyHighCompetitionSale).valueOrElse(false)
+
+    if activeLaunchpadId != launchpadId then
+        throw("There is no active launchpad or this launchpad is ended")
+    else if !highCompetitionSale then
+        throw("There is no high competition sale for this launchpad")
+    else if height < startHeight then
+        throw("Launchpad sale not started yet")
+    else if (startHeight + duration) < height then
+         throw("Launchpad sale ended")
+    else if i.payments.size() != 1 || pmtAssetId != buyAssetId then
+        throw("One attached payment in " + buyAssetName + " expected")
+    else
+        let tokenPrice = this.getIntegerValue(launchpadId.toString() + keyPricePerToken)
+        let tokensPerTicket = this.getIntegerValue(launchpadId.toString() + keyTokensPerTicket)
+        let (tokenId, tokenStrAssetId, tokenAssetName, tokenDecimals) = getAssetInfoFromString(this.getStringValue(launchpadId.toString() + keyAssetId))
+        let ticketPrice = fraction(tokensPerTicket, tokenPrice, pow(10,0,tokenDecimals,0,0,DOWN))
+        let commissionPerTicket = fraction(ticketPrice, this.getIntegerValue(launchpadId.toString() + keyHighCompetitionComission), 100)
+        let buyTicketAmount = pmtAmount / (ticketPrice + commissionPerTicket)
+        let buyPriceWithComission = buyTicketAmount * (ticketPrice + commissionPerTicket)
+        let change = pmtAmount - buyPriceWithComission
+        if buyTicketAmount == 0 then
+            throw("Not enought " + buyAssetName + " to buy tickets")
+        else if change != 0 then
+            throw("Wrong payment. To buy " + buyTicketAmount.toString() + "tickets you need to pay " + buyPriceWithComission.toString() + buyAssetName)
+        else
+            let userBoughtTicketsNumbers = this.getString(i.caller.toString() + "_" + launchpadId.toString() + keyUserHCTickets).valueOrElse("")
+            let lastBoughtTicketNumber = this.getIntegerValue(launchpadId.toString() + keyHCTicketLastNumber)
+            let boughtRange = toString(lastBoughtTicketNumber + 1) + "-" + toString(lastBoughtTicketNumber + buyTicketAmount)
+            let newUserBoughtTicketsNumbers = userBoughtTicketsNumbers + if userBoughtTicketsNumbers != "" then "," + boughtRange else "" + boughtRange
+            strict inv = if buyAssetId == USDN then
+                invoke(stakingUSDNAddress, "lockNeutrino", [], [AttachedPayment(pmtAssetId,pmtAmount)])
+              else 0
+            let baseEntry = [
+                IntegerEntry(i.caller.toString() + "_" + launchpadId.toString() + keyUserHCBoughtTicketsAmount, boughtHCTicketsAmount + buyTicketAmount),
+                IntegerEntry(launchpadId.toString() + keyHCTicketLastNumber, lastBoughtTicketNumber + buyTicketAmount),
+                StringEntry(i.caller.toString() + "_" + launchpadId.toString() + keyUserHCTickets, newUserBoughtTicketsNumbers)
+            ]
+            if !this.getString(i.caller.toString() + "_" + launchpadId.toString() + keyUserRefId).isDefined() then
+                baseEntry ++
+                [StringEntry(i.caller.toString() + "_" + launchpadId.toString() + keyUserRefId, refId)]
+            else
+                baseEntry
+})
+
+@Callable(i)
+func finalise(launchpadId: Int, vrfHeight: Int, secretWord: String) = isActive().valueOrElse(isAdminCall(i).valueOrElse({
+    let savedHash = this.getStringValue(launchpadId.toString() + keyVerifyHash)
+    let calcHash = sha256(vrfHeight.toBytes() + secretWord.toBytes()).toBase58String()
+    if calcHash != savedHash then
+        throw("vrf Height hash not matching")
+    else
+        let (buyAssetId, buyAssetStrId, buyAssetName, buyAssetDecimals) = getAssetInfoFromString(this.getString(launchpadId.toString() + keyBuyToken).value())
+        let projectAddress = addressFromStringValue(this.getStringValue(launchpadId.toString() + keyAddress))
+        let commission = this.getIntegerValue(launchpadId.toString() + keyComission)
+        let commissionHC = this.getIntegerValue(launchpadId.toString() + keyHighCompetitionComission)
+        let transferedBuyAsset = this.getInteger(launchpadId.toString() + keyTransferBuyAsset).valueOrElse(0)
+        let swopfiMembersBuyAssetAmount = this.getIntegerValue(launchpadId.toString() + keyTotalAmountBuyAssetSold)
+        let swopfiHCBuyAssetAmount = this.getIntegerValue(launchpadId.toString() + keyTotalAmountBuyAssetSoldHC).valueOrElse(0)
+        let swopfiMembersComission = fraction(swopfiMembersBuyAssetAmount, commission, 100)
+        let swopfiHCComission = fraction(swopfiHCBuyAssetAmount, commissionHC, 100)
+        let totalAmountBuyAssetInMarketing = this.getIntegerValue(launchpadId.toString() + keyAmountBuyAssetInMarketingFinalized)
+        let marketingComission = fraction(totalAmountBuyAssetInMarketing, commission, 100)
+        let unstakeAmount = swopfiMembersBuyAssetAmount + totalAmountBuyAssetInMarketing + swopfiMembersComission + marketingComission + swopfiHCBuyAssetAmount + swopfiHCComission
+        if transferedBuyAsset > swopfiMembersBuyAssetAmount + totalAmountBuyAssetInMarketing then
+            throw("Can't transfer negative value to project")
+        else 
+            strict inv = if buyAssetId == USDN then
+              invoke(stakingUSDNAddress, "unlockNeutrino", [unstakeAmount, USDN.toBase58String()], [])
+            else 0
+            [
+                IntegerEntry(launchpadId.toString() + keyFinaliseHeight, height),
+                ScriptTransfer(projectAddress, swopfiMembersBuyAssetAmount + swopfiHCBuyAssetAmount + totalAmountBuyAssetInMarketing - transferedBuyAsset, buyAssetId),
+                ScriptTransfer(commissionWallet, swopfiMembersComission + marketingComission + swopfiHCComission, buyAssetId)
+            ]
+}))
+
+@Callable(i)
+func claim(launchpadId: Int) = isActive().valueOrElse({
+    let boughtTickets = this.getInteger(i.caller.toString() + "_" + launchpadId.toString() + keyUserBoughtTicketsAmount).valueOrElse(0)
+    let boughtHCTickets = this.getInteger(i.caller.toString() + "_" + launchpadId.toString() + keyUserHCBoughtTicketsAmount).valueOrElse(0)
+    let boughtAllocations = this.getInteger(i.caller.toString() + "_" + launchpadId.toString() + keyUserBoughtAllocations).valueOrElse(0)
+    let userClaimStatus = this.getBoolean(i.caller.toString() + "_" + launchpadId.toString() + keyUserClaimStatus).valueOrElse(false)
+    let finalizeHeight = this.getInteger(launchpadId.toString() + keyFinaliseHeight).valueOrElse(0)
+
+    if finalizeHeight == 0 then
+        throw("You can't claim because results are not finalized")
+    else if userClaimStatus then
+        throw("You are already claimed")
+    else if boughtTickets == 0 && boughtAllocations == 0 && boughtHCTickets == 0 then
+        throw("You can't claim because you don't buy anything")
+    else 
+        let (buyAssetId, buyAssetStrId, buyAssetName, buyAssetDecimals) = getAssetInfoFromString(this.getString(launchpadId.toString() + keyBuyToken).value())
+        let wonnedTickets = this.getInteger(i.caller.toString() + "_" + launchpadId.toString() + keyUserWinnedTicketsAmount).valueOrElse(0)
+        let wonnedHCTickets = this.getInteger(i.caller.toString() + "_" + launchpadId.toString() + keyUserWinnedHighCompetitionTicketsAmount).valueOrElse(0)
+        let awailableAllocations = this.getInteger(i.caller.toString() + "_" + launchpadId.toString() + keyUserAvailableAllocations).valueOrElse(0)
+        let commission = this.getIntegerValue(launchpadId.toString() + keyComission)
+        let commissionHC = this.getIntegerValue(launchpadId.toString() + keyHighCompetitionComission)
+        let allowedAllocations = min([boughtAllocations, awailableAllocations])
+        let tokenPrice = this.getIntegerValue(launchpadId.toString() + keyPricePerToken)
+        let tokensPerTicket = this.getIntegerValue(launchpadId.toString() + keyTokensPerTicket)
+        let (tokenId, tokenStrAssetId, tokenAssetName, tokenDecimals) = getAssetInfoFromString(this.getStringValue(launchpadId.toString() + keyAssetId))
+        let ticketPrice = fraction(tokensPerTicket, tokenPrice, pow(10,0,tokenDecimals,0,0,DOWN))
+        let tokensPerAllocation = this.getIntegerValue(launchpadId.toString() + keyTokensPerAllocation)
+        let transferTokensAmount = wonnedTickets * tokensPerTicket + allowedAllocations * tokensPerAllocation + wonnedHCTickets * tokensPerTicket
+        let notAllowedAllocationsTokens = (boughtAllocations - allowedAllocations) * tokensPerAllocation
+        let buyAssetForAllocations = fraction(fraction(notAllowedAllocationsTokens, tokenPrice, pow(10,0,tokenDecimals,0,0,DOWN)), 100 + commission, 100)
+        let buyAssetForUnwonnedTickets = fraction(((boughtTickets - wonnedTickets) * ticketPrice), 100 + commission, 100)
+        let buyAssetForHCUnwonnedTickets = fraction(((boughtHCTickets - wonnedHCTickets) * ticketPrice), 100 + commissionHC, 100)
+        let claimedBuyToken = this.getInteger(i.caller.toString() + "_" + launchpadId.toString() + keyUserClaimedBuyTokens).valueOrElse(0)
+        if buyAssetForAllocations < 0 || buyAssetForUnwonnedTickets < 0 || buyAssetForHCUnwonnedTickets < 0 then
+            throw("Error with allowed allocation param or wonned tickets param please contact support")
+        else 
+            let returnedBuyAssetAmount = buyAssetForUnwonnedTickets + buyAssetForHCUnwonnedTickets + buyAssetForAllocations - claimedBuyToken
+            let transferBuyAsset = if returnedBuyAssetAmount > 0 then 
+                    [
+                        ScriptTransfer(i.caller, returnedBuyAssetAmount, buyAssetId),
+                        IntegerEntry(i.caller.toString() + "_" + launchpadId.toString() + keyUserClaimedBuyTokens, returnedBuyAssetAmount)
+                    ] 
+                else []
+            strict inv =  
+                if returnedBuyAssetAmount > 0 && buyAssetId == USDN then
+                    invoke(stakingUSDNAddress, "unlockNeutrino", [returnedBuyAssetAmount, USDN.toBase58String()], [])
+                else 0
+            let claimedParams = this.getString(launchpadId.toString() + keyClaimParams).valueOrElse("").split(",")
+            if claimedParams.size() == 0 || claimedParams.getElement(0) == "claimAll" then
+                let transferTokens = if transferTokensAmount > 0 then [ScriptTransfer(i.caller, transferTokensAmount, tokenId)] else []
+                [
+                  BooleanEntry(i.caller.toString() + "_" + launchpadId.toString() + keyUserClaimStatus, true),
+                  IntegerEntry(i.caller.toString() + "_" + launchpadId.toString() + keyUserClaimedTokens, transferTokensAmount)
+                ]
+              ++ transferTokens ++ transferBuyAsset
+            else if claimedParams.getElement(0) == "claimPeriod" then
+                let claimedTokens = this.getInteger(i.caller.toString() + "_" + launchpadId.toString() + keyUserClaimedTokens).valueOrElse(0)
+                let unlockPeriod = parseInt(claimedParams.getElement(2)).value()
+                let blockHeight = parseInt(claimedParams.getElement(3)).value() + finalizeHeight
+                let unlockHeight = unlockPeriod + finalizeHeight + blockHeight
+                let allowedTokensAmount = fraction(transferTokensAmount, parseInt(claimedParams.getElement(1)).value(), 100) 
+                    + if height > blockHeight then
+                        fraction(transferTokensAmount, height - blockHeight,  unlockPeriod)
+                        else 0 
+                    - claimedTokens
+                let claimStatusEntry = if transferTokensAmount >= claimedTokens + allowedTokensAmount then 
+                        [BooleanEntry(i.caller.toString() + "_" + launchpadId.toString() + keyUserClaimStatus, true)]
+                    else []
+                if allowedTokensAmount > 0 || returnedBuyAssetAmount > 0 then
+                    let transferTokens = if allowedTokensAmount > 0 then 
+                        [
+                            IntegerEntry(i.caller.toString() + "_" + launchpadId.toString() + keyUserClaimedTokens, claimedTokens + allowedTokensAmount),
+                            ScriptTransfer(i.caller, allowedTokensAmount, tokenId)
+                        ] else []
+                    transferBuyAsset ++ transferTokens
+                else
+                    throw("Nothing to claim")
+            else 
+              throw("Unknown claim function")
+})
+
+@Callable(i)
+func claimFreezeToken(launchpadId: Int) = isActive().valueOrElse({
+    let freezeAdditionalToken = this.getBoolean(launchpadId.toString() + keyFreezeAdditionalToken).valueOrElse(false)
+    if !this.getInteger(launchpadId.toString() + keyFinaliseHeight).isDefined() then
+        throw("You can't claim because results are not finalized")
+    else if !freezeAdditionalToken then 
+        throw("There are no additional token freezing for this launchpad")
+    else
+        let tokenId = this.getStringValue(launchpadId.toString() + keyFreezeTokenId).fromBase58String()
+        let userTokensFreezed = this.getInteger(i.caller.toString() + "_" + launchpadId.toString() + keyUserFreezeToken).valueOrElse(0)
+        let startHeight = this.getInteger(launchpadId.toString() + keyStartHeight).valueOrElse(0) 
+        let duration = this.getInteger(launchpadId.toString() + keyDuration).valueOrElse(0) 
+        let freezeTokenDuration = this.getIntegerValue(launchpadId.toString() + keyFreezeTokenDuration)
+        let blockEndHeight = startHeight + duration + freezeTokenDuration
+        if userTokensFreezed == 0 then 
+            throw("You are already claimed your tokens or not paid anything")
+        else if height < blockEndHeight then
+            throw("Your tokens freezed teel " + blockEndHeight.toString())
+        else
+            [
+                ScriptTransfer(i.caller, userTokensFreezed, tokenId),
+                IntegerEntry(i.caller.toString() + "_" + launchpadId.toString() + keyUserFreezeToken, 0)
+            ]        
+})
+
+@Callable(i)
+func transferBuyAsset(launchpadId: Int, amount: Int) = isActive().valueOrElse(isAdminCall(i).valueOrElse({
+    let projectAddress = addressFromStringValue(this.getStringValue(launchpadId.toString() + keyAddress))
+    let (buyAssetId, buyAssetStrId, buyAssetName, buyAssetDecimals) = getAssetInfoFromString(this.getString(launchpadId.toString() + keyBuyToken).value())
+    [
+        IntegerEntry(launchpadId.toString() + keyTransferBuyAsset, amount),
+        ScriptTransfer(projectAddress, amount, buyAssetId)
+    ]
+}))
+
+@Callable(i)
+func shutdown() = isAdminCall(i).valueOrElse({
+    if !active then
+        throw("DApp already inactive")
+    else
+        [BooleanEntry(keyActive, false)]
+})
+
+@Callable(i)
+func activate() = isAdminCall(i).valueOrElse({
+    if active then
+        throw("DApp already active")
+    else
+        [BooleanEntry(keyActive, true)]
+})
+
+@Verifier(tx)
+func verify() = {
+    let multiSignedByAdmins = {
+        let adminPubKey1Signed = if sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1) then 1 else 0
+        let adminPubKey2Signed = if sigVerify(tx.bodyBytes, tx.proofs[1], adminPubKey2) then 1 else 0
+        let adminPubKey3Signed = if sigVerify(tx.bodyBytes, tx.proofs[2], adminPubKey3) then 1 else 0
+        adminPubKey1Signed + adminPubKey2Signed + adminPubKey3Signed >= 2
+    }
+    let signedByAdmin =
+            sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1)
+            || sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey2)
+            || sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey3)
+            || sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKeyStaking)
+    match tx {
+            case dtx:DataTransaction => {
+                oracle.getBoolean(keyLaunchpadDataTransactionStatus).valueOrElse(false) && signedByAdmin
+            }
+            case _ => multiSignedByAdmins
+    }
+}

@@ -2,10 +2,6 @@
 {-# CONTENT_TYPE DAPP #-}
 {-# SCRIPT_TYPE ACCOUNT #-}
 
-let adminPubKey1 = base58'DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA'
-let adminPubKey2 = base58'E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7'
-let adminPubKey3 = base58'AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ'
-
 let kUserPoolVoteSWOP = "_vote"
 let kUserPoolStruc = "_user_pool_struc"
 
@@ -17,6 +13,10 @@ let kPoolStruc = "_pool_struc"
 
 let kTotalVoteSWOP = "total_vote_SWOP"
 let kTotalStruc = "total_struc"
+
+let keyAdminPubKey1 = "admin_pub_1"
+let keyAdminPubKey2 = "admin_pub_2"
+let keyAdminPubKey3 = "admin_pub_3"
 
 let kHarvestPoolActiveVoteStruc = "_harvest_pool_activeVote_struc"
 let kHarvestUserPoolActiveVoteStruc = "_harvest_user_pool_activeVote_struc"
@@ -36,6 +36,16 @@ let durationFullVotePower = this.getInteger(kDurationFullVotePower).valueOrError
 let minVotePower = this.getInteger(kMinVotePower).valueOrErrorMessage("Empty kMinVotePower") # 10000000, minVoteCoeff/scale8 between 0 and 1 - voting power if vote at the end of voting period
 
 let govAddr = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
+let oracle = Address(base58'3PEbqViERCoKnmcSULh6n2aiMvUdSQdCsom')
+
+func getAdminPub(keyAdminPub: String) = match oracle.getString(keyAdminPub) {
+    case string: String => string.fromBase58String()
+    case nothing => throw("Admin public key is empty")
+}
+
+let adminPubKey1 = getAdminPub(keyAdminPubKey1)
+let adminPubKey2 = getAdminPub(keyAdminPubKey2)
+let adminPubKey3 = getAdminPub(keyAdminPubKey3)
 
 let currPeriod = basePeriod + (height-startHeight)/periodLength
 

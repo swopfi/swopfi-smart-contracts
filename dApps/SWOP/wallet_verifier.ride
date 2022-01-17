@@ -19,9 +19,10 @@ func verify() = match tx {
     let isAirdropCall = invoke.dApp == governanceAddress && invoke.function == "airDrop"
     let isUpdateWeightsCall = invoke.dApp == governanceAddress && invoke.function == "updateWeights"
     let isUpdatePoolInterest = invoke.dApp == farmingAddress && invoke.function == "updatePoolInterest"
+    let isTakenIntoAccount = oracleAddress.getString(keyPrefixPoolName + invoke.dApp.addressFromRecipient().toString()).isDefined() && invoke.function == "takeIntoAccountExtraFunds"
     let signedByAdmin = sigVerify(tx.bodyBytes, tx.proofs[0], adminInvoke)
 
-    (((isExchangeCall || isAirdropCall) && invoke.payments.size() == 1) || ((isUpdateWeightsCall || isUpdatePoolInterest) && invoke.payments.size() == 0)) && signedByAdmin
+    (((isExchangeCall || isAirdropCall) && invoke.payments.size() == 1) || ((isUpdateWeightsCall || isUpdatePoolInterest || isTakenIntoAccount) && invoke.payments.size() == 0)) && signedByAdmin
   }
   case _ => {
     let adminPubKey1Signed = if sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1) then 1 else 0

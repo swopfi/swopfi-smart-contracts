@@ -1,0 +1,63 @@
+{-# STDLIB_VERSION 5 #-}
+{-# CONTENT_TYPE DAPP #-}
+{-# SCRIPT_TYPE ACCOUNT #-}
+let keyAchievementId = "id_"
+
+let oracle = Address(base58'3PEbqViERCoKnmcSULh6n2aiMvUdSQdCsom')
+let keyAdminPubKey1 = "admin_pub_1"
+let keyAdminPubKey2 = "admin_pub_2"
+let keyAdminPubKey3 = "admin_pub_3"
+func getAdminPub(keyAdminPub: String) = match oracle.getString(keyAdminPub) {
+    case string: String => string.fromBase58String()
+    case nothing => throw("Admin public key is empty")
+}
+let adminPubKey1 = getAdminPub(keyAdminPubKey1)
+let adminPubKey2 = getAdminPub(keyAdminPubKey2)
+let adminPubKey3 = getAdminPub(keyAdminPubKey3)
+let adminPubKeyStaking = base58'Czn4yoAuUZCVCLJDRfskn8URfkwpknwBTZDbs1wFrY7h'
+let keyAchievementsWriters = "achievements_writers"
+let achievementsWriters = oracle.getString(keyAchievementsWriters).valueOrElse("").split(",")
+
+func zipNext(acc: (List[Int], Int, List[StringEntry]), list2Element: String) = {
+  let (list1, i, result) = acc
+    (list1, i + 1, result :+ StringEntry(keyAchievementId + list1[i].toString(), list2Element))
+}
+
+@Callable(i)
+func add(achievementId: String, amount: Int) = {
+  if(!achievementsWriters.containsElement(i.caller.toString())) then
+    throw("Only achievement writer can call this function")
+  else if !this.getString(keyAchievementId + achievementId).isDefined() then
+    throw("Unknown achievement id")
+  else
+    let userAddress = i.originCaller.toString()
+    let amountOld = this.getInteger(userAddress + "_" + achievementId).valueOrElse(0) 
+    [IntegerEntry(userAddress + "_" + achievementId, amountOld + amount)]
+}
+
+@Callable(i)
+func addAchievements(achievementIds: List[Int], achievementNames: List[String]) = {
+  if ![adminPubKey1, adminPubKey2, adminPubKey3].containsElement(i.callerPublicKey) then
+    throw("Only admin can call this function")
+  else
+    let achievementsEtries = FOLD<20>(achievementNames, (achievementIds, 0 , []), zipNext)
+    achievementsEtries._3
+}
+
+@Verifier(tx)
+func verify() = {
+    let multiSignedByAdmins = {
+        let adminPubKey1Signed = if sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1) then 1 else 0
+        let adminPubKey2Signed = if sigVerify(tx.bodyBytes, tx.proofs[1], adminPubKey2) then 1 else 0
+        let adminPubKey3Signed = if sigVerify(tx.bodyBytes, tx.proofs[2], adminPubKey3) then 1 else 0
+        adminPubKey1Signed + adminPubKey2Signed + adminPubKey3Signed >= 2
+    }
+    let signedByAdmin =
+            sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1)
+            || sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey2)
+            || sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey3)
+            || sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKeyStaking)
+    match tx {
+            case _ => multiSignedByAdmins
+    }
+}
