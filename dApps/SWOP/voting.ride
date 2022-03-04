@@ -1,7 +1,9 @@
-{-# STDLIB_VERSION 4 #-}
+{-# STDLIB_VERSION 5 #-}
 {-# CONTENT_TYPE DAPP #-}
 {-# SCRIPT_TYPE ACCOUNT #-}
 
+let keyActive = "active"
+let keyCause = "shutdown_cause"
 let kUserPoolVoteSWOP = "_vote"
 let kUserPoolStruc = "_user_pool_struc"
 
@@ -29,6 +31,7 @@ let kMinVotePower = "min_vote_power"
 
 let scale8 = 100000000
 
+let active = this.getBoolean(keyActive).valueOrElse(true)
 let basePeriod = this.getInteger(kBasePeriod).valueOrErrorMessage("Empty kBasePeriod") # 0
 let startHeight = this.getInteger(kStartHeight).valueOrErrorMessage("Empty kStartHeight")
 let periodLength =  this.getInteger(kPeriodLength).valueOrErrorMessage("Empty kPeriodLength")  # 10102
@@ -46,11 +49,19 @@ func getAdminPub(keyAdminPub: String) = match oracle.getString(keyAdminPub) {
 let adminPubKey1 = getAdminPub(keyAdminPubKey1)
 let adminPubKey2 = getAdminPub(keyAdminPubKey2)
 let adminPubKey3 = getAdminPub(keyAdminPubKey3)
+let adminPubKeyStartStop = base58'EtVkT6ed8GtbUiVVEqdmEqsp2J4qbb3rre2HFgxeVYdg'
 
 let currPeriod = basePeriod + (height-startHeight)/periodLength
 
+func isActive() = if active then unit else throw("DApp is inactive at this moment")
+
+func suspend(cause: String) = [
+    BooleanEntry(keyActive, false),
+    StringEntry(keyCause, cause)
+]
+
 func isCallerInGovernance(user: Address) = {
-    if govAddr.getInteger(user.toString() + "_SWOP_amount").valueOrElse(0) > 0 
+    if govAddr.getInteger(user.toString() + "_SWOP_amount").valueOrElse(0) > 0
     then true
     else false
 }
@@ -60,7 +71,7 @@ func isPoolInGovernance(poolAddress: String) = govAddr.getInteger(poolAddress + 
 func votingCoef() = {
     let votingDuration = height - (startHeight+currPeriod*periodLength)
     if votingDuration < durationFullVotePower then scale8
-    else 
+    else
         let x1 = durationFullVotePower
         let y1 = scale8
         let x2 = periodLength
@@ -80,46 +91,46 @@ func calcDeleteEntry(caller: String,poolAddress: String, userPoolVoteSWOPnew: In
 }
 
 @Callable(i)
-func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = {
-    if poolAddressesL.size() > 1 || poolsVoteSWOPNewL.size() > 1 
+func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = isActive().valueOrElse({
+    if poolAddressesL.size() > 1 || poolsVoteSWOPNewL.size() > 1
         then throw("poolAddressesL.size > 1 or poolsVoteSWOPNewL.size > 1") else
     let poolAddress = poolAddressesL[0]
     let userPoolVoteSWOPnew = poolsVoteSWOPNewL[0]
-    
+
     if !isPoolInGovernance(poolAddress) then
         throw("This pool has no _current_pool_fraction_reward in Governance dApp")
     else
         let userSWOPinGovernance = govAddr.getInteger(i.caller.toString() + "_SWOP_amount").valueOrErrorMessage("Empty _SWOP_amount at gov. address")
-    
+
     # extract info from structure
     let (userPoolVoteSWOP,userPoolActiveVoteSWOP,userPoolVotePeriod,userPoolFreezeSWOP) = if isDefined(this.getString(i.caller.toString()  + "_" + poolAddress + kUserPoolStruc))
-        then 
+        then
             let data = this.getString(i.caller.toString()  + "_" + poolAddress + kUserPoolStruc).valueOrErrorMessage("Empty kUserPoolStruc").split("_")
             (data[0].parseIntValue(),data[1].parseIntValue(),data[2].parseIntValue(),data[3].parseIntValue())
-        else 
+        else
             let uPoolVoteSWOP = this.getInteger(i.caller.toString() + "_" + poolAddress + kUserPoolVoteSWOP).valueOrElse(0)
             (uPoolVoteSWOP,uPoolVoteSWOP,0,0)
 
     let (userTotalVoteSWOP,userUnvoted,userUnvotedPeriod) = if isDefined(this.getString(i.caller.toString() + kUserTotalStruc))
-        then 
+        then
             let data = this.getString(i.caller.toString() + kUserTotalStruc).valueOrErrorMessage("Empty kUserTotalStruc").split("_")
             (data[0].parseIntValue(),data[1].parseIntValue(),data[2].parseIntValue())
-        else 
+        else
             let uPoolTotalSWOP = this.getInteger(toString(i.caller) + kUserTotalVoteSWOP).valueOrElse(0)
             (uPoolTotalSWOP,0,0)
     let (poolVoteSWOP,poolActiveSWOP,poolPeriod) = if isDefined(this.getString(poolAddress + kPoolStruc))
-        then 
+        then
             let data = this.getString(poolAddress + kPoolStruc).valueOrErrorMessage("Empty kPoolStruc").split("_")
             (data[0].parseIntValue(),data[1].parseIntValue(),data[2].parseIntValue())
-        else 
+        else
             let uPoolVoteSWOP = this.getInteger(poolAddress + kPoolVoteSWOP).valueOrElse(0)
             (uPoolVoteSWOP,uPoolVoteSWOP,0,0)
 
     let (totalVoteSWOP,totalActiveSWOP,totalPeriod) = if isDefined(this.getString(kTotalStruc))
-        then 
+        then
             let data = this.getString(kTotalStruc).valueOrErrorMessage("Empty kTotalStruc").split("_")
             (data[0].parseIntValue(),data[1].parseIntValue(),data[2].parseIntValue())
-        else 
+        else
             let uTotalVoteSWOP = this.getInteger(kTotalVoteSWOP).valueOrElse(0)
             (uTotalVoteSWOP,uTotalVoteSWOP,0,0)
 
@@ -244,7 +255,27 @@ func votePoolWeight(poolAddressesL:List[String], poolsVoteSWOPNewL:List[Int]) = 
 
         userPoolEntry ++ userTotalEntry ++ poolEntry ++ totalEntry ++ calcDeleteEntry(i.caller.toString(),poolAddress, userPoolVoteSWOPnew)
         ++ harvestPoolActiveVoteStrucEntry ++ harvestUserPoolActiveVoteStrucEntry
-}
+})
+
+@Callable(i)
+func shutdown() =
+    if !active then
+        throw("DApp is already suspended. Cause: " + this.getString(keyCause).valueOrElse("the cause wasn't specified"))
+    else if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStartStop].containsElement(i.callerPublicKey) then
+        throw("Only admin can call this function")
+    else
+        suspend("Paused by admin")
+
+@Callable(i)
+func activate() =
+    if active then
+        throw("DApp is already active")
+    else if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStartStop].containsElement(i.callerPublicKey) then
+        throw("Only admin can call this function")
+    else [
+        BooleanEntry(keyActive, true),
+        DeleteEntry(keyCause)
+    ]
 
 @Verifier(tx)
 func verify() = {

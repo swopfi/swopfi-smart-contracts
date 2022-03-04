@@ -372,15 +372,15 @@ func finalise(launchpadId: Int, vrfHeight: Int, secretWord: String) = isActive()
         let commissionHC = this.getIntegerValue(launchpadId.toString() + keyHighCompetitionComission)
         let transferedBuyAsset = this.getInteger(launchpadId.toString() + keyTransferBuyAsset).valueOrElse(0)
         let swopfiMembersBuyAssetAmount = this.getIntegerValue(launchpadId.toString() + keyTotalAmountBuyAssetSold)
-        let swopfiHCBuyAssetAmount = this.getIntegerValue(launchpadId.toString() + keyTotalAmountBuyAssetSoldHC).valueOrElse(0)
+        let swopfiHCBuyAssetAmount = this.getInteger(launchpadId.toString() + keyTotalAmountBuyAssetSoldHC).valueOrElse(0)
         let swopfiMembersComission = fraction(swopfiMembersBuyAssetAmount, commission, 100)
         let swopfiHCComission = fraction(swopfiHCBuyAssetAmount, commissionHC, 100)
         let totalAmountBuyAssetInMarketing = this.getIntegerValue(launchpadId.toString() + keyAmountBuyAssetInMarketingFinalized)
         let marketingComission = fraction(totalAmountBuyAssetInMarketing, commission, 100)
-        let unstakeAmount = swopfiMembersBuyAssetAmount + totalAmountBuyAssetInMarketing + swopfiMembersComission + marketingComission + swopfiHCBuyAssetAmount + swopfiHCComission
-        if transferedBuyAsset > swopfiMembersBuyAssetAmount + totalAmountBuyAssetInMarketing then
+        let unstakeAmount = swopfiMembersBuyAssetAmount + totalAmountBuyAssetInMarketing + swopfiMembersComission + marketingComission + swopfiHCBuyAssetAmount + swopfiHCComission - transferedBuyAsset
+        if transferedBuyAsset > swopfiMembersBuyAssetAmount + totalAmountBuyAssetInMarketing + swopfiHCBuyAssetAmount then
             throw("Can't transfer negative value to project")
-        else 
+        else
             strict inv = if buyAssetId == USDN then
               invoke(stakingUSDNAddress, "unlockNeutrino", [unstakeAmount, USDN.toBase58String()], [])
             else 0
@@ -405,13 +405,13 @@ func claim(launchpadId: Int) = isActive().valueOrElse({
         throw("You are already claimed")
     else if boughtTickets == 0 && boughtAllocations == 0 && boughtHCTickets == 0 then
         throw("You can't claim because you don't buy anything")
-    else 
-        let (buyAssetId, buyAssetStrId, buyAssetName, buyAssetDecimals) = getAssetInfoFromString(this.getString(launchpadId.toString() + keyBuyToken).value())
+    else
+        let (buyAssetId, buyAssetStrId, buyAssetName, buyAssetDecimals) = getAssetInfoFromString(this.getString(launchpadId.toString() + keyBuyToken).valueOrElse(USDN.toBase58String()))
         let wonnedTickets = this.getInteger(i.caller.toString() + "_" + launchpadId.toString() + keyUserWinnedTicketsAmount).valueOrElse(0)
         let wonnedHCTickets = this.getInteger(i.caller.toString() + "_" + launchpadId.toString() + keyUserWinnedHighCompetitionTicketsAmount).valueOrElse(0)
         let awailableAllocations = this.getInteger(i.caller.toString() + "_" + launchpadId.toString() + keyUserAvailableAllocations).valueOrElse(0)
         let commission = this.getIntegerValue(launchpadId.toString() + keyComission)
-        let commissionHC = this.getIntegerValue(launchpadId.toString() + keyHighCompetitionComission)
+        let commissionHC = this.getInteger(launchpadId.toString() + keyHighCompetitionComission).valueOrElse(0)
         let allowedAllocations = min([boughtAllocations, awailableAllocations])
         let tokenPrice = this.getIntegerValue(launchpadId.toString() + keyPricePerToken)
         let tokensPerTicket = this.getIntegerValue(launchpadId.toString() + keyTokensPerTicket)
@@ -426,20 +426,20 @@ func claim(launchpadId: Int) = isActive().valueOrElse({
         let claimedBuyToken = this.getInteger(i.caller.toString() + "_" + launchpadId.toString() + keyUserClaimedBuyTokens).valueOrElse(0)
         if buyAssetForAllocations < 0 || buyAssetForUnwonnedTickets < 0 || buyAssetForHCUnwonnedTickets < 0 then
             throw("Error with allowed allocation param or wonned tickets param please contact support")
-        else 
+        else
             let returnedBuyAssetAmount = buyAssetForUnwonnedTickets + buyAssetForHCUnwonnedTickets + buyAssetForAllocations - claimedBuyToken
-            let transferBuyAsset = if returnedBuyAssetAmount > 0 then 
+            let transferBuyAsset = if returnedBuyAssetAmount > 0 then
                     [
                         ScriptTransfer(i.caller, returnedBuyAssetAmount, buyAssetId),
                         IntegerEntry(i.caller.toString() + "_" + launchpadId.toString() + keyUserClaimedBuyTokens, returnedBuyAssetAmount)
-                    ] 
+                    ]
                 else []
-            strict inv =  
+            strict inv =
                 if returnedBuyAssetAmount > 0 && buyAssetId == USDN then
                     invoke(stakingUSDNAddress, "unlockNeutrino", [returnedBuyAssetAmount, USDN.toBase58String()], [])
                 else 0
-            let claimedParams = this.getString(launchpadId.toString() + keyClaimParams).valueOrElse("").split(",")
-            if claimedParams.size() == 0 || claimedParams.getElement(0) == "claimAll" then
+            let claimedParams = this.getString(launchpadId.toString() + keyClaimParams).valueOrElse("claimAll").split(",")
+            if claimedParams.getElement(0) == "claimAll" then
                 let transferTokens = if transferTokensAmount > 0 then [ScriptTransfer(i.caller, transferTokensAmount, tokenId)] else []
                 [
                   BooleanEntry(i.caller.toString() + "_" + launchpadId.toString() + keyUserClaimStatus, true),
@@ -450,17 +450,17 @@ func claim(launchpadId: Int) = isActive().valueOrElse({
                 let claimedTokens = this.getInteger(i.caller.toString() + "_" + launchpadId.toString() + keyUserClaimedTokens).valueOrElse(0)
                 let unlockPeriod = parseInt(claimedParams.getElement(2)).value()
                 let blockHeight = parseInt(claimedParams.getElement(3)).value() + finalizeHeight
-                let unlockHeight = unlockPeriod + finalizeHeight + blockHeight
-                let allowedTokensAmount = fraction(transferTokensAmount, parseInt(claimedParams.getElement(1)).value(), 100) 
+                let unlockHeight = unlockPeriod + blockHeight
+                let allowedStartAmount = fraction(transferTokensAmount, parseInt(claimedParams.getElement(1)).value(), 100)
+                let allowedTokensAmount = allowedStartAmount
                     + if height > blockHeight then
-                        fraction(transferTokensAmount, height - blockHeight,  unlockPeriod)
-                        else 0 
-                    - claimedTokens
-                let claimStatusEntry = if transferTokensAmount >= claimedTokens + allowedTokensAmount then 
+                        fraction(transferTokensAmount - allowedStartAmount, min([height, unlockHeight]) - blockHeight,  unlockPeriod) - claimedTokens
+                        else 0 - claimedTokens
+                let claimStatusEntry = if transferTokensAmount >= claimedTokens + allowedTokensAmount then
                         [BooleanEntry(i.caller.toString() + "_" + launchpadId.toString() + keyUserClaimStatus, true)]
                     else []
                 if allowedTokensAmount > 0 || returnedBuyAssetAmount > 0 then
-                    let transferTokens = if allowedTokensAmount > 0 then 
+                    let transferTokens = if allowedTokensAmount > 0 then
                         [
                             IntegerEntry(i.caller.toString() + "_" + launchpadId.toString() + keyUserClaimedTokens, claimedTokens + allowedTokensAmount),
                             ScriptTransfer(i.caller, allowedTokensAmount, tokenId)
@@ -468,7 +468,7 @@ func claim(launchpadId: Int) = isActive().valueOrElse({
                     transferBuyAsset ++ transferTokens
                 else
                     throw("Nothing to claim")
-            else 
+            else
               throw("Unknown claim function")
 })
 
@@ -477,16 +477,16 @@ func claimFreezeToken(launchpadId: Int) = isActive().valueOrElse({
     let freezeAdditionalToken = this.getBoolean(launchpadId.toString() + keyFreezeAdditionalToken).valueOrElse(false)
     if !this.getInteger(launchpadId.toString() + keyFinaliseHeight).isDefined() then
         throw("You can't claim because results are not finalized")
-    else if !freezeAdditionalToken then 
+    else if !freezeAdditionalToken then
         throw("There are no additional token freezing for this launchpad")
     else
         let tokenId = this.getStringValue(launchpadId.toString() + keyFreezeTokenId).fromBase58String()
         let userTokensFreezed = this.getInteger(i.caller.toString() + "_" + launchpadId.toString() + keyUserFreezeToken).valueOrElse(0)
-        let startHeight = this.getInteger(launchpadId.toString() + keyStartHeight).valueOrElse(0) 
-        let duration = this.getInteger(launchpadId.toString() + keyDuration).valueOrElse(0) 
+        let startHeight = this.getInteger(launchpadId.toString() + keyStartHeight).valueOrElse(0)
+        let duration = this.getInteger(launchpadId.toString() + keyDuration).valueOrElse(0)
         let freezeTokenDuration = this.getIntegerValue(launchpadId.toString() + keyFreezeTokenDuration)
         let blockEndHeight = startHeight + duration + freezeTokenDuration
-        if userTokensFreezed == 0 then 
+        if userTokensFreezed == 0 then
             throw("You are already claimed your tokens or not paid anything")
         else if height < blockEndHeight then
             throw("Your tokens freezed teel " + blockEndHeight.toString())
@@ -494,15 +494,20 @@ func claimFreezeToken(launchpadId: Int) = isActive().valueOrElse({
             [
                 ScriptTransfer(i.caller, userTokensFreezed, tokenId),
                 IntegerEntry(i.caller.toString() + "_" + launchpadId.toString() + keyUserFreezeToken, 0)
-            ]        
+            ]
 })
 
 @Callable(i)
 func transferBuyAsset(launchpadId: Int, amount: Int) = isActive().valueOrElse(isAdminCall(i).valueOrElse({
     let projectAddress = addressFromStringValue(this.getStringValue(launchpadId.toString() + keyAddress))
     let (buyAssetId, buyAssetStrId, buyAssetName, buyAssetDecimals) = getAssetInfoFromString(this.getString(launchpadId.toString() + keyBuyToken).value())
+    let transferedBuyAsset = this.getInteger(launchpadId.toString() + keyTransferBuyAsset).valueOrElse(0)
+    strict inv =
+            if amount > 0 && buyAssetId == USDN then
+                invoke(stakingUSDNAddress, "unlockNeutrino", [amount, USDN.toBase58String()], [])
+            else 0
     [
-        IntegerEntry(launchpadId.toString() + keyTransferBuyAsset, amount),
+        IntegerEntry(launchpadId.toString() + keyTransferBuyAsset, transferedBuyAsset + amount),
         ScriptTransfer(projectAddress, amount, buyAssetId)
     ]
 }))
