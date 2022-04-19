@@ -51,16 +51,14 @@ let walletAddress = Address(base58'3P6J84oH51DzY6xk2mT5TheXRbrCwBMxonp')
 let votingAddress = Address(base58'3PQZWxShKGRgBN1qoJw6B4s9YWS9FneZTPg')
 
 let USDN = base58'DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p'
-let NSBT = base58'6nSpVyNH7yM69eg446wrQR94ipbbcmZMU1ENPwanC97g'
 let SWOP = base58'Ehie5xYpeN8op1Cctc6aGUrqx8jq3jtf1DSjXDbfm7aT'
 let EURN = base58'DUk2YTxhRoAqMJLus4G2b3fR8hMHVh6eiyFx5r29VR6t'
 
-let stakingAssets = ["WAVES", USDN.toBase58String(), NSBT.toBase58String(), EURN.toBase58String()]
-let stakingUSDNNSBTAddress = Address(oracle.getString(keyUSDNNSBTAddress).valueOrErrorMessage("no usdn staking address").fromBase58String())
+let stakingAssets = ["WAVES", USDN.toBase58String(), EURN.toBase58String()]
+let stakingUSDNAddress = Address(oracle.getString(keyUSDNNSBTAddress).valueOrErrorMessage("no usdn staking address").fromBase58String())
 let stakingEURNAddress = Address(oracle.getString(keyEURNAddress).valueOrErrorMessage("no eurn staking address").fromBase58String())
 
 let USDNToWavesExchanger = Address(base58'3PHaNgomBkrvEL2QnuJarQVJa71wjw9qiqG')
-let USDNToNSBTExchanger = Address(base58'3P2V63Xd6BviDkeMzxhUw2SJyojByRz8a8m')
 
 let basePeriod = votingAddress.getInteger(kBasePeriod).valueOrErrorMessage("Empty kBasePeriod") # 0
 let startHeight = votingAddress.getInteger(kStartHeight).valueOrErrorMessage("Empty kStartHeight")
@@ -104,8 +102,8 @@ func accountBalance(assetId: ByteVector|Unit) = match assetId {
 func stakedAmount(assetId: ByteVector|Unit) = {
     let stakedAmountCalculated = match assetId {
         case aId: ByteVector =>
-          if aId == USDN || aId == NSBT then {
-              stakingUSDNNSBTAddress.getInteger("rpd_balance_" + aId.toBase58String() + "_" + this.toString())
+          if aId == USDN then {
+              stakingUSDNAddress.getInteger("rpd_balance_" + aId.toBase58String() + "_" + this.toString())
           } else if  aId == EURN then {
               stakingEURNAddress.getInteger("%s%s%s__stakingBalance__" + aId.toBase58String() + "__" + this.toString())
           } else 0
@@ -154,12 +152,10 @@ func suspend(cause: String) = [
 
 func calcStakingFuncAndAddres(stake: Boolean, assetId: ByteVector) = {
     if stake then
-        if assetId == USDN then ("lockNeutrino", stakingUSDNNSBTAddress)
-        else if assetId == NSBT then ("lockNsbt", stakingUSDNNSBTAddress)
+        if assetId == USDN then ("lockNeutrino", stakingUSDNAddress)
         else ("startStaking", stakingEURNAddress)
     else
-        if assetId == USDN then ("unlockNeutrino", stakingUSDNNSBTAddress)
-        else if assetId == NSBT then ("unlockNsbt", stakingUSDNNSBTAddress)
+        if assetId == USDN then ("unlockNeutrino", stakingUSDNAddress)
         else ("stopStaking", stakingEURNAddress)
 }
 
@@ -376,7 +372,7 @@ func withdraw() = isActive().valueOrElse({
         strict stake1 = if stakingAssets.containsElement(strAssetIdA) then
             invoke(this, "stakeUnstake", [false, amountToPayA, strAssetIdA], []) else 0
         strict stake2 = if stakingAssets.containsElement(strAssetIdB) then
-            invoke(this, "stakeUnstake", [false, amountToPayB, strAssetIdB], []) else 0 
+            invoke(this, "stakeUnstake", [false, amountToPayB, strAssetIdB], []) else 0
         [
             IntegerEntry(keyBalanceA, balanceA - amountToPayA),
             IntegerEntry(keyBalanceB, balanceB - amountToPayB),
@@ -391,7 +387,7 @@ func withdraw() = isActive().valueOrElse({
 func exchange(minAmountToReceive: Int) = isActive().valueOrElse({
     let (pmtAmount, pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
 
-    
+
 
     if balanceA == 0 || balanceB == 0 then
         throw("Can't exchange with zero balance")
@@ -443,7 +439,7 @@ func exchange(minAmountToReceive: Int) = isActive().valueOrElse({
 })
 
 @Callable(i)
-func shutdown() = 
+func shutdown() =
     if !active then
         throw("DApp is already suspended. Cause: " + this.getString(keyCause).valueOrElse("the cause wasn't specified"))
     else if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStartStop].containsElement(i.callerPublicKey) then
@@ -517,18 +513,18 @@ func stakeAll() = isActive().valueOrElse({
     if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStartStop].containsElement(i.callerPublicKey) then
         throw("Only admin can call this function")
     else
-        strict stake1 = 
+        strict stake1 =
             if stakingAssets.containsElement(strAssetIdA) then
                 let amountA = balanceA - stakedAmountA
-                if amountA > 0 then 
+                if amountA > 0 then
                     invoke(this, "stakeUnstake", [true, amountA, strAssetIdA], [])  else 0
             else 0
-        strict stake2 = 
+        strict stake2 =
             if stakingAssets.containsElement(strAssetIdB) then
                 let amountB = balanceB - stakedAmountB
-                if amountB > 0 then 
+                if amountB > 0 then
                     invoke(this, "stakeUnstake", [true, amountB, strAssetIdB], []) else 0
-            else 0    
+            else 0
         []
 })
 
@@ -548,19 +544,13 @@ func verify() = {
             && inv.function == "exchange"
             && inv.payments.size() == 1
             && (inv.payments[0].assetId == USDN || inv.payments[0].assetId == unit)
-        let exchangeToNSBTs =
-            inv.dApp == USDNToNSBTExchanger
-            && inv.function == "exchange"
-            && assetIdA == NSBT || assetIdB == NSBT
-            && inv.payments.size() == 1
-            && inv.payments[0].assetId == USDN
         let signedByAdmin =
             sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1)
             || sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey2)
             || sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey3)
             || sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKeyStaking)
 
-        ((callTakeIntoAccount || exchangeToWaves || exchangeToNSBTs) && signedByAdmin)
+        ((callTakeIntoAccount || exchangeToWaves) && signedByAdmin)
         || multiSignedByAdmins
       case _ => multiSignedByAdmins
   }

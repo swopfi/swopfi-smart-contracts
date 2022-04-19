@@ -1,0 +1,160 @@
+{-# STDLIB_VERSION 5 #-}
+{-# CONTENT_TYPE DAPP #-}
+{-# SCRIPT_TYPE ACCOUNT #-}
+
+let kAdminPubKey1 = "admin_pub_1"
+let kAdminPubKey2 = "admin_pub_2"
+let kAdminPubKey3 = "admin_pub_3"
+let kAdminInvokePubKey = "admin_invoke_pub"
+let kMoneyBoxAddress = "money_box_address"
+let kGovAddress = "governance_address"
+let kActive = "active"
+let kLastSurveyId = "last_survey_id"
+let kSurveyHeightCompletion = "_survey_height_completion"
+let kSurveyTitle = "_survey_title"
+let kSurveyDescription = "_survey_description"
+let kSurveyOptionName = "_survey_option_name"
+let kSurveyOptionType = "_survey_option_type"
+let kUserVote = "_survey_user_vote"
+let kTotalSwopVoted = "_survey_option_total_swop_voted"
+let kUserSwopInGov = "_SWOP_amount"
+
+let oracle = Address(base58'3PEbqViERCoKnmcSULh6n2aiMvUdSQdCsom')
+
+func getBase58FromOracle(key: String) = match oracle.getString(key) {
+    case string: String => string.fromBase58String()
+    case nothing => throw(key + "is empty")
+}
+
+let adminPubKey1 = getBase58FromOracle(kAdminPubKey1)
+let adminPubKey2 = getBase58FromOracle(kAdminPubKey2)
+let adminPubKey3 = getBase58FromOracle(kAdminPubKey3)
+let adminPubKeyInvoke = getBase58FromOracle(kAdminInvokePubKey)
+let moneyBoxAddress = Address(getBase58FromOracle(kMoneyBoxAddress))
+let govAddress = Address(getBase58FromOracle(kGovAddress))
+let active = this.getBoolean(kActive).valueOrElse(true)
+
+func isActive() =
+  if active then
+    unit
+  else
+    throw("DApp is inactive at this moment")
+
+func isAdminCall(i:Invocation) =
+  if [adminPubKey1, adminPubKey2, adminPubKey3].containsElement(i.callerPublicKey) then
+    unit
+  else
+    throw("Only admin can call this function")
+
+func isMoneyBoxCall(i:Invocation) =
+  if moneyBoxAddress == i.caller then
+    unit
+  else
+    throw("Only Money box can call this function")
+
+# heightCompletion:Int - height of survey completion must be greater than currnet height
+# surveyTitle: String - survey title
+# surveyDescription: String - survey description
+# options: List[String] - list of survey options, max 10 items
+# optionsType: List[String] - list of survey options types String|Image. Need for ui view
+#
+# Only for admin call.
+# Function initiates survey for options. Survey starts after creation and ends at heightCompletion.
+# More than one survey can be in parallels
+@Callable(i)
+func initSurvey(heightCompletion: Int, surveyTitle: String, surveyDescription: String, options: List[String], optionsType: List[String]) =
+  isActive().valueOrElse(
+    isAdminCall(i).valueOrElse({
+      if height >= heightCompletion then
+        throw("Height of survey completion must be greater than currnet height")
+      else if options.size() > 10 then
+        throw("Max 10 options must be specified")
+      else if options.size() != optionsType.size() then
+        throw("Size of optionsTypes must be same as options")
+      else
+        let newSurveyId = this.getInteger(kLastSurveyId).valueOrElse(0) + 1
+
+        func prepareOptions(acc: (List[String], Int, List[StringEntry]), name: String) = {
+          let (types, k, result) = acc
+          let res = result :+
+            StringEntry(newSurveyId.toString() + "_" + k.toString() + kSurveyOptionName, name) :+
+            StringEntry(newSurveyId.toString() + "_" + k.toString() + kSurveyOptionType, types[k])
+
+          (types, k + 1, res)
+        }
+
+        let optionsEntries = FOLD<10>(options, (optionsType, 0, []), prepareOptions)
+
+        [
+          IntegerEntry(kLastSurveyId, newSurveyId),
+          IntegerEntry(newSurveyId.toString() + kSurveyHeightCompletion, heightCompletion),
+          StringEntry(newSurveyId.toString() + kSurveyTitle, surveyTitle),
+          StringEntry(newSurveyId.toString() + kSurveyDescription, surveyDescription)
+        ] ++ optionsEntries._3
+
+    })
+  )
+
+# surveyId: Int - Id of survey
+# option: Int - Id of option
+#
+# Function for survey. User must have positive balance in governance to vote.
+# User can vote only for one option per survey. User can't change his vote.
+@Callable(i)
+func vote(surveyId: Int, option: Int) =
+  isActive().valueOrElse({
+    if !this.getString(surveyId.toString() + kSurveyTitle).isDefined() then
+      throw("There is no survey with id "  + surveyId.toString())
+    else if !this.getString(surveyId.toString() + "_" + option.toString() + kSurveyOptionName).isDefined() then
+      throw("There is no option " + option.toString() + " in survey " + surveyId.toString())
+    else if (this.getInteger(surveyId.toString() + "_" + i.caller.toString() + kUserVote).isDefined()) then
+      throw("You can't vote twice")
+    else if this.getInteger(surveyId.toString() + kSurveyHeightCompletion).value() < height then
+      throw("Survey already end")
+    else if govAddress.getInteger(i.caller.toString() + kUserSwopInGov).valueOrElse(0) <= 0 then
+      throw("Stake swop in governance to survey")
+    else
+      [
+        IntegerEntry(surveyId.toString() + "_" + i.caller.toString() + kUserVote, option)
+      ]
+  })
+
+
+# surveyId: Int - Id of survey
+# totals: List[Int] - List of total voted swops per option. Where key is option id and value total voted swops
+#
+# Only for money box address call
+# Function for write total voted swop per option at the end of survey.
+@Callable(i)
+func writeTotals(surveyId: Int, totals: List[Int]) =
+  isActive().valueOrElse(
+    isMoneyBoxCall(i).valueOrElse({
+      if !this.getString(surveyId.toString() + kSurveyTitle).isDefined() then
+        throw("There is no survey with id "  + surveyId.toString())
+      else if this.getInteger(surveyId.toString() + kSurveyHeightCompletion).value() > height then
+        throw("Survey is not ended yet")
+      else
+        func prepareTotals(acc: (Int, List[IntegerEntry]), total: Int) = {
+          let (option, result) = acc
+          let res = result :+
+            IntegerEntry(surveyId.toString() + "_" + option.toString() + kTotalSwopVoted, total)
+
+          (option + 1, res)
+        }
+
+        let optionsEntries = FOLD<10>(totals, (0, []), prepareTotals)
+
+        optionsEntries._2
+    })
+  )
+
+@Verifier(tx)
+func verify() = {
+    let adminPubKey1Signed =
+      if sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1) then 1 else 0
+    let adminPubKey2Signed =
+      if sigVerify(tx.bodyBytes, tx.proofs[1], adminPubKey2) then 1 else  0
+    let adminPubKey3Signed =
+      if sigVerify(tx.bodyBytes, tx.proofs[2], adminPubKey3) then 1 else 0
+    adminPubKey1Signed + adminPubKey2Signed + adminPubKey3Signed >= 2
+}
