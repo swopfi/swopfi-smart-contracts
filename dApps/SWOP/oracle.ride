@@ -2,26 +2,28 @@
 {-# CONTENT_TYPE DAPP #-}
 {-# SCRIPT_TYPE ACCOUNT #-}
 
-let keyPoolsListName = "pools"
-let keyPrefixPoolName = "pool_"
-let keyPrefixPoolIndex = "index_"
+let kPoolsListName = "pools"
+let kPrefixPoolName = "pool_"
+let kPrefixPoolIndex = "index_"
 
-let keyPair = "pair_"
-let keyAssetIdA = "A_asset_id"
-let keyAssetIdB = "B_asset_id"
-let keyLaunchpadDataTransactionStatus = "launchpad_data_transaction_status"
+let kPair = "pair_"
+let kAssetIdA = "A_asset_id"
+let kAssetIdB = "B_asset_id"
+let kLaunchpadDataTransactionStatus = "launchpad_data_transaction_status"
 
-let keyAdminPubKey1 = "admin_pub_1"
-let keyAdminPubKey2 = "admin_pub_2"
-let keyAdminPubKey3 = "admin_pub_3"
+let kAdminPubKey1 = "admin_pub_1"
+let kAdminPubKey2 = "admin_pub_2"
+let kAdminPubKey3 = "admin_pub_3"
+let kAdminInvokePubKey = "admin_invoke_pub"
 
-let keyAchievementsWriters = "achievements_writers"
+let kAchievementsWriters = "achievements_writers"
 
 let adminPubKey1 = base58'DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA'
 let adminPubKey2 = base58'E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7'
 let adminPubKey3 = base58'AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ'
+let adminPubKeyInvoke = base58'Czn4yoAuUZCVCLJDRfskn8URfkwpknwBTZDbs1wFrY7h'
 
-let pools = match this.getString(keyPoolsListName) {
+let pools = match this.getString(kPoolsListName) {
     case string: String => string.split(",")
     case nothing => []
 }
@@ -45,19 +47,20 @@ func getAddressIfValid(address: String) = address.addressFromString().valueOrErr
 @Callable(i)
 func setAdmin() = isSelfCall(i).valueOrElse({
     [
-        StringEntry(keyAdminPubKey1, adminPubKey1.toBase58String()),
-        StringEntry(keyAdminPubKey2, adminPubKey2.toBase58String()),
-        StringEntry(keyAdminPubKey3, adminPubKey3.toBase58String())
+        StringEntry(kAdminPubKey1, adminPubKey1.toBase58String()),
+        StringEntry(kAdminPubKey2, adminPubKey2.toBase58String()),
+        StringEntry(kAdminPubKey3, adminPubKey3.toBase58String()),
+        StringEntry(kAdminInvokePubKey, adminPubKeyInvoke.toBase58String())
     ]
 })
 
 @Callable(i)
 func addPool(poolAddress: String, poolName: String) = isSelfCall(i).valueOrElse({
     let validatedAddress = poolAddress.getAddressIfValid()
-    let keyName = keyPrefixPoolName + validatedAddress
-    let keyIndex = keyPrefixPoolIndex + validatedAddress
-    let assetIdA = poolAddress.addressFromString().value().getString(keyAssetIdA).valueOrErrorMessage("Asset id A is incorrect")
-    let assetIdB = poolAddress.addressFromString().value().getString(keyAssetIdB).valueOrErrorMessage("Asset id B is incorrect")
+    let keyName = kPrefixPoolName + validatedAddress
+    let keyIndex = kPrefixPoolIndex + validatedAddress
+    let assetIdA = poolAddress.addressFromString().value().getString(kAssetIdA).valueOrErrorMessage("Asset id A is incorrect")
+    let assetIdB = poolAddress.addressFromString().value().getString(kAssetIdB).valueOrErrorMessage("Asset id B is incorrect")
 
 
     let possiblyAlreadyAddedPool = this.getString(keyName)
@@ -67,15 +70,15 @@ func addPool(poolAddress: String, poolName: String) = isSelfCall(i).valueOrElse(
     else [
         IntegerEntry(keyIndex, pools.size()),
         StringEntry(keyName, poolName.getPoolNameIfValid()),
-        StringEntry(keyPair + assetIdA + "_" + assetIdB, poolAddress),
-        StringEntry(keyPoolsListName, (pools :+ validatedAddress).makeString(","))
+        StringEntry(kPair + assetIdA + "_" + assetIdB, poolAddress),
+        StringEntry(kPoolsListName, (pools :+ validatedAddress).makeString(","))
     ]
 })
 
 @Callable(i)
 func renamePool(poolAddress: String, newPoolName: String) = isSelfCall(i).valueOrElse({
     let validatedAddress = poolAddress.getAddressIfValid()
-    let keyName = keyPrefixPoolName + validatedAddress
+    let keyName = kPrefixPoolName + validatedAddress
     let possiblyAlreadyAddedPool = this.getString(keyName)
 
     if possiblyAlreadyAddedPool.isDefined() then [
@@ -86,21 +89,21 @@ func renamePool(poolAddress: String, newPoolName: String) = isSelfCall(i).valueO
 
 @Callable(i)
 func launchpadDataTransactionStatus(status: Boolean) = isSelfCall(i).valueOrElse({
-   [BooleanEntry(keyLaunchpadDataTransactionStatus, status)]
+   [BooleanEntry(kLaunchpadDataTransactionStatus, status)]
 })
 
 @Callable(i)
 func addAchievementsWriter(address: String) = isSelfCall(i).valueOrElse({
-    let writers = this.getString(keyAchievementsWriters).valueOrElse("")
+    let writers = this.getString(kAchievementsWriters).valueOrElse("")
     let data = if writers == "" then [] else writers.split(",")
-    [StringEntry(keyAchievementsWriters, (data :+ address).makeString(","))]
+    [StringEntry(kAchievementsWriters, (data :+ address).makeString(","))]
 })
 
 @Callable(i)
 func removeAchievementsWriter(address: String) = isSelfCall(i).valueOrElse({
-    let writers = this.getString(keyAchievementsWriters).valueOrElse("").split(",")
+    let writers = this.getString(kAchievementsWriters).valueOrElse("").split(",")
     let index = writers.indexOf(address).valueOrErrorMessage("Can't find address in the list")
-    [StringEntry(keyAchievementsWriters, writers.removeByIndex(index).makeString(","))]
+    [StringEntry(kAchievementsWriters, writers.removeByIndex(index).makeString(","))]
 })
 
 @Verifier(tx)

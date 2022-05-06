@@ -1,0 +1,189 @@
+{-# STDLIB_VERSION 5 #-}
+{-# CONTENT_TYPE DAPP #-}
+{-# SCRIPT_TYPE ACCOUNT #-}
+
+let kActive = "active"
+let kCause = "shutdown_cause"
+let kRoutingFee = "routing_fee"
+let kAdminPubKey1 = "admin_pub_1"
+let kAdminPubKey2 = "admin_pub_2"
+let kAdminPubKey3 = "admin_pub_3"
+let kMoneyBoxAddress = "money_box_address"
+let kPoolInOracle = "pool_"
+
+let digits8 = 8
+let scale8 = 100000000
+let scale16 = 10000000000000000
+let alpha = 50 # model coefficient alpha = 0.15 with 2 digits
+let alphaDigits = 2
+let beta = 4600000000000000 # model coefficient beta = 0.46 with 16 digits
+
+let commission = 3000 # commission/commissionScaleDelimiter = 0.003
+let commissionScaleDelimiter = 1000000
+
+let oracle = Address(base58'3PEbqViERCoKnmcSULh6n2aiMvUdSQdCsom')
+
+func getBase58FromOracle(key: String) = match oracle.getString(key) {
+    case string: String => string.fromBase58String()
+    case nothing => throw(key + "is empty")
+}
+
+let adminPubKey1 = getBase58FromOracle(kAdminPubKey1)
+let adminPubKey2 = getBase58FromOracle(kAdminPubKey2)
+let adminPubKey3 = getBase58FromOracle(kAdminPubKey3)
+let moneyBoxAddress = Address(getBase58FromOracle(kMoneyBoxAddress))
+
+
+let active = this.getBoolean(kActive).valueOrElse(true)
+let routingFee = oracle.getInteger(kRoutingFee).valueOrErrorMessage("routing_fee is empty")
+let feeScale6 = 1000000
+
+func isActive() = if active then unit else throw("DApp is inactive at this moment")
+func isAdminCall(i:Invocation) = if [adminPubKey1, adminPubKey2, adminPubKey3].containsElement(i.callerPublicKey) then unit
+        else throw("Only admin can call this function")
+func throwIsActive() = throw("DApp is already active")
+
+func suspend(cause: String) = [
+    BooleanEntry(kActive, false),
+    StringEntry(kCause, cause)
+]
+
+# skewness = 0.5*(x/y+y/x)
+# Each fraction multiple by scale in order to avoid zeroing
+func skewness(x: Int, y: Int) = (scale16.fraction(x, y) + scale16.fraction(y, x)) / 2
+
+# Calculate (x+y)*skewness^(-alpha) + 2*(x*y)^0.5*(skewness-beta)^alpha
+func invariantCalc(x: Int, y: Int) = {
+    let sk = skewness(x, y)
+    fraction(
+        x + y,
+        scale16,
+        pow(sk, digits8, alpha, alphaDigits, digits8, CEILING)
+    ) + 2 * fraction(
+        pow(fraction(x.toBigInt(), y.toBigInt(), scale8.toBigInt()), 0, 5.toBigInt(), 1, digits8 / 2, DOWN).toInt(),
+        pow(sk - beta, digits8, alpha, alphaDigits, digits8, DOWN),
+        scale8
+    )
+}
+
+# Checking possibility of the route
+func checkPossibility(pmtAmount: Int, minAmountToReceive: Int, exchangers: List[String], exchangersType: List[String],routingAssetsKeys:List[String], args1: List[Int], args2: List[Int]) ={
+
+    let dApp1TokenPay = exchangers[0].addressFromStringValue().getIntegerValue(routingAssetsKeys[0])
+    let dApp1TokenGet = exchangers[0].addressFromStringValue().getIntegerValue(routingAssetsKeys[1])
+    let dApp2TokenPay = exchangers[1].addressFromStringValue().getIntegerValue(routingAssetsKeys[2])
+    let dApp2TokenGet = exchangers[1].addressFromStringValue().getIntegerValue(routingAssetsKeys[3])
+
+    let getFrom1TradeWithFee =
+        if exchangersType[0] == "cpmm" then
+            let getFrom1TradeWithoutFee = fraction(dApp1TokenGet, pmtAmount, pmtAmount + dApp1TokenPay)
+            fraction(getFrom1TradeWithoutFee, commissionScaleDelimiter - commission, commissionScaleDelimiter)
+        else if exchangersType[0] == "flat" then
+            let invariant = invariantCalc(dApp1TokenPay, dApp1TokenGet)
+            let minAmountToReceive1 = args2[0]
+            let invariantNew = invariantCalc(dApp1TokenPay + pmtAmount, dApp1TokenGet - minAmountToReceive1)
+            if invariantNew >= invariant then minAmountToReceive1 else throw("Flat contract: invariantNew < invariant")
+        else
+            throw("Incorrect exchange type")
+
+    let getFrom2TradeWithFee =
+        if exchangersType[1] == "cpmm" then
+            let getFrom2TradeWithoutFee = fraction(dApp2TokenGet, getFrom1TradeWithFee, getFrom1TradeWithFee + dApp2TokenPay)
+            fraction(getFrom2TradeWithoutFee, commissionScaleDelimiter - commission, commissionScaleDelimiter)
+        else if exchangersType[1] == "flat" then
+            let invariant = invariantCalc(dApp2TokenPay,dApp2TokenGet)
+            let minAmountToReceive2 = args2[1]
+            let invariantNew =  invariantCalc(dApp2TokenPay + getFrom1TradeWithFee,dApp2TokenGet - minAmountToReceive2)
+            if invariantNew >= invariant then minAmountToReceive2 else throw("Flat contract: invariantNew < invariant")
+        else
+            throw("Incorrect exchange type")
+    getFrom2TradeWithFee >= minAmountToReceive
+}
+
+# exchangers — exchangers list(2 exchangers for now)
+# exchangersType — exchnagers types list (flat/cpmm) in exchangers order
+# args1, args2 — args pairs for invoke function exchange in exchangers order
+# routingAssetsKeys - assets keys pairs for each exchange.
+# Example if pay in asset B of ex1 and want to get asset B of ex2 than list will be
+# [B_asset_balance, A_asset_balance, A_asset_balance, B_asset_balance]
+# minAmountToReceive — minimal amount to recive with routing fee
+@Callable(i)
+func routingTrade(exchangers: List[String], exchangersType: List[String], args1: List[Int], args2: List[Int], routingAssetsKeys:List[String], minAmountToReceive: Int) = isActive().valueOrElse({
+    let (pmtAmount,pmtAssetId) = (i.payments[0].amount, i.payments[0].assetId)
+
+    if !checkPossibility(pmtAmount,minAmountToReceive,exchangers,exchangersType,routingAssetsKeys,args1,args2) then
+        throw("Check transaction possibilty: declined")
+    else if !oracle.getString(kPoolInOracle + exchangers[0]).isDefined() || !oracle.getString(kPoolInOracle + exchangers[1]).isDefined() then
+        throw("Pool is not in oracle")
+    else
+        let routingSize = exchangers.size()
+        func exchangeFold(accumulated: (Int,Int,ByteVector), exchanger: String) = {
+            let (exchangeCounter, amountsWithFee, assetsIdSend) = accumulated
+            let (pmtAssetIdRout, pmtAmountRout) =
+                if exchangeCounter == 0 then
+                    (pmtAssetId, pmtAmount)
+                else
+                    (assetsIdSend, amountsWithFee)
+            if (exchangeCounter >= 0  &&  exchangeCounter < routingSize) == true then
+                let exchangerAddress = exchanger.addressFromStringValue()
+
+                strict inv =
+                    if exchangersType[exchangeCounter] == "cpmm" then
+                        invoke(exchangerAddress, "exchange", [args1[exchangeCounter]], [AttachedPayment(pmtAssetIdRout, pmtAmountRout)])
+                    else if exchangersType[exchangeCounter] == "flat" then
+                        invoke(exchangerAddress, "exchange", [args1[exchangeCounter], args2[exchangeCounter]], [AttachedPayment(pmtAssetIdRout, pmtAmountRout)])
+                    else
+                        throw("Incorrect exchange type")
+
+                match inv {
+                    case inv : (Int, ByteVector) =>
+                    (
+                        let (amountWithFee, assetIdSend) = inv
+                        (exchangeCounter+1, amountWithFee, assetIdSend)
+                    )
+                    case _ => throw("Incorrect invoke result: expected amountWithFee and assetsIdSend")
+                }
+            else
+                accumulated
+        }
+        let (exchangeCounter, amountWithoutFee, assetIdSend) = FOLD<3>(exchangers, (0, 0, base58''), exchangeFold)
+        let amountWithFee = fraction(amountWithoutFee, feeScale6 - routingFee, feeScale6)
+        if exchangeCounter == routingSize && amountWithFee >= minAmountToReceive then
+            [
+                ScriptTransfer(i.caller, amountWithFee, assetIdSend),
+                ScriptTransfer(moneyBoxAddress, amountWithoutFee - amountWithFee, assetIdSend)
+            ]
+        else
+            throw("routing != routingSize or amountToRecieve < minAmountToReceive")
+})
+
+@Callable(i)
+func shutdown() = isAdminCall(i).valueOrElse({
+    if !active then
+        throw("DApp is already suspended. Cause: " + this.getString(kCause).valueOrElse("the cause wasn't specified"))
+    else
+        suspend("Paused by admin")
+})
+
+@Callable(i)
+func activate() = isAdminCall(i).valueOrElse({
+    if active then
+        throwIsActive()
+    else [
+        BooleanEntry(kActive, true),
+        DeleteEntry(kCause)
+    ]
+})
+
+@Verifier(tx)
+func verify() = {
+    let multiSignedByAdmins = {
+        let adminPubKey1Signed = if sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1) then 1 else 0
+        let adminPubKey2Signed = if sigVerify(tx.bodyBytes, tx.proofs[1], adminPubKey2) then 1 else 0
+        let adminPubKey3Signed = if sigVerify(tx.bodyBytes, tx.proofs[2], adminPubKey3) then 1 else 0
+        adminPubKey1Signed + adminPubKey2Signed + adminPubKey3Signed >= 2
+    }
+    match tx {
+        case _ => multiSignedByAdmins
+    }
+}

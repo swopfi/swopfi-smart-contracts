@@ -13,39 +13,35 @@ let kBalanceB = "B_asset_balance"
 let kShareAssetId = "share_asset_id"
 let kShareAssetSupply = "share_asset_supply"
 let kFee = "commission"
-let kFeeScaleDelimiter = "commission_scale_delimiter"
 let kInvariant = "invariant"
 let kCause = "shutdown_cause"
-let keyUSDNNSBTAddress = "staking_usdnnsbt_address"
-let keyEURNAddress = "staking_eurn_address"
+let kUSDNAddress = "staking_usdnnsbt_address"
+let kEURNAddress = "staking_eurn_address"
+let kAdminPubKey1 = "admin_pub_1"
+let kAdminPubKey2 = "admin_pub_2"
+let kAdminPubKey3 = "admin_pub_3"
+let kAdminInvokePubKey = "admin_invoke_pub"
+let kMoneyBoxAddress = "money_box_address"
 
-let keyAdminPubKey1 = "admin_pub_1"
-let keyAdminPubKey2 = "admin_pub_2"
-let keyAdminPubKey3 = "admin_pub_3"
 
-let USDNToWavesExchanger = Address(base58'3PHaNgomBkrvEL2QnuJarQVJa71wjw9qiqG')
-
-#TODO change address
 let oracle = Address(base58'3PEbqViERCoKnmcSULh6n2aiMvUdSQdCsom')
 
-func getAdminPub(keyAdminPub: String) = match oracle.getString(keyAdminPub) {
+func getBase58FromOracle(key: String) = match oracle.getString(key) {
     case string: String => string.fromBase58String()
-    case nothing => throw("Admin public key is empty")
+    case nothing => throw(key + "is empty")
 }
 
-let adminPubKey1 = getAdminPub(keyAdminPubKey1)
-let adminPubKey2 = getAdminPub(keyAdminPubKey2)
-let adminPubKey3 = getAdminPub(keyAdminPubKey3)
-let admStartStop = base58'EtVkT6ed8GtbUiVVEqdmEqsp2J4qbb3rre2HFgxeVYdg'
-let admStaking = base58'Czn4yoAuUZCVCLJDRfskn8URfkwpknwBTZDbs1wFrY7h'
+let adminPubKey1 = getBase58FromOracle(kAdminPubKey1)
+let adminPubKey2 = getBase58FromOracle(kAdminPubKey2)
+let adminPubKey3 = getBase58FromOracle(kAdminPubKey3)
+let adminPubKeyInvoke = getBase58FromOracle(kAdminInvokePubKey)
 
-let walletAddress = Address(base58'3P6J84oH51DzY6xk2mT5TheXRbrCwBMxonp')
+let moneyBoxAddress = Address(getBase58FromOracle(kMoneyBoxAddress))
+let stakingUSDNAddress = Address(getBase58FromOracle(kUSDNAddress))
 
 let USDN = base58'DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p'
-let EURN = base58'DUk2YTxhRoAqMJLus4G2b3fR8hMHVh6eiyFx5r29VR6t'
-let stakingAssets = [USDN.toBase58String(), EURN.toBase58String()]
-let stakingUSDNNSBTAddress = Address(oracle.getString(keyUSDNNSBTAddress).valueOrErrorMessage("no usdn staking address").fromBase58String())
-let stakingEURNAddress = Address(oracle.getString(keyEURNAddress).valueOrErrorMessage("no usdn staking address").fromBase58String())
+let stakingAssets = [USDN.toBase58String()]
+
 
 let active = this.getBooleanValue(kActive)
 
@@ -67,8 +63,8 @@ let shareAssetId = this.getStringValue(kShareAssetId).fromBase58String()
 let shareAssetSupply = this.getIntegerValue(kShareAssetSupply)
 let invariant = this.getIntegerValue(kInvariant)
 
-let fee = 500 # fee/feeScale6 = 0.0005
-let feeGovernance = 200 # feeGovernance/feeScale6 = 0.0002. 3/5 fee back to the dApp, 2/5 sends to the governance address
+let fee = this.getIntegerValue(kFee)
+let feeGovernance = fee.fraction(40, 100) #40% of fee send to the governance address
 let feeScale6 = 1000000
 
 let scale3 = 1000
@@ -96,9 +92,7 @@ func stakedAmount(assetId: ByteVector|Unit) = {
     let stakedAmountCalculated = match assetId {
         case aId: ByteVector =>
           if aId == USDN  then {
-              stakingUSDNNSBTAddress.getInteger("rpd_balance_" + aId.toBase58String() + "_" + this.toString())
-          } else if  aId == EURN then {
-              stakingEURNAddress.getInteger("%s%s%s__stakingBalance__" + aId.toBase58String() + "__" + this.toString())
+              stakingUSDNAddress.getInteger("rpd_balance_" + aId.toBase58String() + "_" + this.toString())
           } else 0
         case _:Unit => 0
       }
@@ -144,26 +138,28 @@ func calculateSendAmount(amountToSendEstimated: Int, minTokenReceiveAmount: Int,
     let y = balanceB + tokenReceiveAmount
 
     func getStepAmount(acc: (Int, Int), step: Int) = {
-      if acc._1 == -1 then
-        let amountToSend = amountToSendEstimated - step * deltaBetweenMaxAndMinSendValue / 3 / scale3 # ATTENTION - Magic number in formula
-        let stepInvariant =
-            if tokenId == assetIdA then
-                invariantCalc(x, balanceB - amountToSend)
-            else invariantCalc(balanceA - amountToSend, y)
+        if acc._1 == -1 then
+            let amountToSend = amountToSendEstimated - step * deltaBetweenMaxAndMinSendValue / 3 / scale3 # ATTENTION - Magic number in formula
+            let stepInvariant =
+                if tokenId == assetIdA then
+                    invariantCalc(x, balanceB - amountToSend)
+                else
+                    invariantCalc(balanceA - amountToSend, y)
 
-        if stepInvariant > invariant then
-            (amountToSend, stepInvariant)
+            if stepInvariant > invariant then
+                (amountToSend, stepInvariant)
+            else
+                (-1, 0)
         else
-          (-1, 0)
-      else
-        acc
+            acc
     }
 
     let amountToSendMin = getStepAmount((-1, 0), 3000)
     if amountToSendMin._1 < 0 then
         throw("Price is worse than minReceived")
     else
-        let invEstimated = if tokenId == assetIdA then
+        let invEstimated =
+            if tokenId == assetIdA then
                 invariantCalc(x, balanceB - amountToSendEstimated)
             else if tokenId == assetIdB then
                 invariantCalc(balanceA - amountToSendEstimated, y)
@@ -182,7 +178,8 @@ func calculateSendAmount(amountToSendEstimated: Int, minTokenReceiveAmount: Int,
         else
             # actual price is better than estimated. Try to find even better price
             let a = FOLD<3>([-500, -200, -25], (-1, 0), getStepAmount)
-            let tupleSendBetter = if (a._1 < 0) then
+            let tupleSendBetter =
+                if (a._1 < 0) then
                     (amountToSendEstimated, invEstimated)
                 else
                     a
@@ -206,23 +203,27 @@ func suspend(cause: String) = [
 ]
 
 func throwIsActive() = throw("DApp is already active")
+
 func isActive() = if active then unit else throw("DApp is inactive at this moment")
+
 func isAdminCall(i:Invocation) = if [adminPubKey1, adminPubKey2, adminPubKey3].containsElement(i.callerPublicKey) then unit
         else throw("Only admin can call this function")
+
 func throwAssets() = throw("Incorrect assets attached. Expected: " + strAssetIdA + " and " + strAssetIdB)
+
 func throwOnePayment() = throw("One attached payment expected")
+
 func throwThreshold(threshold: Int, amountA: Int, amountB: Int) = throw("New balance in assets of the DApp is less than threshold " + threshold.toString()
     + ": " + amountA.toString() + " " + assetNameA + ", " + amountB.toString() + " " + assetNameB)
+
 func suspendSuspicious() = suspend("Suspicious state. Actual balances: " + balanceA.toString() + " " + assetNameA + ", " + balanceB.toString() + " " + assetNameB
         + ". State: " + accountBalance(assetIdA).toString() + " " + assetNameA + ", " + accountBalance(assetIdB).toString() + " " + assetNameB)
 
 func calcStakingFuncAndAddres(stake: Boolean, assetId: ByteVector) = {
     if stake then
-        if assetId == USDN then ("lockNeutrino", stakingUSDNNSBTAddress)
-        else ("startStaking", stakingEURNAddress)
+        ("lockNeutrino", stakingUSDNAddress)
     else
-        if assetId == USDN then ("unlockNeutrino", stakingUSDNNSBTAddress)
-        else ("stopStaking", stakingEURNAddress)
+       ("unlockNeutrino", stakingUSDNAddress)
 }
 
 func calcStakingParams(stake: Boolean, amount:Int, assetId: ByteVector) = {
@@ -260,10 +261,16 @@ func init() = {
         let shareIssueId = shareIssue.calculateAssetId()
 
         let invariantCalculated = invariantCalc(pmtAmountA, pmtAmountB)
-        strict stake1 = if stakingAssets.containsElement(pmtStrAssetIdA) then
-            invoke(this, "stakeUnstake", [true, pmtAmountA, pmtStrAssetIdA], []) else 0
-        strict stake2 = if stakingAssets.containsElement(pmtStrAssetIdB) then
-            invoke(this, "stakeUnstake", [true, pmtAmountB, pmtStrAssetIdB], []) else 0
+        strict stake1 =
+            if stakingAssets.containsElement(pmtStrAssetIdA) then
+                invoke(this, "stakeUnstake", [true, pmtAmountA, pmtStrAssetIdA], [])
+            else
+                0
+        strict stake2 =
+            if stakingAssets.containsElement(pmtStrAssetIdB) then
+                invoke(this, "stakeUnstake", [true, pmtAmountB, pmtStrAssetIdB], [])
+            else
+                0
         [
             StringEntry(kVersion, version),
             BooleanEntry(kActive, true),
@@ -272,8 +279,7 @@ func init() = {
             IntegerEntry(kBalanceA, pmtAmountA),
             IntegerEntry(kBalanceB, pmtAmountB),
             IntegerEntry(kInvariant, invariantCalculated),
-            IntegerEntry(kFee, fee),
-            IntegerEntry(kFeeScaleDelimiter, feeScale6),
+            IntegerEntry(kFee, oracle.getIntegerValue("base_fee_flat")),
             shareIssue,
             StringEntry(kShareAssetId, shareIssueId.toBase58String()),
             IntegerEntry(kShareAssetSupply, shareInitialSupply),
@@ -317,10 +323,16 @@ func replenishWithTwoTokens() = isActive().valueOrElse({
             ScriptTransfer(i.caller, pmtAmountB, pmtAssetIdB)
         ] ++ suspendSuspicious()
     else
-        strict stake1 = if stakingAssets.containsElement(pmtStrAssetIdA) then
-                invoke(this, "stakeUnstake", [true, pmtAmountA, pmtStrAssetIdA], []) else 0
-        strict stake2 = if stakingAssets.containsElement(pmtStrAssetIdB) then
-            invoke(this, "stakeUnstake", [true, pmtAmountB, pmtStrAssetIdB], []) else 0
+        strict stake1 =
+            if stakingAssets.containsElement(pmtStrAssetIdA) then
+                invoke(this, "stakeUnstake", [true, pmtAmountA, pmtStrAssetIdA], [])
+            else
+                0
+        strict stake2 =
+            if stakingAssets.containsElement(pmtStrAssetIdB) then
+                invoke(this, "stakeUnstake", [true, pmtAmountB, pmtStrAssetIdB], [])
+            else
+                0
         [
             IntegerEntry(kBalanceA, balanceA + pmtAmountA),
             IntegerEntry(kBalanceB, balanceB + pmtAmountB),
@@ -340,7 +352,11 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
 
     let pmtMinThreshold = 5000000
     let thresholdValueForMinTolerance = 50000000
-    let tolerance = if pmtAmount < thresholdValueForMinTolerance then 100000 else 1
+    let tolerance =
+        if pmtAmount < thresholdValueForMinTolerance then
+            100000
+        else
+            1
 
     let slippageValueMinForReplenish = scale8 - scale8 * tolerance / 10000000 # if pmtAmount > 50.000000 then slippage = 0.000001%
     let slippageValueMaxForReplenish = scale8 + scale8 * tolerance / 10000000
@@ -361,18 +377,18 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
         let (virtualReplenishA, virtualReplenishB,
             balanceAfterSwapA, balanceAfterSwapB,
             newBalanceA, newBalanceB) =
-            if pmtAssetId == assetIdA then (
-                pmtAmount - virtualSwapTokenPay, virtualSwapTokenGet,
-                balanceA + virtualSwapTokenPay, balanceB - virtualSwapTokenGet,
-                balanceA + pmtAmount, balanceB
-            ) else (
-                virtualSwapTokenGet, pmtAmount - virtualSwapTokenPay,
-                balanceA - virtualSwapTokenGet, balanceB + virtualSwapTokenPay,
-                balanceA, balanceB + pmtAmount
-            )
+                if pmtAssetId == assetIdA then (
+                    pmtAmount - virtualSwapTokenPay, virtualSwapTokenGet,
+                    balanceA + virtualSwapTokenPay, balanceB - virtualSwapTokenGet,
+                    balanceA + pmtAmount, balanceB
+                ) else (
+                    virtualSwapTokenGet, pmtAmount - virtualSwapTokenPay,
+                    balanceA - virtualSwapTokenGet, balanceB + virtualSwapTokenPay,
+                    balanceA, balanceB + pmtAmount
+                )
 
         let invariantNew = invariantCalc(balanceAfterSwapA, balanceAfterSwapB)
-        let ratioVirtualBalanceToVirtualReplenish = (scale8 * scale8).fraction(balanceAfterSwapA, balanceAfterSwapB)
+        let ratioVirtualBalanceToVirtualReplenish = (scale16).fraction(balanceAfterSwapA, balanceAfterSwapB)
                                                     / scale8.fraction(virtualReplenishA, virtualReplenishB)
         let dAppThresholdAmount = fraction(newBalanceA + newBalanceB, dAppThreshold, 2 * dAppThresholdScale2)
 
@@ -388,7 +404,7 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
             let ratioShareTokensInB = virtualReplenishB.fraction(scale8, balanceAfterSwapB)
 
             let shareTokenToPayAmount = min([ratioShareTokensInA, ratioShareTokensInB]).fraction(shareAssetSupply, scale8)
-             # fee for operation is devided by 2 to account internal swap commission. Only half of tokens took part in virtual exchange
+             # fee for operation is devided by 2 to account internal swap fee. Only half of tokens took part in virtual exchange
             let shareTokenToPayAmountAfterFee = shareTokenToPayAmount.fraction(feeScale6 - fee/2, feeScale6)
             let shareTokenGovernanceReward = shareTokenToPayAmount.fraction(feeGovernance/2, feeScale6)
             let governanceRewardTokenA = shareTokenGovernanceReward.fraction(balanceA, shareAssetSupply)
@@ -398,16 +414,22 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
                     (pmtAmount - governanceRewardTokenA, governanceRewardTokenB, strAssetIdB)
                 else
                     (pmtAmount - governanceRewardTokenB, governanceRewardTokenA, strAssetIdA)
-            strict stake1 = if stakingAssets.containsElement(pmtStrAssetId) then
-                    invoke(this, "stakeUnstake", [true, stakeAmount, pmtStrAssetId], []) else 0
+            strict stake1 =
+                if stakingAssets.containsElement(pmtStrAssetId) then
+                    invoke(this, "stakeUnstake", [true, stakeAmount, pmtStrAssetId], [])
+                else
+                    0
 
-            strict stake2 = if stakingAssets.containsElement(unstakeAsset) then
-                    invoke(this, "stakeUnstake", [false, unstakeAmount, unstakeAsset], []) else 0
+            strict stake2 =
+                if stakingAssets.containsElement(unstakeAsset) then
+                    invoke(this, "stakeUnstake", [false, unstakeAmount, unstakeAsset], [])
+                else
+                    0
             [
                 Reissue(shareAssetId, shareTokenToPayAmountAfterFee, true),
                 ScriptTransfer(i.caller, shareTokenToPayAmountAfterFee, shareAssetId),
-                ScriptTransfer(walletAddress, governanceRewardTokenA, assetIdA),
-                ScriptTransfer(walletAddress, governanceRewardTokenB, assetIdB),
+                ScriptTransfer(moneyBoxAddress, governanceRewardTokenA, assetIdA),
+                ScriptTransfer(moneyBoxAddress, governanceRewardTokenB, assetIdB),
                 IntegerEntry(kBalanceA, newBalanceA - governanceRewardTokenA),
                 IntegerEntry(kBalanceB, newBalanceB - governanceRewardTokenB),
                 IntegerEntry(kShareAssetSupply, shareAssetSupply + shareTokenToPayAmountAfterFee),
@@ -434,10 +456,16 @@ func withdraw() = isActive().valueOrElse({
             ScriptTransfer(i.caller, pmtAmount, pmtAssetId)
         ] ++ suspendSuspicious()
     else
-        strict stake1 = if stakingAssets.containsElement(strAssetIdA) then
-            invoke(this, "stakeUnstake", [false, amountToPayA, strAssetIdA], []) else 0
-        strict stake2 = if stakingAssets.containsElement(strAssetIdB) then
-            invoke(this, "stakeUnstake", [false, amountToPayB, strAssetIdB], []) else 0
+        strict stake1 =
+            if stakingAssets.containsElement(strAssetIdA) then
+                invoke(this, "stakeUnstake", [false, amountToPayA, strAssetIdA], [])
+            else
+                0
+        strict stake2 =
+            if stakingAssets.containsElement(strAssetIdB) then
+                invoke(this, "stakeUnstake", [false, amountToPayB, strAssetIdB], [])
+            else
+                0
         [
             IntegerEntry(kBalanceA, balanceA - amountToPayA),
             IntegerEntry(kBalanceB, balanceB - amountToPayB),
@@ -471,7 +499,11 @@ func exchange(estimatedAmountToReceive: Int, minAmountToReceive: Int) = isActive
             scale8.fraction(estimatedAmountToReceive, pmtAmount) > exchangeRatioLimitMax then
         throw("Incorrect args and pmt ratio")
     else {
-        let sendAssetId = if pmtAssetId == assetIdA then assetIdB else assetIdA
+        let sendAssetId =
+            if pmtAssetId == assetIdA then
+                assetIdB
+            else
+                assetIdA
 
         let amount = calculateSendAmount(estimatedAmountToReceive, minAmountToReceive, pmtAmount, pmtAssetId)
         let governanceReward = amount.fraction(feeGovernance, feeScale6)
@@ -482,6 +514,7 @@ func exchange(estimatedAmountToReceive: Int, minAmountToReceive: Int) = isActive
                 (balanceA + pmtAmount, balanceB - amountMinusFee - governanceReward)
             else
                 (balanceA - amountMinusFee - governanceReward, balanceB + pmtAmount)
+
         let dAppThresholdAmount = fraction(newBalanceA + newBalanceB, dAppThreshold, 2 * dAppThresholdScale2)
 
         if newBalanceA < dAppThresholdAmount || newBalanceB < dAppThresholdAmount then
@@ -489,19 +522,28 @@ func exchange(estimatedAmountToReceive: Int, minAmountToReceive: Int) = isActive
         else
             let (pmtStrAssetId, pmtAssetName, pmtDecimals) = getAssetInfo(pmtAssetId)
             let (sendStrAssetId, sendAssetName, sendDecimals) = getAssetInfo(sendAssetId)
-            strict stake1 = if stakingAssets.containsElement(pmtStrAssetId) then
-                invoke(this, "stakeUnstake", [true, pmtAmount, pmtStrAssetId], []) else 0
-            strict stake2 = if stakingAssets.containsElement(sendStrAssetId) then
-                invoke(this, "stakeUnstake", [false, amountMinusFee + governanceReward, sendStrAssetId], []) else 0
-            # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
+            strict stake1 =
+                if stakingAssets.containsElement(pmtStrAssetId) then
+                    invoke(this, "stakeUnstake", [true, pmtAmount, pmtStrAssetId], [])
+                else
+                    0
+            strict stake2 =
+                if stakingAssets.containsElement(sendStrAssetId) then
+                    invoke(this, "stakeUnstake", [false, amountMinusFee + governanceReward, sendStrAssetId], [])
+                else
+                    0
 
-            [
-                IntegerEntry(kBalanceA, newBalanceA),
-                IntegerEntry(kBalanceB, newBalanceB),
-                IntegerEntry(kInvariant, invariantCalc(newBalanceA, newBalanceB)),
-                ScriptTransfer(i.caller, amountMinusFee, sendAssetId),
-                ScriptTransfer(walletAddress, governanceReward, sendAssetId)
-            ]
+             # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
+            (
+                [
+                    IntegerEntry(kBalanceA, newBalanceA),
+                    IntegerEntry(kBalanceB, newBalanceB),
+                    IntegerEntry(kInvariant, invariantCalc(newBalanceA, newBalanceB)),
+                    ScriptTransfer(i.caller, amountMinusFee, sendAssetId),
+                    ScriptTransfer(moneyBoxAddress, governanceReward, sendAssetId)
+                ],
+                (amountMinusFee,sendAssetId)
+            )
     }
 })
 
@@ -517,10 +559,11 @@ func shutdown() = isAdminCall(i).valueOrElse({
 func activate() = isAdminCall(i).valueOrElse({
     if active then
         throwIsActive()
-    else [
-        BooleanEntry(kActive, true),
-        DeleteEntry(kCause)
-    ]
+    else
+        [
+            BooleanEntry(kActive, true),
+            DeleteEntry(kCause)
+        ]
 })
 
 @Callable(i)
@@ -529,23 +572,27 @@ func takeIntoAccountExtraFunds() = isActive().valueOrElse({
     let amountEnrollB = accountBalanceWithStakedB - balanceB
     let invariantNew = invariantCalc(balanceA + amountEnrollA, balanceB + amountEnrollB)
 
-    if i.caller != walletAddress then
-        throw("Only the wallet can call this function")
+    if i.caller != moneyBoxAddress then
+        throw("Only the money box can call this function")
     else if amountEnrollA < 0 || amountEnrollB < 0 then
         suspend("Enroll amount negative")
     else if amountEnrollA == 0 && amountEnrollB == 0 then
         throw("No money to take")
     else
-        strict stake1 = if stakingAssets.containsElement(strAssetIdA) && amountEnrollA > 0 then
-            invoke(this, "stakeUnstake", [true, amountEnrollA, strAssetIdA], []) else 0
-        strict stake2 = if stakingAssets.containsElement(strAssetIdB)  && amountEnrollB > 0 then
-            invoke(this, "stakeUnstake", [true, amountEnrollB, strAssetIdB], []) else 0
+        strict stake1 =
+            if stakingAssets.containsElement(strAssetIdA) && amountEnrollA > 0 then
+                invoke(this, "stakeUnstake", [true, amountEnrollA, strAssetIdA], [])
+            else
+                0
+        strict stake2 =
+            if stakingAssets.containsElement(strAssetIdB)  && amountEnrollB > 0 then
+                invoke(this, "stakeUnstake", [true, amountEnrollB, strAssetIdB], [])
+            else
+                0
         [
             IntegerEntry(kInvariant, invariantNew),
             IntegerEntry(kBalanceA, balanceA + amountEnrollA),
-            IntegerEntry(kBalanceB, balanceB + amountEnrollB),
-            IntegerEntry("last_income_"+strAssetIdA, amountEnrollA),
-            IntegerEntry("last_income_"+strAssetIdB, amountEnrollB)
+            IntegerEntry(kBalanceB, balanceB + amountEnrollB)
         ]
 })
 
@@ -559,6 +606,11 @@ func stakeUnstake(stake:Boolean, amount: Int, assetIdString:String) = {
         strict inv = invoke(addr, call, params, payments)
         []
 }
+
+@Callable(i)
+func toBigIntInvariant() = isAdminCall(i).valueOrElse({
+    [IntegerEntry(kInvariant, invariantCalc(balanceA, balanceB))]
+})
 
 @Verifier(tx)
 func verify() = {
@@ -575,7 +627,7 @@ func verify() = {
                 sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1)
                 || sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey2)
                 || sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey3)
-                || sigVerify(tx.bodyBytes, tx.proofs[0], admStaking)
+                || sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKeyInvoke)
 
             (callTakeIntoAccount && signedByAdmin)
             || multiSignedByAdmins

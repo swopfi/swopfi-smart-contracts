@@ -1,28 +1,43 @@
-{-# STDLIB_VERSION 4 #-}
+{-# STDLIB_VERSION 5 #-}
 {-# CONTENT_TYPE DAPP #-}
 {-# SCRIPT_TYPE ACCOUNT #-}
 
-let governanceAddress = Address(base58'3PLHVWCqA9DJPDbadUofTohnCULLauiDWhS')
-let farmingAddress = Address(base58'3P73HDkPqG15nLXevjCbmXtazHYTZbpPoPw')
-let oracleAddress = Address(base58'3PEbqViERCoKnmcSULh6n2aiMvUdSQdCsom')
-let adminInvoke = base58'Czn4yoAuUZCVCLJDRfskn8URfkwpknwBTZDbs1wFrY7h'
-let adminPubKey1 = base58'DXDY2itiEcYBtGkVLnkpHtDFyWQUkoLJz79uJ7ECbMrA'
-let adminPubKey2 = base58'E6Wa1SGoktYcjHjsKrvjMiqJY3SWmGKcD8Q5L8kxSPS7'
-let adminPubKey3 = base58'AZmWJtuy4GeVrMmJH4hfFBRApe1StvhJSk4jcbT6bArQ'
+let oracle = Address(base58'3PEbqViERCoKnmcSULh6n2aiMvUdSQdCsom')
+
+func getBase58FromOracle(key: String) = match oracle.getString(key) {
+    case string: String => string.fromBase58String()
+    case nothing => throw(key + "is empty")
+}
+let kAdminPubKey1 = "admin_pub_1"
+let kAdminPubKey2 = "admin_pub_2"
+let kAdminPubKey3 = "admin_pub_3"
+let kAdminInvokePubKey = "admin_invoke_pub"
+let kGovAddress = "governance_address"
+let kFarmAddress = "farming_address"
+let kSurveysAddress = "surveys_address"
+
+let adminPubKey1 = getBase58FromOracle(kAdminPubKey1)
+let adminPubKey2 = getBase58FromOracle(kAdminPubKey2)
+let adminPubKey3 = getBase58FromOracle(kAdminPubKey3)
+let adminInvoke = getBase58FromOracle(kAdminInvokePubKey)
+let governanceAddress = Address(getBase58FromOracle(kGovAddress))
+let farmingAddress = Address(getBase58FromOracle(kFarmAddress))
+let surveysAddress = Address(getBase58FromOracle(kSurveysAddress))
 
 let keyPrefixPoolName = "pool_"
 
 @Verifier(tx)
 func verify() = match tx {
-  case invoke: InvokeScriptTransaction => {
-    let isExchangeCall = oracleAddress.getString(keyPrefixPoolName + invoke.dApp.addressFromRecipient().toString()).isDefined() && invoke.function == "exchange"
-    let isAirdropCall = invoke.dApp == governanceAddress && invoke.function == "airDrop"
-    let isUpdateWeightsCall = invoke.dApp == governanceAddress && invoke.function == "updateWeights"
-    let isUpdatePoolInterest = invoke.dApp == farmingAddress && invoke.function == "updatePoolInterest"
-    let isTakenIntoAccount = oracleAddress.getString(keyPrefixPoolName + invoke.dApp.addressFromRecipient().toString()).isDefined() && invoke.function == "takeIntoAccountExtraFunds"
+  case inv: InvokeScriptTransaction => {
+    let isExchangeCall = oracle.getString(keyPrefixPoolName + inv.dApp.addressFromRecipient().toString()).isDefined() && inv.function == "exchange"
+    let isAirdropCall = inv.dApp == governanceAddress && inv.function == "airDrop"
+    let isUpdateWeightsCall = inv.dApp == governanceAddress && inv.function == "updateWeights"
+    let isUpdatePoolInterest = inv.dApp == farmingAddress && inv.function == "updatePoolInterest"
+    let isTakenIntoAccount = oracle.getString(keyPrefixPoolName + inv.dApp.addressFromRecipient().toString()).isDefined() && inv.function == "takeIntoAccountExtraFunds"
+    let isWriteTotal = inv.dApp == surveysAddress && inv.function == "writeTotals"
     let signedByAdmin = sigVerify(tx.bodyBytes, tx.proofs[0], adminInvoke)
 
-    (((isExchangeCall || isAirdropCall) && invoke.payments.size() == 1) || ((isUpdateWeightsCall || isUpdatePoolInterest || isTakenIntoAccount) && invoke.payments.size() == 0)) && signedByAdmin
+    (((isExchangeCall || isAirdropCall) && inv.payments.size() == 1) || ((isUpdateWeightsCall || isUpdatePoolInterest || isTakenIntoAccount || isWriteTotal) && inv.payments.size() == 0)) && signedByAdmin
   }
   case _ => {
     let adminPubKey1Signed = if sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1) then 1 else 0

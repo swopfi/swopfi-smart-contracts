@@ -3,51 +3,51 @@
 {-# SCRIPT_TYPE ACCOUNT #-}
 
 let version = "1.0.0"
-let keyVersion = "version"
-let keyActive = "active"
-let keyAssetIdA = "A_asset_id"
-let keyAssetIdB = "B_asset_id"
-let keyBalanceA = "A_asset_balance"
-let keyBalanceB = "B_asset_balance"
-let keyBalanceInitA = "A_asset_init"
-let keyBalanceInitB = "B_asset_init"
-let keyShareAssetId = "share_asset_id"
-let keyShareAssetSupply = "share_asset_supply"
-let keyCommission = "commission"
-let keyCommissionScaleDelimiter = "commission_scale_delimiter"
-let keyCause = "shutdown_cause"
-let keyFirstHarvest = "first_harvest"
-let keyFirstHarvestHeight = "first_harvest_height"
+let kVersion = "version"
+let kActive = "active"
+let kAssetIdA = "A_asset_id"
+let kAssetIdB = "B_asset_id"
+let kBalanceA = "A_asset_balance"
+let kBalanceB = "B_asset_balance"
+let kBalanceInitA = "A_asset_init"
+let kBalanceInitB = "B_asset_init"
+let kShareAssetId = "share_asset_id"
+let kShareAssetSupply = "share_asset_supply"
+let kFee = "commission"
+let kCause = "shutdown_cause"
+let kFirstHarvest = "first_harvest"
+let kFirstHarvestHeight = "first_harvest_height"
 let kShareLimit = "share_limit_on_first_harvest"
 let kBasePeriod = "base_period"
 let kPeriodLength = "period_length"
 let kStartHeight = "start_height"
-let kFirstHarvestHeight = "first_harvest_height"
-let keyUSDNNSBTAddress = "staking_usdnnsbt_address"
-let keyEURNAddress = "staking_eurn_address"
-let keyLeasingPool = "leasing_address"
-let keyLeasingAmount = "leasing_amount"
-let keyLeasingId = "leasing_id"
+let kUSDNAddress = "staking_usdnnsbt_address"
+let kEURNAddress = "staking_eurn_address"
+let kLeasingPool = "leasing_address"
+let kLeasingAmount = "leasing_amount"
+let kLeasingId = "leasing_id"
 
 
-let keyAdminPubKey1 = "admin_pub_1"
-let keyAdminPubKey2 = "admin_pub_2"
-let keyAdminPubKey3 = "admin_pub_3"
+let kAdminPubKey1 = "admin_pub_1"
+let kAdminPubKey2 = "admin_pub_2"
+let kAdminPubKey3 = "admin_pub_3"
+let kAdminInvokePubKey = "admin_invoke_pub"
+let kMoneyBoxAddress = "money_box_address"
 
-#TODO change address
+
+
 let oracle = Address(base58'3PEbqViERCoKnmcSULh6n2aiMvUdSQdCsom')
-func getAdminPub(keyAdminPub: String) = match oracle.getString(keyAdminPub) {
+func getBase58FromOracle(key: String) = match oracle.getString(key) {
     case string: String => string.fromBase58String()
-    case nothing => throw("Admin public key is empty")
+    case nothing => throw(key + "is empty")
 }
 
-let adminPubKey1 = getAdminPub(keyAdminPubKey1)
-let adminPubKey2 = getAdminPub(keyAdminPubKey2)
-let adminPubKey3 = getAdminPub(keyAdminPubKey3)
+let adminPubKey1 = getBase58FromOracle(kAdminPubKey1)
+let adminPubKey2 = getBase58FromOracle(kAdminPubKey2)
+let adminPubKey3 = getBase58FromOracle(kAdminPubKey3)
+let adminInvokePubKey = getBase58FromOracle(kAdminInvokePubKey)
 
-let adminPubKeyStartStop = base58'EtVkT6ed8GtbUiVVEqdmEqsp2J4qbb3rre2HFgxeVYdg'
-let adminPubKeyStaking = base58'Czn4yoAuUZCVCLJDRfskn8URfkwpknwBTZDbs1wFrY7h'
-let walletAddress = Address(base58'3P6J84oH51DzY6xk2mT5TheXRbrCwBMxonp')
+let moneyBoxAddress = Address(getBase58FromOracle(kMoneyBoxAddress))
 let votingAddress = Address(base58'3PQZWxShKGRgBN1qoJw6B4s9YWS9FneZTPg')
 
 let USDN = base58'DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p'
@@ -55,20 +55,18 @@ let SWOP = base58'Ehie5xYpeN8op1Cctc6aGUrqx8jq3jtf1DSjXDbfm7aT'
 let EURN = base58'DUk2YTxhRoAqMJLus4G2b3fR8hMHVh6eiyFx5r29VR6t'
 
 let stakingAssets = ["WAVES", USDN.toBase58String(), EURN.toBase58String()]
-let stakingUSDNAddress = Address(oracle.getString(keyUSDNNSBTAddress).valueOrErrorMessage("no usdn staking address").fromBase58String())
-let stakingEURNAddress = Address(oracle.getString(keyEURNAddress).valueOrErrorMessage("no eurn staking address").fromBase58String())
-
-let USDNToWavesExchanger = Address(base58'3PHaNgomBkrvEL2QnuJarQVJa71wjw9qiqG')
+let stakingUSDNAddress = Address(getBase58FromOracle(kUSDNAddress))
+let stakingEURNAddress = Address(getBase58FromOracle(kEURNAddress))
 
 let basePeriod = votingAddress.getInteger(kBasePeriod).valueOrErrorMessage("Empty kBasePeriod") # 0
 let startHeight = votingAddress.getInteger(kStartHeight).valueOrErrorMessage("Empty kStartHeight")
 let periodLength =  votingAddress.getInteger(kPeriodLength).valueOrErrorMessage("Empty kPeriodLength")  # 10102
 
 let firstHarvestEndPeriod = basePeriod + (height-startHeight)/periodLength + 3
-let active = this.getBooleanValue(keyActive)
+let active = this.getBooleanValue(kActive)
 
-let strAssetIdA = this.getStringValue(keyAssetIdA)
-let strAssetIdB = this.getStringValue(keyAssetIdB)
+let strAssetIdA = this.getStringValue(kAssetIdA)
+let strAssetIdB = this.getStringValue(kAssetIdB)
 let assetIdA = if strAssetIdA == "WAVES" then unit else strAssetIdA.fromBase58String()
 let assetIdB = if strAssetIdB == "WAVES" then unit else strAssetIdB.fromBase58String()
 let assetNameA = match assetIdA {
@@ -80,14 +78,14 @@ let assetNameB = match assetIdB {
     case waves: Unit => "WAVES"
 }
 
-let balanceA = this.getIntegerValue(keyBalanceA)
-let balanceB = this.getIntegerValue(keyBalanceB)
-let shareAssetId = this.getStringValue(keyShareAssetId).fromBase58String()
-let shareAssetSupply = this.getIntegerValue(keyShareAssetSupply)
+let balanceA = this.getIntegerValue(kBalanceA)
+let balanceB = this.getIntegerValue(kBalanceB)
+let shareAssetId = this.getStringValue(kShareAssetId).fromBase58String()
+let shareAssetSupply = this.getIntegerValue(kShareAssetSupply)
 
-let commission = 3000 # commission/commissionScaleDelimiter = 0.003
-let commissionGovernance = 1200 # commissionGovernance/commissionScaleDelimiter = 0.0012
-let commissionScaleDelimiter = 1000000
+let fee = this.getIntegerValue(kFee)
+let feeGovernance = fee.fraction(40, 100) #40% of fee send to the governance address
+let feeScale6 = 1000000
 
 let scaleValue3 = 1000
 let scaleValue8 = 100000000
@@ -107,7 +105,7 @@ func stakedAmount(assetId: ByteVector|Unit) = {
           } else if  aId == EURN then {
               stakingEURNAddress.getInteger("%s%s%s__stakingBalance__" + aId.toBase58String() + "__" + this.toString())
           } else 0
-        case _:Unit => this.getInteger(keyLeasingAmount).valueOrElse(0)
+        case _:Unit => this.getInteger(kLeasingAmount).valueOrElse(0)
       }
     match (stakedAmountCalculated) {
         case i:Int => i
@@ -118,8 +116,8 @@ func stakedAmount(assetId: ByteVector|Unit) = {
 let stakedAmountA = stakedAmount(assetIdA)
 let stakedAmountB = stakedAmount(assetIdB)
 
-let assetInitA = this.getIntegerValue(keyBalanceInitA)
-let assetInitB = this.getIntegerValue(keyBalanceInitB)
+let assetInitA = this.getIntegerValue(kBalanceInitA)
+let assetInitB = this.getIntegerValue(kBalanceInitB)
 
 let availableBalanceA = balanceA - stakedAmountA
 let availableBalanceB = balanceB - stakedAmountB
@@ -146,8 +144,8 @@ func getAssetInfoFromString(assetStr: String) = {
 }
 
 func suspend(cause: String) = [
-    BooleanEntry(keyActive, false),
-    StringEntry(keyCause, cause)
+    BooleanEntry(kActive, false),
+    StringEntry(kCause, cause)
 ]
 
 func calcStakingFuncAndAddres(stake: Boolean, assetId: ByteVector) = {
@@ -170,8 +168,8 @@ func calcStakingParams(stake: Boolean, amount:Int, assetId: ByteVector) = {
 
 func calculateFees(pmtAmount: Int, minAmountToReceive: Int, tokenFrom: Int, tokenTo: Int) = {
     let amountWithoutFee = fraction(tokenTo, pmtAmount, pmtAmount + tokenFrom)
-    let amountWithFee = fraction(amountWithoutFee, commissionScaleDelimiter - commission, commissionScaleDelimiter)
-    let governanceReward = fraction(amountWithoutFee, commissionGovernance, commissionScaleDelimiter)
+    let amountWithFee = fraction(amountWithoutFee, feeScale6 - fee, feeScale6)
+    let governanceReward = fraction(amountWithoutFee, feeGovernance, feeScale6)
 
     if amountWithFee < minAmountToReceive then
         throw("Calculated amount to receive " + amountWithFee.toString() + " is less than specified minimum " + minAmountToReceive.toString())
@@ -191,9 +189,9 @@ func init(firstHarvest: Boolean) = {
     let (pmtStrAssetIdA, pmtAssetNameA, pmtDecimalsA) = getAssetInfo(pmtAssetIdA)
     let (pmtStrAssetIdB, pmtAssetNameB, pmtDecimalsB) = getAssetInfo(pmtAssetIdB)
 
-    if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStaking].containsElement(i.callerPublicKey) then
+    if ![adminPubKey1, adminPubKey2, adminPubKey3, adminInvokePubKey].containsElement(i.callerPublicKey) then
         throw("Only admin can call this function")
-    else if this.getBoolean(keyActive).isDefined() then
+    else if this.getBoolean(kActive).isDefined() then
         throw("DApp is already active")
     else if pmtAssetIdA == pmtAssetIdB then
         throw("Assets must be different")
@@ -218,23 +216,22 @@ func init(firstHarvest: Boolean) = {
             strict stake2 = if stakingAssets.containsElement(pmtStrAssetIdB) then
                 invoke(this, "stakeUnstake", [true, pmtAmountB, pmtStrAssetIdB], []) else 0
         let baseEntry =         [
-            StringEntry(keyVersion, version),
-            BooleanEntry(keyActive, true),
-            StringEntry(keyAssetIdA, pmtStrAssetIdA),
-            StringEntry(keyAssetIdB, pmtStrAssetIdB),
-            IntegerEntry(keyBalanceA, pmtAmountA),
-            IntegerEntry(keyBalanceB, pmtAmountB),
-            IntegerEntry(keyCommission, commission),
-            IntegerEntry(keyCommissionScaleDelimiter, commissionScaleDelimiter),
+            StringEntry(kVersion, version),
+            BooleanEntry(kActive, true),
+            StringEntry(kAssetIdA, pmtStrAssetIdA),
+            StringEntry(kAssetIdB, pmtStrAssetIdB),
+            IntegerEntry(kBalanceA, pmtAmountA),
+            IntegerEntry(kBalanceB, pmtAmountB),
+            IntegerEntry(kFee, oracle.getIntegerValue("base_fee_cpmm")),
             shareIssue,
-            StringEntry(keyShareAssetId, shareIssueId.toBase58String()),
-            IntegerEntry(keyShareAssetSupply, shareInitialSupply),
+            StringEntry(kShareAssetId, shareIssueId.toBase58String()),
+            IntegerEntry(kShareAssetSupply, shareInitialSupply),
             ScriptTransfer(i.caller, shareInitialSupply, shareIssueId)
         ]
         if (firstHarvest) then {
             baseEntry ++ [
-                BooleanEntry(keyFirstHarvest, firstHarvest),
-                IntegerEntry(keyFirstHarvestHeight, startHeight + firstHarvestEndPeriod * periodLength)
+                BooleanEntry(kFirstHarvest, firstHarvest),
+                IntegerEntry(kFirstHarvestHeight, startHeight + firstHarvestEndPeriod * periodLength)
             ]
         } else {
             baseEntry
@@ -247,9 +244,9 @@ func initWithInitRatio(amtAssetA: Int, amtAssetB: Int, strAssetIdA: String, strA
     let (pmtStrAssetIdA, pmtAssetNameA, pmtDecimalsA) = getAssetInfoFromString(strAssetIdA)
     let (pmtStrAssetIdB, pmtAssetNameB, pmtDecimalsB) = getAssetInfoFromString(strAssetIdB)
 
-    if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStaking].containsElement(i.callerPublicKey) then
+    if ![adminPubKey1, adminPubKey2, adminPubKey3, adminInvokePubKey].containsElement(i.callerPublicKey) then
         throw("Only admin can call this function")
-    else if this.getBoolean(keyActive).isDefined() then
+    else if this.getBoolean(kActive).isDefined() then
         throw("DApp is already active")
     else if strAssetIdA == strAssetIdB then
         throw("Assets must be different")
@@ -262,25 +259,24 @@ func initWithInitRatio(amtAssetA: Int, amtAssetB: Int, strAssetIdA: String, strA
         let shareIssue = Issue(shareName, shareDescription, shareInitialSupply, shareDecimals, true)
         let shareIssueId = shareIssue.calculateAssetId()
         let baseEntry =         [
-            StringEntry(keyVersion, version),
-            BooleanEntry(keyActive, true),
-            StringEntry(keyAssetIdA, pmtStrAssetIdA),
-            StringEntry(keyAssetIdB, pmtStrAssetIdB),
-            IntegerEntry(keyBalanceInitA, amtAssetA),
-            IntegerEntry(keyBalanceInitB, amtAssetB),
-            IntegerEntry(keyBalanceA, 0),
-            IntegerEntry(keyBalanceB, 0),
-            IntegerEntry(keyCommission, commission),
-            IntegerEntry(keyCommissionScaleDelimiter, commissionScaleDelimiter),
+            StringEntry(kVersion, version),
+            BooleanEntry(kActive, true),
+            StringEntry(kAssetIdA, pmtStrAssetIdA),
+            StringEntry(kAssetIdB, pmtStrAssetIdB),
+            IntegerEntry(kBalanceInitA, amtAssetA),
+            IntegerEntry(kBalanceInitB, amtAssetB),
+            IntegerEntry(kBalanceA, 0),
+            IntegerEntry(kBalanceB, 0),
+            IntegerEntry(kFee, oracle.getIntegerValue("base_fee_cpmm")),
             shareIssue,
-            StringEntry(keyShareAssetId, shareIssueId.toBase58String()),
-            IntegerEntry(keyShareAssetSupply, shareInitialSupply)
+            StringEntry(kShareAssetId, shareIssueId.toBase58String()),
+            IntegerEntry(kShareAssetSupply, shareInitialSupply)
         ]
 
         if (firstHarvest) then {
             baseEntry ++ [
-                BooleanEntry(keyFirstHarvest, firstHarvest),
-                IntegerEntry(keyFirstHarvestHeight, startHeight + firstHarvestEndPeriod * periodLength)
+                BooleanEntry(kFirstHarvest, firstHarvest),
+                IntegerEntry(kFirstHarvestHeight, startHeight + firstHarvestEndPeriod * periodLength)
             ]
         } else {
             baseEntry
@@ -290,7 +286,7 @@ func initWithInitRatio(amtAssetA: Int, amtAssetB: Int, strAssetIdA: String, strA
 
 @Callable(i)
 func keepLimitForFirstHarvest(shareLimit: Int) = isActive().valueOrElse({
-    if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStaking].containsElement(i.callerPublicKey) then
+    if ![adminPubKey1, adminPubKey2, adminPubKey3, adminInvokePubKey].containsElement(i.callerPublicKey) then
         throw("Only admin can call this function")
     else
         [
@@ -347,9 +343,9 @@ func replenishWithTwoTokens(slippageTolerance: Int) = isActive().valueOrElse({
             invoke(this, "stakeUnstake", [true, pmtAmountB, pmtStrAssetIdB], []) else 0
         [
             Reissue(shareAssetId, shareTokenToPayAmount, true),
-            IntegerEntry(keyBalanceA, balanceA + pmtAmountA),
-            IntegerEntry(keyBalanceB, balanceB + pmtAmountB),
-            IntegerEntry(keyShareAssetSupply, shareAssetSupply + shareTokenToPayAmount),
+            IntegerEntry(kBalanceA, balanceA + pmtAmountA),
+            IntegerEntry(kBalanceB, balanceB + pmtAmountB),
+            IntegerEntry(kShareAssetSupply, shareAssetSupply + shareTokenToPayAmount),
             ScriptTransfer(i.caller, shareTokenToPayAmount, shareAssetId)
         ]
 })
@@ -374,9 +370,9 @@ func withdraw() = isActive().valueOrElse({
         strict stake2 = if stakingAssets.containsElement(strAssetIdB) then
             invoke(this, "stakeUnstake", [false, amountToPayB, strAssetIdB], []) else 0
         [
-            IntegerEntry(keyBalanceA, balanceA - amountToPayA),
-            IntegerEntry(keyBalanceB, balanceB - amountToPayB),
-            IntegerEntry(keyShareAssetSupply, shareAssetSupply - pmtAmount),
+            IntegerEntry(kBalanceA, balanceA - amountToPayA),
+            IntegerEntry(kBalanceB, balanceB - amountToPayB),
+            IntegerEntry(kShareAssetSupply, shareAssetSupply - pmtAmount),
             Burn(shareAssetId, pmtAmount),
             ScriptTransfer(i.caller, amountToPayA, assetIdA),
             ScriptTransfer(i.caller, amountToPayB, assetIdB)
@@ -412,12 +408,13 @@ func exchange(minAmountToReceive: Int) = isActive().valueOrElse({
             invoke(this, "stakeUnstake", [true, pmtAmount, strAssetIdA], []) else 0
         strict stake2 = if stakingAssets.containsElement(strAssetIdB) then
             invoke(this, "stakeUnstake", [false, amountWithFee + governanceReward, strAssetIdB], []) else 0
-        [
-            IntegerEntry(keyBalanceA, newBalanceA),
-            IntegerEntry(keyBalanceB, newBalanceB),
+        ([
+            IntegerEntry(kBalanceA, newBalanceA),
+            IntegerEntry(kBalanceB, newBalanceB),
             ScriptTransfer(i.caller, amountWithFee, assetIdSend),
-            ScriptTransfer(walletAddress, governanceReward, assetIdSend)
-        ]
+            ScriptTransfer(moneyBoxAddress, governanceReward, assetIdSend)
+        ],
+        (amountWithFee,assetIdSend))
     } else if pmtAssetId == assetIdB then {
         let assetIdSend = assetIdA
         let (amountWithoutFee, amountWithFee, governanceReward) = calculateFees(pmtAmount, minAmountToReceive, balanceB, balanceA)
@@ -428,12 +425,15 @@ func exchange(minAmountToReceive: Int) = isActive().valueOrElse({
         invoke(this, "stakeUnstake", [false, amountWithFee + governanceReward, strAssetIdA], []) else 0
         strict stake2 = if stakingAssets.containsElement(strAssetIdB) then
             invoke(this, "stakeUnstake", [true, pmtAmount, strAssetIdB], []) else 0
-        [
-            IntegerEntry(keyBalanceA, newBalanceA),
-            IntegerEntry(keyBalanceB, newBalanceB),
-            ScriptTransfer(i.caller, amountWithFee, assetIdSend),
-            ScriptTransfer(walletAddress, governanceReward, assetIdSend)
-        ]
+        (
+            [
+                IntegerEntry(kBalanceA, newBalanceA),
+                IntegerEntry(kBalanceB, newBalanceB),
+                ScriptTransfer(i.caller, amountWithFee, assetIdSend),
+                ScriptTransfer(moneyBoxAddress, governanceReward, assetIdSend)
+            ],
+            (amountWithFee,assetIdSend)
+        )
     } else
         throw("Incorrect asset attached. Expected: " + strAssetIdA + " or " + strAssetIdB)
 })
@@ -441,8 +441,8 @@ func exchange(minAmountToReceive: Int) = isActive().valueOrElse({
 @Callable(i)
 func shutdown() =
     if !active then
-        throw("DApp is already suspended. Cause: " + this.getString(keyCause).valueOrElse("the cause wasn't specified"))
-    else if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStartStop].containsElement(i.callerPublicKey) then
+        throw("DApp is already suspended. Cause: " + this.getString(kCause).valueOrElse("the cause wasn't specified"))
+    else if ![adminPubKey1, adminPubKey2, adminPubKey3].containsElement(i.callerPublicKey) then
         throw("Only admin can call this function")
     else
         suspend("Paused by admin")
@@ -451,18 +451,18 @@ func shutdown() =
 func activate() =
     if active then
         throw("DApp is already active")
-    else if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStartStop].containsElement(i.callerPublicKey) then
+    else if ![adminPubKey1, adminPubKey2, adminPubKey3].containsElement(i.callerPublicKey) then
         throw("Only admin can call this function")
     else [
-        BooleanEntry(keyActive, true),
-        DeleteEntry(keyCause)
+        BooleanEntry(kActive, true),
+        DeleteEntry(kCause)
     ]
 @Callable(i)
 func takeIntoAccountExtraFunds() = isActive().valueOrElse({
     let amountEnrollA = accountBalanceWithStakedA - balanceA
     let amountEnrollB = accountBalanceWithStakedB - balanceB
 
-    if i.caller != walletAddress then
+    if i.caller != moneyBoxAddress then
         throw("Only the wallet can call this function")
     else if amountEnrollA < 0 || amountEnrollB < 0 then
         suspend("Enroll amount negative")
@@ -474,8 +474,8 @@ func takeIntoAccountExtraFunds() = isActive().valueOrElse({
         strict stake2 = if stakingAssets.containsElement(strAssetIdB) then
             invoke(this, "stakeUnstake", [true, amountEnrollB, strAssetIdB], []) else 0
         [
-            IntegerEntry(keyBalanceA, balanceA + amountEnrollA),
-            IntegerEntry(keyBalanceB, balanceB + amountEnrollB),
+            IntegerEntry(kBalanceA, balanceA + amountEnrollA),
+            IntegerEntry(kBalanceB, balanceB + amountEnrollB),
             IntegerEntry("last_income_"+strAssetIdA, amountEnrollA),
             IntegerEntry("last_income_"+strAssetIdB, amountEnrollB)
         ]
@@ -487,16 +487,16 @@ func stakeUnstake(stake:Boolean, amount: Int, assetIdString:String) = {
         throw("Only contract itself can invoke this function")
     else
         if assetIdString == "WAVES" then
-            let pool = oracle.getString(keyLeasingPool).valueOrErrorMessage("No leasing pool in oracle").addressFromStringValue()
-            let leasingId = this.getBinary(keyLeasingId)
-            let leasingAmount = this.getInteger(keyLeasingAmount).valueOrElse(0)
+            let pool = oracle.getString(kLeasingPool).valueOrErrorMessage("No leasing pool in oracle").addressFromStringValue()
+            let leasingId = this.getBinary(kLeasingId)
+            let leasingAmount = this.getInteger(kLeasingAmount).valueOrElse(0)
             let newLeaseAmount = if stake then leasingAmount + amount else leasingAmount - amount
             let newLease = Lease(pool, newLeaseAmount)
             let newLeaseId = newLease.calculateLeaseId()
             let baseEtry = [
                 newLease,
-                BinaryEntry(keyLeasingId, newLeaseId),
-                IntegerEntry(keyLeasingAmount, newLeaseAmount)
+                BinaryEntry(kLeasingId, newLeaseId),
+                IntegerEntry(kLeasingAmount, newLeaseAmount)
             ]
             match (leasingId) {
                 case lId: ByteVector =>  [LeaseCancel(lId)] ++ baseEtry
@@ -510,7 +510,7 @@ func stakeUnstake(stake:Boolean, amount: Int, assetIdString:String) = {
 
 @Callable(i)
 func stakeAll() = isActive().valueOrElse({
-    if ![adminPubKey1, adminPubKey2, adminPubKey3, adminPubKeyStartStop].containsElement(i.callerPublicKey) then
+    if ![adminPubKey1, adminPubKey2, adminPubKey3].containsElement(i.callerPublicKey) then
         throw("Only admin can call this function")
     else
         strict stake1 =
@@ -539,18 +539,13 @@ func verify() = {
   match tx {
       case inv: InvokeScriptTransaction =>
         let callTakeIntoAccount = inv.dApp == this && inv.function == "takeIntoAccountExtraFunds"
-        let exchangeToWaves =
-            inv.dApp == USDNToWavesExchanger
-            && inv.function == "exchange"
-            && inv.payments.size() == 1
-            && (inv.payments[0].assetId == USDN || inv.payments[0].assetId == unit)
         let signedByAdmin =
             sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey1)
             || sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey2)
             || sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKey3)
-            || sigVerify(tx.bodyBytes, tx.proofs[0], adminPubKeyStaking)
+            || sigVerify(tx.bodyBytes, tx.proofs[0], adminInvokePubKey)
 
-        ((callTakeIntoAccount || exchangeToWaves) && signedByAdmin)
+        (callTakeIntoAccount && signedByAdmin)
         || multiSignedByAdmins
       case _ => multiSignedByAdmins
   }
